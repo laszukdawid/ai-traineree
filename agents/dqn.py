@@ -9,7 +9,7 @@ import torch.optim as optim
 from collections import namedtuple, deque
 
 
-device = torch.device("cpu") # "cuda:0" if torch.cuda.is_available()
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class Agent:
     def __init__(self, env):
@@ -17,7 +17,7 @@ class Agent:
         self.action_size = action_size = env.action_space.n
 
         self.lr = 0.005
-        self.gamma = 0.99
+        self.gamma = 0.98
         self.tau = 0.001
 
         self.update_freq = 8
@@ -25,8 +25,8 @@ class Agent:
 
         self.t_step = 0
         self.memory = ReplyBuffer(self.batch_size)
-        self.qnetwork_local = QNetwork(state_size, action_size)
-        self.qnetwork_target = QNetwork(state_size, action_size)
+        self.qnetwork_local = QNetwork(state_size, action_size).to(device)
+        self.qnetwork_target = QNetwork(state_size, action_size).to(device)
         self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=self.lr)
 
 
@@ -81,17 +81,21 @@ class Agent:
     def soft_update(self):
         zipped_params = zip(self.qnetwork_local.parameters(), self.qnetwork_target.parameters())
         for local_param, target_param in zipped_params:
-            target_param.data.copy_(self.tau*local_param.data + (1.0-self.tau)*local_param.data)
+            # target_param.data.copy_(self.tau*local_param.data + (1.0-self.tau)*local_param.data)
+            target_param.data = self.tau*local_param.data + (1.0-self.tau)*local_param.data
 
 class QNetwork(nn.Module):
 
     def __init__(self, state_size, action_size, seed=np.random.random()):
         super(QNetwork, self).__init__()
 
-        self.fc = nn.Linear(state_size, action_size)
+        hl: int = 128
+        self.fc1 = nn.Linear(state_size, hl)
+        self.fc2 = nn.Linear(hl, action_size)
 
     def forward(self, x):
-        x = F.relu(self.fc(x))
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
         return x
 
 class ReplyBuffer:

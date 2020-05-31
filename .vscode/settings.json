@@ -1,0 +1,9 @@
+{
+    "python.linting.pylintArgs": [
+        "--errors-only",
+        "--generated-members=numpy.*, np.*, torch.* ,cv2.* , cv.*"
+    ],
+    "python.linting.pylintEnabled": false,
+    "python.linting.mypyEnabled": true,
+    "python.linting.enabled": true
+}
