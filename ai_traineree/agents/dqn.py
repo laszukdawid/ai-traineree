@@ -16,20 +16,19 @@ class Agent:
         self.state_size = state_size = sum(env.observation_space.shape)
         self.action_size = action_size = env.action_space.n
 
-        self.lr = 0.005
-        self.gamma = 0.98
-        self.tau = 0.001
+        self.lr = 0.01
+        self.gamma = 0.99
+        self.tau = 0.002
 
-        self.update_freq = 8
+        self.update_freq = 4
         self.batch_size = 32
 
         self.device = device if device is not None else DEVICE
 
         self.t_step = 0
-        # self.memory = ReplyBuffer(self.batch_size)
         self.memory = ReplayBuffer(self.batch_size)
-        self.qnetwork_local = QNetwork(state_size, action_size).to(self.device)
-        self.qnetwork_target = QNetwork(state_size, action_size).to(self.device)
+        self.qnetwork_local = QNetwork(state_size, action_size, hidden_layer=(256,)).to(self.device)
+        self.qnetwork_target = QNetwork(state_size, action_size, hidden_layer=(256,)).to(self.device)
         self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=self.lr)
 
 
