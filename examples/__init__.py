@@ -1,6 +1,7 @@
 import time
 
-def interact_env(env, agent, eps, render=False, max_t=1000) -> int:
+
+def interact_episode(env, agent, eps, render=False, max_t=1000) -> int:
     score = 0
     state = env.reset()
     for _ in range(max_t):
@@ -13,6 +14,5 @@ def interact_env(env, agent, eps, render=False, max_t=1000) -> int:
         agent.step(state, action, score, next_state, done)
         state = next_state
         if done:
-            # print(f"\niter_t: {iter_t}")
             break
     return score
