@@ -1,52 +1,43 @@
 import matplotlib
 matplotlib.use('TkAgg')
 
-import time
-
 import numpy as np
 import pylab as plt
-import torch
 import gym
 
-from collections import deque
-
+from ai_traineree.types import TaskType
 from ai_traineree.agents.dqn import Agent as DQN
-from . import interact_episode
+from . import interact_episode, run_env
 
 
 env_name = 'CartPole-v1'
 env = gym.make(env_name)
 
-def run_env(n_episodes=2000, max_t=1000, eps_start=1.0, eps_end=0.01, eps_decay=0.995):
-    t0 = time.time()
-    scores = []
-    scores_window = deque(maxlen=100)
-    eps = eps_start
-    i_episode = 0
-    for _ in range(1, n_episodes+1):
-        i_episode += 1
-        score: int = interact_episode(env, agent, eps, False)
+class Task(TaskType):
+    def __init__(self, env, can_render=True):
+        self.name = env_name
+        self.env = env
+        self.can_render = can_render
+        self.state_size = sum(env.observation_space.shape)
+        self.action_size = env.action_space.n
+    
+    def reset(self):
+        return self.env.reset()
+    
+    def render(self):
+        if self.can_render:
+            self.env.render()
+        else:
+            print("Can't render. Sorry.")  # Yes, this is for haha
 
-        scores_window.append(score)       # save most recent score
-        scores.append(score)              # save most recent score
-        eps = max(eps_end, eps_decay*eps) # decrease epsilon
-        print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_window)), end="")
-        if i_episode % 100 == 0:
-            print('\rEpisode {}\tAverage Score: {:.2f}'.format(i_episode, np.mean(scores_window)))
-        if np.mean(scores_window)>=100.0:
-            print('\nEnvironment solved in {:d} episodes!\tAverage Score: {:.2f}'.format(i_episode-100, np.mean(scores_window)))
-            torch.save(agent.qnetwork_local.state_dict(), f'{env_name}.pth')
-            break
-    t1 = time.time()
-    dt = t1 - t0
-    print(f"Training took: {dt} s\tTime per episode: {dt/i_episode}")
-    return scores
+    def step(self, action):
+        return self.env.step(action)
 
-agent = DQN(env)
+task = Task(env)
+agent = DQN(task)
 
-# interact_episode(env, agent, 0, render=True)
-scores = run_env(5000, eps_end=0.002, eps_decay=0.999)
-interact_episode(env, agent, 0, render=True)
+scores = run_env(task, agent, 40, 5000, eps_end=0.002, eps_decay=0.999)
+interact_episode(task, agent, 0, render=True)
 
 # plot the scores
 fig = plt.figure()

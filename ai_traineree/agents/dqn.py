@@ -1,3 +1,4 @@
+from ai_traineree.types import AgentType, TaskType
 import numpy as np
 
 import torch
@@ -11,10 +12,10 @@ from ai_traineree.networks import QNetwork
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-class Agent:
-    def __init__(self, env, device=None):
-        self.state_size = state_size = sum(env.observation_space.shape)
-        self.action_size = action_size = env.action_space.n
+class Agent(AgentType):
+    def __init__(self, task: TaskType, device=None):
+        self.state_size = task.state_size
+        self.action_size = task.action_size
 
         self.lr = 0.01
         self.gamma = 0.99
@@ -27,8 +28,8 @@ class Agent:
 
         self.t_step = 0
         self.memory = ReplayBuffer(self.batch_size)
-        self.qnetwork_local = QNetwork(state_size, action_size, hidden_layer=(256,)).to(self.device)
-        self.qnetwork_target = QNetwork(state_size, action_size, hidden_layer=(256,)).to(self.device)
+        self.qnetwork_local = QNetwork(self.state_size, self.action_size, hidden_layer=(256,)).to(self.device)
+        self.qnetwork_target = QNetwork(self.state_size, self.action_size, hidden_layer=(256,)).to(self.device)
         self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=self.lr)
 
 
@@ -84,3 +85,6 @@ class Agent:
         for local_param, target_param in zipped_params:
             # target_param.data.copy_(self.tau*local_param.data + (1.0-self.tau)*local_param.data)
             target_param.data = self.tau*local_param.data + (1.0-self.tau)*local_param.data
+
+    def describe_agent(self):
+        return self.qnetwork_local.state_dict()
