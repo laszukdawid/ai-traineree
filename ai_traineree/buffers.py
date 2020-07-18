@@ -1,3 +1,4 @@
+from ai_traineree import ActionType, RewardType, StateType
 import numpy as np
 import random
 import torch
@@ -5,7 +6,7 @@ import torch
 from collections import deque, namedtuple
 from typing import Tuple
 
-from . import *
+# from . import *
 
 Experiences = Tuple[Iterable[StateType], Iterable[ActionType], Iterable[RewardType], Iterable[StateType], Iterable[bool]]
 
@@ -13,10 +14,10 @@ device = DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 class ReplayBuffer:
-    def __init__(self, batch_size: int, size=10000, device=None):
+    def __init__(self, batch_size: int, buffer_size=10000, device=None):
         self.batch_size = batch_size
-        self.size: int = size
-        self.memory = deque(maxlen=size)
+        self.buffer_size: int = buffer_size
+        self.memory = deque(maxlen=buffer_size)
         self.experiance = namedtuple("exp", field_names=['state', 'action', 'reward', 'next_state', 'done'])
         self.device = device if device is not None else DEVICE
 

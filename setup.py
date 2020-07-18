@@ -2,7 +2,7 @@
 import io
 from setuptools import setup
 
-VERSION="0.1.0"
+VERSION = "0.1.0"
 DESCRIPTION = "Yet another zoo of (Deep) Reinforcment Learning methods in Python using PyTorch"
 
 with io.open('README.md', encoding="utf8") as fp:
