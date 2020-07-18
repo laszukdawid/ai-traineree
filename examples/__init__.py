@@ -4,9 +4,10 @@ import time
 import torch
 
 from collections import deque
+from typing import Iterable, Union
 
 
-def interact_episode(task, agent, eps, render=False, max_t=1000) -> int:
+def interact_episode(task: TaskType, agent, eps, render=False, max_t=1000) -> Union[int, float]:
     score = 0
     state = task.reset()
     for _ in range(max_t):
@@ -14,7 +15,8 @@ def interact_episode(task, agent, eps, render=False, max_t=1000) -> int:
             task.render()
             time.sleep(0.05)
         action = agent.act(state, eps)
-        action = np.array(action, dtype=np.float32)
+        if isinstance(action, Iterable):
+            action = np.array(action, dtype=np.float32)
         next_state, reward, done, _ = task.step(action)
         score += reward
         agent.step(state, action, score, next_state, done)
@@ -33,7 +35,7 @@ def run_env(task: TaskType, agent: AgentType, reward_goal: float=100.0, n_episod
     i_episode = 0
     for _ in range(1, n_episodes + 1):
         i_episode += 1
-        score: int = interact_episode(task, agent, eps, False)
+        score = interact_episode(task, agent, eps, False)
 
         scores_window.append(score)
         all_scores.append(score)

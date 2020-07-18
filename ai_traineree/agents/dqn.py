@@ -1,4 +1,4 @@
-from ai_traineree.types import AgentType, TaskType
+from ai_traineree.types import AgentType
 import numpy as np
 
 import torch
@@ -12,13 +12,13 @@ from ai_traineree.networks import QNetwork
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
-class Agent(AgentType):
+class DQNAgent(AgentType):
 
     name = "DQN"
 
     def __init__(
             self, state_size: int, action_size: int, batch_size: int = 32, update_freq: int = 4, hidden_layers=(64, 64),
-            lr: float = 0.01, gamma: float = 0.99, tau: float = 0.002, device=None):
+            lr: float = 0.001, gamma: float = 0.99, tau: float = 0.002, device=None):
         self.state_size = state_size
         self.action_size = action_size
 
@@ -31,24 +31,22 @@ class Agent(AgentType):
 
         self.device = device if device is not None else DEVICE
 
-        self.t_step = 0
-        self.memory = ReplayBuffer(self.batch_size)
+        self.iteration = 0
+        self.buffer = ReplayBuffer(self.batch_size)
         self.qnetwork_local = QNetwork(self.state_size, self.action_size, hidden_layers=hidden_layers).to(self.device)
         self.qnetwork_target = QNetwork(self.state_size, self.action_size, hidden_layers=hidden_layers).to(self.device)
         self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=self.lr)
 
-        self.last_loss = None
+        self.last_loss = np.inf
 
     def step(self, state, action, reward, next_state, done):
-        # Save experience in replay memory
-        self.memory.add(state, action, reward, next_state, done)
+        # Save experience in replay buffer
+        self.iteration += 1
+        self.buffer.add(state, action, reward, next_state, done)
 
         # Learn every update_freq time steps.
-        self.t_step = (self.t_step + 1) % self.update_freq
-        if self.t_step == 0:
-            # If enough samples are available in memory, get random subset and learn
-            if len(self.memory) > self.batch_size:
-                self.learn(self.memory.sample())
+        if len(self.buffer) > self.batch_size and (self.iteration % self.update_freq) == 0:
+            self.learn(self.buffer.sample())
 
     def act(self, state, eps: float = 0.):
         """Returns actions for given state as per current policy.

@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from torch.optim import Adam
 from torch.nn.functional import mse_loss
-from typing import Any, Iterable, Tuple
+from typing import Any, Sequence, Tuple
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -16,7 +16,9 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class DDPGAgent(AgentType):
 
-    def __init__(self, state_dim: int, action_dim: int, hidden_layers: Iterable[int]=(128, 128),
+    name = "DDPG"
+
+    def __init__(self, state_dim: int, action_dim: int, hidden_layers: Sequence[int]=(128, 128),
                  actor_lr: float=2e-3, actor_lr_decay: float=0, critic_lr: float=2e-3, critic_lr_decay: float=0,
                  noise_scale: float=0.2, noise_sigma: float=0.1, clip: Tuple[int, int]=(-1, 1), config={}, device=None):
         super(DDPGAgent, self).__init__()
@@ -48,7 +50,7 @@ class DDPGAgent(AgentType):
         self.buffer = ReplayBuffer(self.batch_size, self.buffer_size)
 
         self.warm_up: int = int(config.get('warm_up', 0))
-        self.update_every_iterations = 1
+        self.update_freq = 1
         self.number_updates = 1
 
         # Breath, my child.
@@ -75,7 +77,7 @@ class DDPGAgent(AgentType):
         if self.iteration < self.warm_up:
             return
 
-        if len(self.buffer) > self.batch_size and (self.iteration % self.update_every_iterations) == 0:
+        if len(self.buffer) > self.batch_size and (self.iteration % self.update_freq) == 0:
             for _ in range(self.number_updates):
                 batch = self.buffer.sample()
                 self.learn(batch)
