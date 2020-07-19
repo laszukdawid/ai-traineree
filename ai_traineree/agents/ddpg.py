@@ -42,6 +42,7 @@ class DDPGAgent(AgentType):
         self.critic_optimizer = Adam(self.critic.parameters(), lr=critic_lr, weight_decay=critic_lr_decay)
         self.action_min = clip[0]
         self.action_max = clip[1]
+        self.action_scale = config.get('action_scale', 1)
 
         self.gamma: float = float(config.get('gamma', 0.99))
         self.tau: float = float(config.get('tau', 0.02))
@@ -50,8 +51,8 @@ class DDPGAgent(AgentType):
         self.buffer = ReplayBuffer(self.batch_size, self.buffer_size)
 
         self.warm_up: int = int(config.get('warm_up', 0))
-        self.update_freq = 1
-        self.number_updates = 1
+        self.update_freq = int(config.get('update_freq', 1))
+        self.number_updates = int(config.get('number_updates', 1))
 
         # Breath, my child.
         self.reset_agent()
@@ -79,8 +80,7 @@ class DDPGAgent(AgentType):
 
         if len(self.buffer) > self.batch_size and (self.iteration % self.update_freq) == 0:
             for _ in range(self.number_updates):
-                batch = self.buffer.sample()
-                self.learn(batch)
+                self.learn(self.buffer.sample())
 
     def learn(self, samples):
         """update the critics and actors of all the agents """
@@ -129,7 +129,7 @@ class DDPGAgent(AgentType):
             obs = torch.tensor(obs.astype(np.float32)).to(self.device)
             action = self.actor(obs)
             action += noise*self.noise.sample()
-            return torch.clamp(action, self.action_min, self.action_max).cpu().numpy().astype(np.float32)
+            return self.action_scale*torch.clamp(action, self.action_min, self.action_max).cpu().numpy().astype(np.float32)
 
     def target_act(self, obs, noise: float=0.0):
         with torch.no_grad():

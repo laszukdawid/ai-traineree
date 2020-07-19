@@ -16,7 +16,7 @@ env = gym.make(env_name)
 
 task: TaskType = GymTask(env, env_name)
 config = {'batch_size': 64}
-agent = DQNAgent(task.state_size, task.action_size, hidden_layers=(64, 32), config=config)
+agent = DQNAgent(task.state_size, task.action_size, config=config)
 
 interact_episode(task, agent, 0, render=True)
 scores = run_env(task, agent, 50, 800, eps_start=1.0, eps_end=0.05, eps_decay=0.995)

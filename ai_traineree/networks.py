@@ -68,9 +68,9 @@ class CriticBody(nn.Module):
         # Injects `actions` into the second layer of the Critic
         layers[1] = nn.Linear(num_layers[1]+action_dim, num_layers[2])
         self.layers = nn.ModuleList(layers)
+        self.reset_parameters()
 
         self.gate = F.relu
-        self.reset_parameters()
 
     def reset_parameters(self):
         for layer in self.layers[:-1]:

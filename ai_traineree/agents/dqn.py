@@ -37,9 +37,9 @@ class DQNAgent(AgentType):
 
         self.iteration = 0
         self.buffer = ReplayBuffer(self.batch_size)
-        self.qnetwork_local = QNetwork(self.state_size, self.action_size, hidden_layers=hidden_layers).to(self.device)
-        self.qnetwork_target = QNetwork(self.state_size, self.action_size, hidden_layers=hidden_layers).to(self.device)
-        self.optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=self.lr)
+        self.qnet = QNetwork(self.state_size, self.action_size, hidden_layers=hidden_layers).to(self.device)
+        self.target_qnet = QNetwork(self.state_size, self.action_size, hidden_layers=hidden_layers).to(self.device)
+        self.optimizer = optim.Adam(self.qnet.parameters(), lr=self.lr)
 
         self.last_loss = np.inf
 
@@ -63,10 +63,10 @@ class DQNAgent(AgentType):
             eps (float): epsilon, for epsilon-greedy action selection
         """
         state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
-        self.qnetwork_local.eval()
+        self.qnet.eval()
         with torch.no_grad():
-            action_values = self.qnetwork_local(state)
-        self.qnetwork_local.train()
+            action_values = self.qnet(state)
+        self.qnet.train()
 
         # Epsilon-greedy action selection
         if np.random.random() > eps:
@@ -77,9 +77,9 @@ class DQNAgent(AgentType):
     def learn(self, experiences):
         states, actions, rewards, next_states, dones = experiences
 
-        Q_targets_next = self.qnetwork_target(next_states).detach().max(1)[0].unsqueeze(1)
+        Q_targets_next = self.target_qnet(next_states).detach().max(1)[0].unsqueeze(1)
         Q_targets = rewards + (self.gamma + Q_targets_next * (1 - dones))
-        Q_expected = self.qnetwork_local(states).gather(1, actions)
+        Q_expected = self.qnet(states).gather(1, actions)
 
         loss = F.mse_loss(Q_expected, Q_targets)
 
@@ -89,16 +89,16 @@ class DQNAgent(AgentType):
         self.last_loss = loss.item()
 
         # Update networks - sync local & target
-        soft_update(self.qnetwork_target, self.qnetwork_local, self.tau)
+        soft_update(self.target_qnet, self.qnet, self.tau)
 
     def describe_agent(self):
-        return self.qnetwork_local.state_dict()
+        return self.qnet.state_dict()
 
     def save_state(self, path: str):
-        agent_state = dict(net_local=self.qnetwork_local.state_dict(), net_target=self.qnetwork_target.state_dict())
+        agent_state = dict(net_local=self.qnet.state_dict(), net_target=self.target_qnet.state_dict())
         torch.save(agent_state, f'{path}_agent.net')
 
     def load_state(self, path: str):
         agent_state = torch.load(f'{path}_agent.net')
-        self.qnetwork_local.load_state_dict(agent_state['net_local'])
-        self.qnetwork_target.load_state_dict(agent_state['net_target'])
+        self.qnet.load_state_dict(agent_state['qnet'])
+        self.target_qnet.load_state_dict(agent_state['target_qnet'])

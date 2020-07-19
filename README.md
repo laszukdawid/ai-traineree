@@ -1,12 +1,20 @@
 # ai-traineree
-My stab at solving AI games and problems
 
-## WIP
+The intention is to have a zoo of Deep Reinforcment Learning methods and showcasing their application on some environments.
+Currently focusing on a couple of popular agents (DQN, DDPG, PPO, A3C) for OpenAi gym environments.
 
-Currently only solving OpenAi gym `CartPole-v1`. To reproduce this amazing achievement from root run
-```bash
-> python -m examples.cart
-```
+What might distinguish this repo from other DRL is the intention to have types and interfaces, for easier application and understanding, and having all components tested.
+
+## State
+
+Currently implemented agents:
+* DQN
+* DDPG
+
+Currently solved environments from OpenAI gyms:
+* CartPole-v1
+* LunarLander-v2
+* LunarLanderContinuous-v2
 
 ## Running
 
@@ -19,6 +27,13 @@ The easiest way to start exploring is through the examples. To run an example, e
 from the root directory, i.e. where this README.md.
 
 ## Install
+
+As usual with Python, the expectation is to have own virtual environment and then pip install requirements. For example,
+```bash
+> python -m venv .venv
+> source .venv/bin/activate
+> pip install -r requirements.txt
+```
 
 ### Ubuntu
 
