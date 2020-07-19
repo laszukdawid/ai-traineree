@@ -34,7 +34,25 @@ class AgentType(abc.ABC):
     action_size: int
     last_loss: Union[int, float] = 0
 
+    def act(self, state: StateType, noise: Any):
+        pass
+
+    def step(self, state: StateType, action: ActionType, reward: RewardType, next_state: StateType, done: DoneType):
+        pass
+
     def describe_agent(self):
+        pass
+
+    def save_state(self, path: str):
+        """
+        Saves the whole agent state into a local file.
+        """
+        pass
+
+    def load_state(self, path: str):
+        """
+        Reads the whole agent state from a local file.
+        """
         pass
 
 

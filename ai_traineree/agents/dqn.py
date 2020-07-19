@@ -1,12 +1,14 @@
+from ai_traineree.agents.utils import soft_update
+from ai_traineree.buffers import ReplayBuffer
+from ai_traineree.networks import QNetwork
 from ai_traineree.types import AgentType
-import numpy as np
 
+import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
 
-from ai_traineree.buffers import ReplayBuffer
-from ai_traineree.networks import QNetwork
+from typing import Dict, Optional
 
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -17,8 +19,8 @@ class DQNAgent(AgentType):
     name = "DQN"
 
     def __init__(
-            self, state_size: int, action_size: int, batch_size: int = 32, update_freq: int = 4, hidden_layers=(64, 64),
-            lr: float = 0.001, gamma: float = 0.99, tau: float = 0.002, device=None):
+            self, state_size: int, action_size: int, hidden_layers=(64, 64),
+            lr: float = 0.001, gamma: float = 0.99, tau: float = 0.002, config: Optional[Dict]={}, device=None):
         self.state_size = state_size
         self.action_size = action_size
 
@@ -26,8 +28,10 @@ class DQNAgent(AgentType):
         self.gamma = gamma
         self.tau = tau
 
-        self.update_freq = update_freq
-        self.batch_size = batch_size
+        self.update_freq = config.get('update_freq', 1)
+        self.batch_size = config.get('batch_size', 32)
+        self.warm_up = config.get('warm_up', 0)
+        self.number_updates = config.get('number_updates', 1)
 
         self.device = device if device is not None else DEVICE
 
@@ -40,13 +44,15 @@ class DQNAgent(AgentType):
         self.last_loss = np.inf
 
     def step(self, state, action, reward, next_state, done):
-        # Save experience in replay buffer
         self.iteration += 1
         self.buffer.add(state, action, reward, next_state, done)
 
-        # Learn every update_freq time steps.
+        if self.iteration < self.warm_up:
+            return
+
         if len(self.buffer) > self.batch_size and (self.iteration % self.update_freq) == 0:
-            self.learn(self.buffer.sample())
+            for _ in range(self.number_updates):
+                self.learn(self.buffer.sample())
 
     def act(self, state, eps: float = 0.):
         """Returns actions for given state as per current policy.
@@ -83,13 +89,16 @@ class DQNAgent(AgentType):
         self.last_loss = loss.item()
 
         # Update networks - sync local & target
-        self.soft_update()
-
-    def soft_update(self):
-        zipped_params = zip(self.qnetwork_local.parameters(), self.qnetwork_target.parameters())
-        for local_param, target_param in zipped_params:
-            # target_param.data.copy_(self.tau*local_param.data + (1.0-self.tau)*local_param.data)
-            target_param.data = self.tau * local_param.data + (1.0 - self.tau) * local_param.data
+        soft_update(self.qnetwork_target, self.qnetwork_local, self.tau)
 
     def describe_agent(self):
         return self.qnetwork_local.state_dict()
+
+    def save_state(self, path: str):
+        agent_state = dict(net_local=self.qnetwork_local.state_dict(), net_target=self.qnetwork_target.state_dict())
+        torch.save(agent_state, f'{path}_agent.net')
+
+    def load_state(self, path: str):
+        agent_state = torch.load(f'{path}_agent.net')
+        self.qnetwork_local.load_state_dict(agent_state['net_local'])
+        self.qnetwork_target.load_state_dict(agent_state['net_target'])

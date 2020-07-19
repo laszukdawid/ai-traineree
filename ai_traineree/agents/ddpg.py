@@ -111,6 +111,19 @@ class DDPGAgent(AgentType):
         soft_update(self.target_actor, self.actor, self.tau)
         soft_update(self.target_critic, self.critic, self.tau)
 
+    def save_state(self, path: str):
+        agent_state = dict(actor=self.actor.state_dict(), target_actor=self.target_actor.state_dict(),
+                           critic=self.critic.state_dict(), target_critic=self.target_critic.state_dict(),
+                           )
+        torch.save(agent_state, f'{path}_agent.net')
+
+    def load_state(self, path: str):
+        agent_state = torch.load(f'{path}_agent.net')
+        self.actor.load_state_dict(agent_state['actor'])
+        self.critic.load_state_dict(agent_state['critic'])
+        self.target_actor.load_state_dict(agent_state['target_actor'])
+        self.target_critic.load_state_dict(agent_state['target_critic'])
+
     def act(self, obs, noise: float=0.0):
         with torch.no_grad():
             obs = torch.tensor(obs.astype(np.float32)).to(self.device)
