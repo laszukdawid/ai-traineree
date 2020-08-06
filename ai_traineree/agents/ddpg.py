@@ -73,14 +73,14 @@ class DDPGAgent(AgentType):
 
     def step(self, state, action, reward, next_state, done):
         self.iteration += 1
-        self.buffer.add(state, action, reward, next_state, done)
+        self.buffer.add_sars(state, action, reward, next_state, done)
 
         if self.iteration < self.warm_up:
             return
 
         if len(self.buffer) > self.batch_size and (self.iteration % self.update_freq) == 0:
             for _ in range(self.number_updates):
-                self.learn(self.buffer.sample())
+                self.learn(self.buffer.sample_sars())
 
     def learn(self, samples):
         """update the critics and actors of all the agents """

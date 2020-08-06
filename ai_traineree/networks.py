@@ -35,12 +35,15 @@ class QNetwork(nn.Module):
 
 
 class ActorBody(nn.Module):
-    def __init__(self, input_dim: int, output_dim: int, hidden_layers: Sequence[int]=[200, 100], gate=F.relu, gate_out=torch.tanh):
+    def __init__(self, input_dim: int, output_dim: int, hidden_layers: Sequence[int]=(200, 100),
+                 gate=F.relu, gate_out=torch.tanh,
+                 last_layer_range=(-3e-3, 3e-3)):
         super(ActorBody, self).__init__()
 
         num_layers = [input_dim] + list(hidden_layers) + [output_dim]
         layers = [nn.Linear(dim_in, dim_out) for dim_in, dim_out in zip(num_layers[:-1], num_layers[1:])]
 
+        self.last_layer_range = last_layer_range
         self.layers = nn.ModuleList(layers)
         self.reset_parameters()
 
@@ -50,11 +53,13 @@ class ActorBody(nn.Module):
     def reset_parameters(self):
         for layer in self.layers[:-1]:
             layer_init(layer, hidden_init(layer))
-        layer_init(self.layers[-1], (-3e-3, 3e-3))
+        layer_init(self.layers[-1], self.last_layer_range)
 
     def forward(self, x):
         for layer in self.layers[:-1]:
             x = self.gate(layer(x))
+        if self.gate_out is None:
+            return self.layers[-1](x)
         return self.gate_out(self.layers[-1](x))
 
 
@@ -73,9 +78,10 @@ class CriticBody(nn.Module):
         self.gate = F.relu
 
     def reset_parameters(self):
-        for layer in self.layers[:-1]:
+        # for layer in self.layers[:-1]:
+        for layer in self.layers:
             layer_init(layer, hidden_init(layer))
-        layer_init(self.layers[-1], (-3e-3, 3e-3))
+        # layer_init(self.layers[-1], (-3e-5, 3e-5))
 
     def forward(self, x, actions):
         for idx, layer in enumerate(self.layers[:-1]):
