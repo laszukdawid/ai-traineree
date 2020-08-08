@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 
@@ -14,3 +15,25 @@ def hard_update(target: nn.Module, source: nn.Module):
 
 def to_np(t):
     return t.cpu().detach().numpy()
+
+def compute_gae(next_value, rewards, masks, values, gamma=0.99, tau=0.95):
+    values = values + [next_value]
+    gae = 0
+    returns = []
+    for step in reversed(range(len(rewards))):
+        delta = rewards[step] + gamma * values[step + 1] * masks[step] - values[step]
+        gae = delta + gamma * tau * masks[step] * gae
+        returns.insert(0, gae + values[step])
+    return returns
+
+
+def revert_norm_returns(rewards, dones, gamma=0.99) -> torch.Tensor:
+    discounted_reward = 0
+    returns = []
+    for reward, done in zip(reversed(rewards), reversed(dones)):
+        discounted_reward = reward + gamma * discounted_reward * (1 - done)
+        returns.insert(0, discounted_reward)
+
+    returns = torch.tensor(returns)
+    returns = (returns - returns.mean()) / (returns.std() + 1e-8)
+    return returns

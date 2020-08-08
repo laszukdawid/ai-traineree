@@ -1,57 +1,15 @@
 from ai_traineree.networks import ActorBody
-import torch.nn as nn
 from ai_traineree.types import AgentType
 from ai_traineree.policies import StochasticActorCritic
 import torch
+import torch.nn as nn
 
 import numpy as np
 
-# from ai_traineree.agents.utils import to_np
+from ai_traineree.agents.utils import revert_norm_returns
 from ai_traineree.buffers import ReplayBuffer
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-
-def tensor(x) -> torch.Tensor:
-    if isinstance(x, torch.Tensor):
-        return x
-    x = np.asarray(x, dtype=np.float)
-    x = torch.tensor(x, device=DEVICE, dtype=torch.float32)
-    return x
-
-
-def random_sample(indices, batch_size):
-    indices = np.asarray(np.random.permutation(indices))
-    batches = indices[:len(indices) // batch_size * batch_size].reshape(-1, batch_size)
-    for batch in batches:
-        yield batch
-    r = len(indices) % batch_size
-    if r:
-        yield indices[-r:]
-
-
-def compute_gae(next_value, rewards, masks, values, gamma=0.99, tau=0.95):
-    values = values + [next_value]
-    gae = 0
-    returns = []
-    for step in reversed(range(len(rewards))):
-        delta = rewards[step] + gamma * values[step + 1] * masks[step] - values[step]
-        gae = delta + gamma * tau * masks[step] * gae
-        returns.insert(0, gae + values[step])
-    return returns
-
-
-def compute_returns(rewards, dones, gamma=0.99):
-    discounted_reward = 0
-    returns = []
-    for reward, done in zip(reversed(rewards), reversed(dones)):
-        discounted_reward = reward + gamma * discounted_reward * (1 - done)
-        returns.insert(0, discounted_reward)
-
-    # Normalizing the rewards:
-    returns = torch.tensor(returns).to(DEVICE)
-    returns = (returns - returns.mean()) / (returns.std() + 1e-8)
-    return returns
 
 
 class PPOAgent(AgentType):
@@ -89,9 +47,10 @@ class PPOAgent(AgentType):
         self.max_grad_norm_actor = config.get("max_grad_norm_actor", 1.0)
         self.max_grad_norm_critic = config.get("max_grad_norm_critic", 1.0)
 
-        actor = ActorBody(state_size, action_size, hidden_layers).to(self.device)
-        critic = ActorBody(state_size, action_size, hidden_layers, gate_out=None, last_layer_range=(-1e-5, 1e-5))
-        self.policy = StochasticActorCritic(state_size, action_size, hidden_layers, actor, critic).to(self.device)
+        self.hidden_layers = config.get('hidden_layers', hidden_layers)
+        actor = ActorBody(state_size, action_size, self.hidden_layers).to(self.device)
+        critic = ActorBody(state_size, action_size, self.hidden_layers, gate_out=None, last_layer_range=(-1e-5, 1e-5))
+        self.policy = StochasticActorCritic(state_size, action_size, self.hidden_layers, actor, critic).to(self.device)
         self.actor_opt = torch.optim.AdamW(self.policy.actor_params, lr=self.actor_lr)
         self.critic_opt = torch.optim.AdamW(self.policy.critic_params, lr=self.critic_lr)
 
@@ -144,7 +103,7 @@ class PPOAgent(AgentType):
         actions = torch.cat(self.memory.sample_actions()).detach()
         log_probs = torch.cat(self.memory.sample_logprobs()).detach()
 
-        returns = compute_returns(rewards, dones, self.gamma).unsqueeze(1)
+        returns = revert_norm_returns(rewards, dones, self.gamma).unsqueeze(1)
         advantages = returns - values
 
         ppo_sampler = self.ppo_iter(self.batch_size, states, actions, log_probs, returns, advantages)

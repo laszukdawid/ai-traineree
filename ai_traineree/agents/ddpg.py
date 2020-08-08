@@ -20,11 +20,12 @@ class DDPGAgent(AgentType):
 
     def __init__(self, state_dim: int, action_dim: int, hidden_layers: Sequence[int]=(128, 128),
                  actor_lr: float=2e-3, actor_lr_decay: float=0, critic_lr: float=2e-3, critic_lr_decay: float=0,
-                 noise_scale: float=0.2, noise_sigma: float=0.1, clip: Tuple[int, int]=(-1, 1), config={}, device=None):
-        super(DDPGAgent, self).__init__()
+                 noise_scale: float=0.2, noise_sigma: float=0.1, clip: Tuple[int, int]=(-1, 1), config=None, device=None):
+        config = config if config is not None else dict()
         self.device = device if device is not None else DEVICE
 
         # Reason sequence initiation.
+        self.hidden_layers = hyperparameters.get('hidden_layers', hidden_layers)
         self.actor = ActorBody(state_dim, action_dim, hidden_layers=hidden_layers).to(self.device)
         self.critic = CriticBody(state_dim, action_dim, hidden_layers=hidden_layers).to(self.device)
         self.target_actor = ActorBody(state_dim, action_dim, hidden_layers=hidden_layers).to(self.device)

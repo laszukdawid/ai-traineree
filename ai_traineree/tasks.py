@@ -6,6 +6,8 @@ class GymTask(TaskType):
         self.name = env_name
         self.env = env
         self.can_render = can_render
+        self.is_discrete = "Discrete" in str(type(env.action_space))
+
         self.state_size = env.observation_space.shape[0]
         self.action_size = self.__determine_action_size(env.action_space)
 
@@ -26,4 +28,6 @@ class GymTask(TaskType):
             print("Can't render. Sorry.")  # Yes, this is for haha
 
     def step(self, actions):
+        if self.is_discrete:
+            actions = int(actions)
         return self.env.step(actions)

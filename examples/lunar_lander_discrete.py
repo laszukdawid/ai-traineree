@@ -7,9 +7,6 @@ from ai_traineree.types import TaskType
 from ai_traineree.agents.dqn import DQNAgent
 from examples import interact_episode, run_env
 
-import matplotlib
-matplotlib.use('TkAgg')
-
 
 env_name = 'LunarLander-v2'
 env = gym.make(env_name)

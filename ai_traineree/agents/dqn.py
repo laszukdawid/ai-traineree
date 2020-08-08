@@ -37,22 +37,24 @@ class DQNAgent(AgentType):
 
         self.iteration = 0
         self.buffer = ReplayBuffer(self.batch_size)
-        self.qnet = QNetwork(self.state_size, self.action_size, hidden_layers=hidden_layers).to(self.device)
-        self.target_qnet = QNetwork(self.state_size, self.action_size, hidden_layers=hidden_layers).to(self.device)
+
+        self.hidden_layers = config.get('hidden_layers', hidden_layers)
+        self.qnet = QNetwork(self.state_size, self.action_size, hidden_layers=self.hidden_layers).to(self.device)
+        self.target_qnet = QNetwork(self.state_size, self.action_size, hidden_layers=self.hidden_layers).to(self.device)
         self.optimizer = optim.Adam(self.qnet.parameters(), lr=self.lr)
 
         self.last_loss = np.inf
 
     def step(self, state, action, reward, next_state, done):
         self.iteration += 1
-        self.buffer.add(state, action, reward, next_state, done)
+        self.buffer.add_sars(state, action, reward, next_state, done)
 
         if self.iteration < self.warm_up:
             return
 
         if len(self.buffer) > self.batch_size and (self.iteration % self.update_freq) == 0:
             for _ in range(self.number_updates):
-                self.learn(self.buffer.sample())
+                self.learn(self.buffer.sample_sars())
 
     def act(self, state, eps: float = 0.):
         """Returns actions for given state as per current policy.

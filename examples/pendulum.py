@@ -2,41 +2,17 @@ import numpy as np
 import pylab as plt
 import gym
 
-from ai_traineree.types import TaskType
 from ai_traineree.agents.ddpg import DDPGAgent
-from ai_traineree.agents.dqn import Agent as DQN
+from ai_traineree.agents.dqn import DQNAgent as DQN
+from ai_traineree.types import TaskType
+from ai_traineree.tasks import GymTask
 from examples import interact_episode, run_env
-
-import matplotlib
-matplotlib.use('TkAgg')
-
-
-class Task(TaskType):
-    def __init__(self, env, can_render=True):
-        self.name = env_name
-        self.env = env
-        self.can_render = can_render
-        self.state_size = 3
-        self.action_size = 1
-
-    def reset(self):
-        return self.env.reset()
-
-    def render(self):
-        if self.can_render:
-            self.env.render()
-        else:
-            print("Can't render. Sorry.")  # Yes, this is for haha
-
-    def step(self, actions):
-        return self.env.step(actions)
 
 
 env_name = 'Pendulum-v0'
 env = gym.make(env_name)
 
-
-task = Task(env)
+task = GymTask(env, env_name)
 config = {'batch_size': 32}
 agent = DDPGAgent(task.state_size, task.action_size, hidden_layers=(400, 300), noise_scale=1., clip=(-2, 2), config=config)
 

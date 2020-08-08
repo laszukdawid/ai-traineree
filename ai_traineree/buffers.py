@@ -116,18 +116,3 @@ class ReplayBuffer:
         dones = self.__convert_int(self.sample_dones())
 
         return (states, actions, rewards, next_states, dones)
-
-
-class DirectedReplayBuffer:
-
-
-        states = convert_float([e.state for e in experiences])
-        actions = convert_long([e.action for e in experiences])
-        rewards = convert_float([e.reward for e in experiences])
-        next_states = convert_float([e.next_state for e in experiences])
-        dones = convert_int([e.done for e in experiences])
-
-        return (states, actions, rewards, next_states, dones)
-
-    def __len__(self) -> int:
-        return len(self.memory)
