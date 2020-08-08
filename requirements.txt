@@ -2,4 +2,6 @@ numpy>=1.13.3
 matplotlib
 torch>=1.5.0
 
-gym[all]  # Needed for most environments, especially those with Box2D
+gym[box2d]
+gym
+#gym[all]  # Problems installing on the SageMaker

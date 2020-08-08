@@ -24,7 +24,7 @@ setup_params = dict(
     keywords="AI RL DeRL ML Deep Reinforcment Learning Machine",
     packages=["ai_traineree"],
     install_requires=required,
-    python_requires='>3.5 <4',
+    python_requires='>3.5,<4',
     test_suite="ai_traineree.tests",
 )
 
