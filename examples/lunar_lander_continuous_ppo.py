@@ -1,7 +1,7 @@
 from ai_traineree.agents.ppo import PPOAgent as Agent
 from ai_traineree.tasks import GymTask
 from ai_traineree.types import TaskType
-from examples import interact_episode, run_env
+from examples import EnvRunner
 
 import numpy as np
 import pylab as plt
@@ -27,11 +27,11 @@ config = {
     "actor_lr": 1e-3,
 }
 agent = Agent(task.state_size, task.action_size, hidden_layers=(300, 300), config=config)
+env_runner = EnvRunner(task, agent)
 
-interact_episode(task, agent, 0, render=True)
-scores = run_env(task, agent, 80, 4000)
-agent.save_state(f"{env_name}_{agent.name}")
-interact_episode(task, agent, 0, render=True)
+env_runner.interact_episode(0, render=True)
+scores = env_runner.run(80, 4000)
+env_runner.interact_episode(0, render=True)
 
 # plot the scores
 fig = plt.figure()

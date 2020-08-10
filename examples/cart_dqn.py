@@ -1,6 +1,6 @@
 from ai_traineree.agents.dqn import DQNAgent
 from ai_traineree.tasks import GymTask
-from examples import interact_episode, run_env
+from examples import EnvRunner
 
 import numpy as np
 import pylab as plt
@@ -12,9 +12,10 @@ env = gym.make(env_name)
 
 task = GymTask(env, env_name)
 agent = DQNAgent(task.state_size, task.action_size)
+env_runner = EnvRunner(task, agent)
 
-scores = run_env(task, agent, 100, 5000, eps_end=0.002, eps_decay=0.999)
-interact_episode(task, agent, 100, render=True)
+scores = env_runner.run(reward_goal=100, max_episodes=5000, eps_end=0.002, eps_decay=0.999)
+env_runner.interact_episode(100, render=True)
 
 # plot the scores
 fig = plt.figure()

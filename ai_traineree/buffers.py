@@ -3,7 +3,7 @@ import numpy as np
 import random
 import torch
 
-from collections import deque, namedtuple
+from collections import deque
 
 device = DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -54,7 +54,7 @@ class ReplayBuffer:
 
     def add_state(self, state):
         self.states.append(state)
-    
+
     def add_action(self, action):
         self.actions.append(action)
 

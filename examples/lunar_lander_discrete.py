@@ -5,7 +5,7 @@ import gym
 
 from ai_traineree.types import TaskType
 from ai_traineree.agents.dqn import DQNAgent
-from examples import interact_episode, run_env
+from examples import EnvRunner
 
 
 env_name = 'LunarLander-v2'
@@ -14,14 +14,11 @@ env = gym.make(env_name)
 task: TaskType = GymTask(env, env_name)
 config = {'batch_size': 64}
 agent = DQNAgent(task.state_size, task.action_size, config=config)
+env_runner = EnvRunner(task, agent)
 
-interact_episode(task, agent, 0, render=True)
-scores = run_env(task, agent, 50, 800, eps_start=1.0, eps_end=0.05, eps_decay=0.995)
-
-# Save and show our results
-agent.save_state(f"{env_name}_{agent.name}")
-interact_episode(task, agent, 0, render=True)
-
+env_runner.interact_episode(0, render=True)
+scores = env_runner.run(50, 800, eps_start=1.0, eps_end=0.05, eps_decay=0.995)
+env_runner.interact_episode(0, render=True)
 
 # plot the scores
 fig = plt.figure()

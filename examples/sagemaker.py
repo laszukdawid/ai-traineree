@@ -2,9 +2,10 @@ import gym
 import logging
 from typing import Optional
 
-from ai_traineree.types import AgentType, Hyperparameters, TaskType
+from ai_traineree.types import AgentType, Hyperparameters
 from ai_traineree.tasks import GymTask
 from . import run_env
+from . import EnvRunner
 
 
 class SageMakerExecutor:
@@ -16,7 +17,7 @@ class SageMakerExecutor:
 
         env = gym.make(env_name)
         self.task = GymTask(env, env_name)
-        agent: AgentType = None
+        agent = None
         if agent_name.upper() == "DQN":
             from ai_traineree.agents.dqn import DQNAgent
             agent = DQNAgent
@@ -40,12 +41,15 @@ class SageMakerExecutor:
 
         self.agent: AgentType = agent(self.task.state_size, self.task.action_size, config=hyperparameters)
 
+        self.env_runner = EnvRunner(self.task, self.agent)
+
     def run(self) -> None:
         self._logger.info("Running model '%s' for env '%s'", self.agent.name, self.task.name)
-        scores = run_env(self.task, self.agent, self.score_goal, self.max_episodes,
-                eps_start=self.eps_start, eps_end=self.eps_end, eps_decay=self.eps_decay)
-        # interact_episode(self.task, self.agent, 0, render=True)
-    
+        self.env_runner.run(
+            reward_goal=self.score_goal, max_episodes=self.max_episodes,
+            eps_start=self.eps_start, eps_end=self.eps_end, eps_decay=self.eps_decay
+        )
+
     def save_results(self, path):
         self._logger.info("Saving the model to path %s", path)
         self.agent.save_state(path)
