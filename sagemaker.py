@@ -21,6 +21,9 @@ def read_hyperparameters() -> Dict[str, Any]:
     except Exception:
         logging.error("Loading hyperparameters failed. Returning empty dictionary.")
 
+    if 'hidden_layers' in hyperparameters:
+        hyperparameters['hidden_layers'] = eval(hyperparameters['hidden_layers'])
+
     print("Loaded hyperparameters:")
     pprint.pprint(hyperparameters)
     return hyperparameters
@@ -46,6 +49,7 @@ def main():
 
     env_name = config.get("env", "CartPole-v1")
     agent_name = config.get("agent", "PPO")
+
     executor = SageMakerExecutor(env_name, agent_name, hyperparameters)
     executor.run()
     executor.save_results("/opt/ml/model/model.pt")

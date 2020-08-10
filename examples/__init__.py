@@ -27,7 +27,11 @@ def interact_episode(task: TaskType, agent: AgentType, eps: float, render=False,
     return score, iterations
 
 
-def run_env(task: TaskType, agent: AgentType, reward_goal: float=100.0, max_episodes: int=2000, learn_every=None, eps_start=1.0, eps_end=0.01, eps_decay=0.995):
+def run_env(
+    task: TaskType, agent: AgentType, reward_goal: float=100.0,
+    print_every=10,
+    max_episodes: int=2000, eps_start=1.0, eps_end=0.01, eps_decay=0.995
+):
     t0 = time.time()
     all_scores = []
     all_iterations = []
@@ -53,7 +57,7 @@ def run_env(task: TaskType, agent: AgentType, reward_goal: float=100.0, max_epis
         else:
             print(f"Loss: {agent.last_loss:10.4f};", end='\t')
         print(f"eps: {eps:5.3f}", end="")
-        if episode % 10 == 0:
+        if episode % print_every == 0:
             print()
 
         if mean_score >= reward_goal:

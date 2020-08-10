@@ -15,7 +15,7 @@ task: TaskType = GymTask(env, env_name)
 config = {
     'rollout_length': 100,
     'batch_size': 100,
-    "optimization_epochs": 1,
+    "number_updates": 1,
     "ppo_ratio_clip": 0.2,
     "value_loss_weight": 2,
     "entropy_weight": 0.0005,

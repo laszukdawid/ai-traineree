@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+from typing import List
 
 def soft_update(target: nn.Module, source: nn.Module, tau: float) -> None:
     for target_param, param in zip(target.parameters(), source.parameters()):
@@ -29,11 +30,11 @@ def compute_gae(next_value, rewards, masks, values, gamma=0.99, tau=0.95):
 
 def revert_norm_returns(rewards, dones, gamma=0.99) -> torch.Tensor:
     discounted_reward = 0
-    returns = []
+    returns: List[float] = []
     for reward, done in zip(reversed(rewards), reversed(dones)):
         discounted_reward = reward + gamma * discounted_reward * (1 - done)
         returns.insert(0, discounted_reward)
 
-    returns = torch.tensor(returns)
-    returns = (returns - returns.mean()) / (returns.std() + 1e-8)
-    return returns
+    t_returns = torch.tensor(returns)
+    t_returns = (t_returns - t_returns.mean()) / (t_returns.std() + 1e-8)
+    return t_returns

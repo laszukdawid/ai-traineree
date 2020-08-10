@@ -18,7 +18,7 @@ class DDPGAgent(AgentType):
 
     name = "DDPG"
 
-    def __init__(self, state_dim: int, action_dim: int, hidden_layers: Sequence[int]=(128, 128),
+    def __init__(self, state_size: int, action_size: int, hidden_layers: Sequence[int]=(128, 128),
                  actor_lr: float=2e-3, actor_lr_decay: float=0, critic_lr: float=2e-3, critic_lr_decay: float=0,
                  noise_scale: float=0.2, noise_sigma: float=0.1, clip: Tuple[int, int]=(-1, 1), config=None, device=None):
         config = config if config is not None else dict()
@@ -26,13 +26,13 @@ class DDPGAgent(AgentType):
 
         # Reason sequence initiation.
         self.hidden_layers = hyperparameters.get('hidden_layers', hidden_layers)
-        self.actor = ActorBody(state_dim, action_dim, hidden_layers=hidden_layers).to(self.device)
-        self.critic = CriticBody(state_dim, action_dim, hidden_layers=hidden_layers).to(self.device)
-        self.target_actor = ActorBody(state_dim, action_dim, hidden_layers=hidden_layers).to(self.device)
-        self.target_critic = CriticBody(state_dim, action_dim, hidden_layers=hidden_layers).to(self.device)
+        self.actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
+        self.critic = CriticBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
+        self.target_actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
+        self.target_critic = CriticBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
 
         # Noise sequence initiation
-        self.noise = GaussianNoise(shape=(action_dim,), mu=1e-8, sigma=noise_sigma, scale=noise_scale, device=device)
+        self.noise = GaussianNoise(shape=(action_size,), mu=1e-8, sigma=noise_sigma, scale=noise_scale, device=device)
 
         # Target sequence initiation
         hard_update(self.target_actor, self.actor)
@@ -52,8 +52,8 @@ class DDPGAgent(AgentType):
         self.buffer = ReplayBuffer(self.batch_size, self.buffer_size)
 
         self.warm_up: int = int(config.get('warm_up', 0))
-        self.update_freq = int(config.get('update_freq', 1))
-        self.number_updates = int(config.get('number_updates', 1))
+        self.update_freq: int = int(config.get('update_freq', 1))
+        self.number_updates: int = int(config.get('number_updates', 1))
 
         # Breath, my child.
         self.reset_agent()

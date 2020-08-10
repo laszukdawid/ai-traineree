@@ -5,12 +5,12 @@ from torch.distributions import Normal
 
 
 class StochasticActorCritic(nn.Module):
-    def __init__(self, state_dim, action_dim, hidden_layers, actor=None, critic=None):
+    def __init__(self, state_size, action_size, hidden_layers, actor=None, critic=None):
         super(StochasticActorCritic, self).__init__()
         self.actor = actor
         self.critic = critic
 
-        self.std = nn.Parameter(torch.rand(action_dim)*1e-1)
+        self.std = nn.Parameter(torch.rand(action_size)*1e-1)
         self.actor_params = list(self.actor.parameters()) + [self.std]
         self.critic_params = list(self.critic.parameters())
 

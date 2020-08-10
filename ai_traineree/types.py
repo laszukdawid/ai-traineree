@@ -16,44 +16,45 @@ class TaskType(abc.ABC):
     state_size: int
 
     def step(self, action: ActionType) -> TaskStepType:
-        return  # type: ignore
+        raise NotImplementedError
 
     def act(self):
-        return  # type: ignore
+        raise NotImplementedError
 
     def render(self) -> None:
-        pass
+        raise NotImplementedError
 
     def reset(self) -> StateType:
-        return  # type: ignore
+        raise NotImplementedError
 
 
 class AgentType(abc.ABC):
 
     name: str
+    state_size: int
     action_size: int
     last_loss: Union[int, float] = 0
 
     def act(self, state: StateType, noise: Any):
-        pass
+        raise NotImplementedError
 
     def step(self, state: StateType, action: ActionType, reward: RewardType, next_state: StateType, done: DoneType):
-        pass
+        raise NotImplementedError
 
     def describe_agent(self):
-        pass
+        raise NotImplementedError
 
     def save_state(self, path: str):
         """
         Saves the whole agent state into a local file.
         """
-        pass
+        raise NotImplementedError
 
     def load_state(self, path: str):
         """
         Reads the whole agent state from a local file.
         """
-        pass
+        raise NotImplementedError
 
 
 Hyperparameters = Dict[str, str]

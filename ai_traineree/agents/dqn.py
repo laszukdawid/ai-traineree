@@ -20,20 +20,21 @@ class DQNAgent(AgentType):
 
     def __init__(
             self, state_size: int, action_size: int, hidden_layers=(64, 64),
-            lr: float = 0.001, gamma: float = 0.99, tau: float = 0.002, config: Optional[Dict]={}, device=None):
+            lr: float = 0.001, gamma: float = 0.99, tau: float = 0.002, config: Optional[Dict]=None, device=None):
+        
+        config = config if config is not None else {}
+        self.device = device if device is not None else DEVICE
         self.state_size = state_size
         self.action_size = action_size
 
-        self.lr = lr
-        self.gamma = gamma
-        self.tau = tau
+        self.lr: float = float(config.get('lr', lr)
+        self.gamma: float = float(config.get('gamma', gamma))
+        self.tau: float = float(config.get('tau', tau))
 
-        self.update_freq = config.get('update_freq', 1)
-        self.batch_size = config.get('batch_size', 32)
-        self.warm_up = config.get('warm_up', 0)
-        self.number_updates = config.get('number_updates', 1)
-
-        self.device = device if device is not None else DEVICE
+        self.update_freq: int = int(config.get('update_freq', 1))
+        self.batch_size: int = int(config.get('batch_size', 32))
+        self.warm_up: int = int(config.get('warm_up', 0))
+        self.number_updates: int = int(config.get('number_updates', 1))
 
         self.iteration = 0
         self.buffer = ReplayBuffer(self.batch_size)

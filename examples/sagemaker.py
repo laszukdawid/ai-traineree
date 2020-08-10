@@ -34,9 +34,9 @@ class SageMakerExecutor:
         self.score_goal = int(hyperparameters.get("score_goal", 100))
         self.max_episodes = int(hyperparameters.get("max_episodes", 1000))
 
-        self.eps_start = hyperparameters.get('eps_start', 1.0)
-        self.eps_end = hyperparameters.get('eps_end', 0.002)
-        self.eps_decay = hyperparameters.get('eps_decay', 0.999)
+        self.eps_start: float = float(hyperparameters.get('eps_start', 1.0))
+        self.eps_end: float = float(hyperparameters.get('eps_end', 0.002))
+        self.eps_decay: float = float(hyperparameters.get('eps_decay', 0.999))
 
         self.agent: AgentType = agent(self.task.state_size, self.task.action_size, config=hyperparameters)
 

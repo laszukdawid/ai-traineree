@@ -64,14 +64,14 @@ class ActorBody(nn.Module):
 
 
 class CriticBody(nn.Module):
-    def __init__(self, input_dim: int, action_dim: int, hidden_layers: Sequence[int]=(200, 100)):
+    def __init__(self, input_dim: int, action_size: int, hidden_layers: Sequence[int]=(200, 100)):
         super(CriticBody, self).__init__()
 
         num_layers = [input_dim] + list(hidden_layers) + [1]
         layers = [nn.Linear(in_dim, out_dim) for in_dim, out_dim in zip(num_layers[:-1], num_layers[1:])]
 
         # Injects `actions` into the second layer of the Critic
-        layers[1] = nn.Linear(num_layers[1]+action_dim, num_layers[2])
+        layers[1] = nn.Linear(num_layers[1]+action_size, num_layers[2])
         self.layers = nn.ModuleList(layers)
         self.reset_parameters()
 
