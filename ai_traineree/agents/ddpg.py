@@ -15,6 +15,11 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class DDPGAgent(AgentType):
+    """
+    Deep Deterministic Policy Gradients (DDPG).
+
+    Instead of popular Ornstein-Uhlenbeck (OU) process for noise this agent uses Gaussian noise.
+    """
 
     name = "DDPG"
 
@@ -25,7 +30,7 @@ class DDPGAgent(AgentType):
         self.device = device if device is not None else DEVICE
 
         # Reason sequence initiation.
-        self.hidden_layers = hyperparameters.get('hidden_layers', hidden_layers)
+        self.hidden_layers = config.get('hidden_layers', hidden_layers)
         self.actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
         self.critic = CriticBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
         self.target_actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
@@ -113,9 +118,10 @@ class DDPGAgent(AgentType):
         soft_update(self.target_critic, self.critic, self.tau)
 
     def save_state(self, path: str):
-        agent_state = dict(actor=self.actor.state_dict(), target_actor=self.target_actor.state_dict(),
-                           critic=self.critic.state_dict(), target_critic=self.target_critic.state_dict(),
-                           )
+        agent_state = dict(
+            actor=self.actor.state_dict(), target_actor=self.target_actor.state_dict(),
+            critic=self.critic.state_dict(), target_critic=self.target_critic.state_dict(),
+        )
         torch.save(agent_state, f'{path}_agent.net')
 
     def load_state(self, path: str):

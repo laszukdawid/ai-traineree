@@ -34,6 +34,8 @@ class AgentType(abc.ABC):
     state_size: int
     action_size: int
     last_loss: Union[int, float] = 0
+    actor_loss: Union[int, float] = 0
+    critic_loss: Union[int, float] = 0
 
     def act(self, state: StateType, noise: Any):
         raise NotImplementedError

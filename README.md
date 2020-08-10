@@ -8,8 +8,14 @@ What might distinguish this repo from other DRL is the intention to have types a
 ## State
 
 Currently implemented agents:
-* DQN
-* DDPG
+* DQN | Deep Q-learning Network
+* DDPG | Deep Deterministic Policy Gradient 
+* PPO | Proximal Policy Optimization
+
+Multi agents:
+* MADDPG | Multi Agent Deep Deterministic Policy Gradient
+
+... and more to come.
 
 Currently solved environments from OpenAI gyms:
 * CartPole-v1

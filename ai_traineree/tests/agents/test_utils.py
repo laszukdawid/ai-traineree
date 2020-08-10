@@ -1,9 +1,7 @@
 import numpy as np
-import pytest
 import torch
-from ai_traineree.agents import utils
 
-from typing import List
+from ai_traineree.agents import utils
 
 
 def test_to_np():
@@ -17,11 +15,12 @@ def test_to_np():
     # Assert
     assert all(out == expected)
 
+
 def test_revert_norm_returns_default():
     # Assign
     rewards = [0, 0, 0, 1, 0, 1]
     dones = [False, False, False, True, False, False]
-    expected = torch.tensor([-1.5628, -0.7166,  0.1382,  1.0015,  0.1382,  1.0015])
+    expected = torch.tensor([-1.5628, -0.7166, 0.1382, 1.0015, 0.1382, 1.0015])
 
     # Act
     returns = utils.revert_norm_returns(rewards, dones)
@@ -41,5 +40,3 @@ def test_revert_norm_returns_gamma():
 
     # Assert
     assert all(torch.isclose(returns, expected, atol=1e-4))
-
-test_revert_norm_returns_default()
