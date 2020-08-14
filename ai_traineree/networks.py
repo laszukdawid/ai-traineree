@@ -3,7 +3,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from typing import Sequence, Tuple
+from functools import reduce
+from typing import Optional, Sequence, Tuple
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -14,8 +15,13 @@ def hidden_init(layer: nn.Module):
     return (-lim, lim)
 
 
-def layer_init(layer: nn.Module, range_value: Tuple[float, float]):
-    layer.weight.data.uniform_(*range_value)  # type: ignore
+def layer_init(layer: nn.Module, range_value: Optional[Tuple[float, float]]=None):
+    if not (isinstance(layer, nn.Conv2d) or isinstance(layer, nn.Linear)):
+        return
+    if range_value is not None:
+        layer.weight.data.uniform_(*range_value)  # type: ignore
+
+    nn.init.xavier_uniform(layer.weight)
 
 
 class QNetwork(nn.Module):
@@ -25,11 +31,62 @@ class QNetwork(nn.Module):
         layers_conn = [state_size] + list(hidden_layers) + [action_size]
         layers = [nn.Linear(layers_conn[idx], layers_conn[idx + 1]) for idx in range(len(layers_conn) - 1)]
         self.layers = nn.ModuleList(layers)
+        self.reset_parameters()
 
         self.gate = F.relu
 
+    def reset_parameters(self):
+        for layer in self.layers[:-1]:
+            layer_init(layer, hidden_init(layer))
+        layer_init(self.layers[-1], (-1e-3, 1e-3))
+
     def forward(self, x):
         for layer in self.layers:
+            x = self.gate(layer(x))
+        return x
+
+
+class QNetwork2D(nn.Module):
+    def __init__(self, state_dim: Sequence[int], action_size, hidden_layers: Sequence[int]):
+        super(QNetwork2D, self).__init__()
+
+        self.conv_layers = nn.Sequential(
+            nn.Conv2d(1, 16, 5, stride=1, padding=2),
+            nn.MaxPool2d(3, 3),
+            nn.Conv2d(16, 32, 4, stride=1, padding=1),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(32, 64, 3, stride=1, padding=1),
+            nn.MaxPool2d(4, 4),
+        )
+        # self.conv_layers = nn.ModuleList(conv_layers)
+        out_shape = self._calculate_output_size(state_dim, self.conv_layers)
+        output_size = reduce(lambda a, b: a*b, out_shape)
+        print(output_size)
+
+        layers_conn = [output_size] + list(hidden_layers) + [action_size]
+        fc_layers = [nn.Linear(layers_conn[idx], layers_conn[idx + 1]) for idx in range(len(layers_conn) - 1)]
+        self.fc_layers = nn.ModuleList(fc_layers)
+
+        self.reset_parameters()
+        self.gate = F.relu
+
+    def _calculate_output_size(self, input_dim: Tuple[int], conv_layers):
+        test_tensor = torch.zeros((1, 1,) + input_dim)
+        with torch.no_grad():
+            out = conv_layers(test_tensor)
+        return out.shape
+
+    def reset_parameters(self):
+        self.conv_layers.apply(layer_init)
+        for layer in self.fc_layers[:-1]:
+            layer_init(layer, hidden_init(layer))
+        layer_init(self.fc_layers[-1], (-1e-3, 1e-3))
+
+    def forward(self, x):
+        x = self.conv_layers(x)
+
+        x = x.view(x.size(0), -1)
+        for layer in self.fc_layers:
             x = self.gate(layer(x))
         return x
 

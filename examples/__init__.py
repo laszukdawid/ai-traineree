@@ -25,10 +25,11 @@ def timing(f):
 
 class EnvRunner:
 
-    def __init__(self, task: TaskType, agent: AgentType):
+    def __init__(self, task: TaskType, agent: AgentType, max_iterations: int=1000):
         self.logger = logging.getLogger("EnvRunner")
         self.task = task
         self.agent = agent
+        self.max_iterations = max_iterations
 
         self.window_len = 50
 
@@ -38,11 +39,12 @@ class EnvRunner:
     def reset(self):
         self.all_scores = []
 
-    def interact_episode(self, eps: float, render=False, max_t=1000) -> Tuple[RewardType, int]:
+    def interact_episode(self, eps: float=0, render=False, max_iterations=None) -> Tuple[RewardType, int]:
         score = 0
         state = self.task.reset()
         iterations = 0
-        for _ in range(max_t):
+        max_iterations = max_iterations if max_iterations is not None else self.max_iterations
+        while(iterations < max_iterations):
             iterations += 1
             state = np.array(state, np.float32)
             if render:
