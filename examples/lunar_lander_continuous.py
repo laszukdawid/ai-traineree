@@ -1,7 +1,7 @@
 from ai_traineree.agents.ddpg import DDPGAgent as DDPG
+from ai_traineree.env_runner import EnvRunner
 from ai_traineree.tasks import GymTask
 from ai_traineree.types import TaskType
-from examples import EnvRunner
 
 import pylab as plt
 import gym

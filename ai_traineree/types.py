@@ -1,10 +1,12 @@
 import abc
-from typing import Any, Dict, Iterable, Tuple, Union
+from typing import Any, Dict, Iterable, Sequence, Tuple, Union
 
 ActionType = Iterable
 DoneType = bool
 RewardType = Union[int, float]
 StateType = Iterable
+
+Hyperparameters = Dict[str, str]
 
 TaskStepType = Tuple[StateType, RewardType, DoneType, Any]
 
@@ -31,7 +33,7 @@ class TaskType(abc.ABC):
 class AgentType(abc.ABC):
 
     name: str
-    state_size: int
+    state_size: Union[Sequence[int], int]
     action_size: int
     last_loss: Union[int, float] = 0
     actor_loss: Union[int, float] = 0
@@ -57,6 +59,3 @@ class AgentType(abc.ABC):
         Reads the whole agent state from a local file.
         """
         raise NotImplementedError
-
-
-Hyperparameters = Dict[str, str]

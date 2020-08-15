@@ -3,8 +3,8 @@ import pylab as plt
 import gym
 
 from ai_traineree.agents.ddpg import DDPGAgent
+from ai_traineree.env_runner import EnvRunner
 from ai_traineree.tasks import GymTask
-from examples import EnvRunner
 
 
 env_name = 'Pendulum-v0'

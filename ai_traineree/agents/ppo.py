@@ -131,3 +131,11 @@ class PPOAgent(AgentType):
         nn.utils.clip_grad_norm_(self.policy.critic_params, self.max_grad_norm_critic)
         self.critic_opt.step()
         self.critic_loss = value_loss.mean().item()
+
+    def save_state(self, path: str):
+        agent_state = dict(policy=self.policy.state_dict())
+        torch.save(agent_state, f'{path}_agent.net')
+
+    def load_state(self, path: str):
+        agent_state = torch.load(f'{path}_agent.net')
+        self.policy.load_state_dict(agent_state['policy'])

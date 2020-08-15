@@ -8,7 +8,7 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 
-from typing import Dict, Optional
+from typing import Dict, Optional, Sequence
 
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -22,8 +22,9 @@ class DQNAgent(AgentType):
     name = "DQN"
 
     def __init__(
-            self, state_size: int, action_size: int, hidden_layers=(64, 64),
-            lr: float = 0.001, gamma: float = 0.99, tau: float = 0.002, config: Optional[Dict]=None, device=None):
+        self, state_size: int, action_size: int, hidden_layers: Sequence[int]=(64, 64),
+        lr: float = 0.001, gamma: float = 0.99, tau: float = 0.002, config: Optional[Dict]=None, device=None
+    ):
 
         config = config if config is not None else {}
         self.device = device if device is not None else DEVICE

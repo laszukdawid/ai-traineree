@@ -38,7 +38,7 @@ class GymTask(TaskType):
         """
         if self.is_discrete:
             actions = int(actions)
-        state, reward, done, info = self.env.step(actions) 
+        state, reward, done, info = self.env.step(actions)
         if self.state_transform is not None:
             state = self.state_transform(state)
         return (state, reward, done, info)

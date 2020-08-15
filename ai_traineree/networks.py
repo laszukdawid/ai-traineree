@@ -21,7 +21,7 @@ def layer_init(layer: nn.Module, range_value: Optional[Tuple[float, float]]=None
     if range_value is not None:
         layer.weight.data.uniform_(*range_value)  # type: ignore
 
-    nn.init.xavier_uniform(layer.weight)
+    nn.init.xavier_uniform_(layer.weight)
 
 
 class QNetwork(nn.Module):
@@ -51,27 +51,26 @@ class QNetwork2D(nn.Module):
         super(QNetwork2D, self).__init__()
 
         self.conv_layers = nn.Sequential(
-            nn.Conv2d(1, 16, 5, stride=1, padding=2),
-            nn.MaxPool2d(3, 3),
+            nn.Conv2d(1, 16, 3, stride=1),
+            nn.MaxPool2d(2, 2),
             nn.Conv2d(16, 32, 4, stride=1, padding=1),
             nn.MaxPool2d(2, 2),
             nn.Conv2d(32, 64, 3, stride=1, padding=1),
-            nn.MaxPool2d(4, 4),
+            nn.MaxPool2d(8, 8),
         )
-        # self.conv_layers = nn.ModuleList(conv_layers)
-        out_shape = self._calculate_output_size(state_dim, self.conv_layers)
-        output_size = reduce(lambda a, b: a*b, out_shape)
-        print(output_size)
 
+        output_size = reduce(lambda a, b: a*b, self._calculate_output_size(state_dim, self.conv_layers))
         layers_conn = [output_size] + list(hidden_layers) + [action_size]
+
         fc_layers = [nn.Linear(layers_conn[idx], layers_conn[idx + 1]) for idx in range(len(layers_conn) - 1)]
         self.fc_layers = nn.ModuleList(fc_layers)
 
         self.reset_parameters()
         self.gate = F.relu
+        self.gate_out = F.softmax
 
-    def _calculate_output_size(self, input_dim: Tuple[int], conv_layers):
-        test_tensor = torch.zeros((1, 1,) + input_dim)
+    def _calculate_output_size(self, input_dim: Sequence[int], conv_layers):
+        test_tensor = torch.zeros((1, 1,) + tuple(input_dim))
         with torch.no_grad():
             out = conv_layers(test_tensor)
         return out.shape
@@ -86,9 +85,10 @@ class QNetwork2D(nn.Module):
         x = self.conv_layers(x)
 
         x = x.view(x.size(0), -1)
-        for layer in self.fc_layers:
+        for layer in self.fc_layers[:-1]:
             x = self.gate(layer(x))
-        return x
+        x = self.fc_layers[-1](x)
+        return self.gate_out(x, dim=-1)
 
 
 class ActorBody(nn.Module):

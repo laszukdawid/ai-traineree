@@ -23,9 +23,11 @@ class DDPGAgent(AgentType):
 
     name = "DDPG"
 
-    def __init__(self, state_size: int, action_size: int, hidden_layers: Sequence[int]=(128, 128),
-                 actor_lr: float=2e-3, actor_lr_decay: float=0, critic_lr: float=2e-3, critic_lr_decay: float=0,
-                 noise_scale: float=0.2, noise_sigma: float=0.1, clip: Tuple[int, int]=(-1, 1), config=None, device=None):
+    def __init__(
+        self, state_size: int, action_size: int, hidden_layers: Sequence[int]=(128, 128),
+        actor_lr: float=2e-3, actor_lr_decay: float=0, critic_lr: float=2e-3, critic_lr_decay: float=0,
+        noise_scale: float=0.2, noise_sigma: float=0.1, clip: Tuple[int, int]=(-1, 1), config=None, device=None
+    ):
         config = config if config is not None else dict()
         self.device = device if device is not None else DEVICE
 

@@ -4,8 +4,8 @@ import pylab as plt
 import gym
 
 from ai_traineree.types import TaskType
+from ai_traineree.env_runner import EnvRunner
 from ai_traineree.agents.dqn import DQNAgent
-from examples import EnvRunner
 
 
 env_name = 'LunarLander-v2'

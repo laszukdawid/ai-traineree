@@ -8,7 +8,7 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 
-from typing import Dict, Optional, Sequence
+from typing import Dict, Optional, Sequence, Union
 
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -22,12 +22,13 @@ class DQNPixelAgent(AgentType):
     name = "DQNPixels"
 
     def __init__(
-            self, state_size: Sequence[int], action_size: int, hidden_layers=(64, 64),
-            lr: float = 0.001, gamma: float = 0.99, tau: float = 0.002, config: Optional[Dict]=None, device=None):
+        self, state_size: Union[Sequence[int], int], action_size: int, hidden_layers: Sequence[int]=(64, 64),
+        lr: float = 0.001, gamma: float = 0.99, tau: float = 0.002, config: Optional[Dict]=None, device=None
+    ):
 
         config = config if config is not None else {}
         self.device = device if device is not None else DEVICE
-        self.state_dim = state_size
+        self.state_dim = state_size if not isinstance(state_size, int) else (state_size,)
         self.state_size = 1
         self.action_size = action_size
 

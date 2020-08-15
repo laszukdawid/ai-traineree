@@ -3,6 +3,7 @@ import torch.nn as nn
 
 from typing import List
 
+
 def soft_update(target: nn.Module, source: nn.Module, tau: float) -> None:
     for target_param, param in zip(target.parameters(), source.parameters()):
         target_param.data.copy_(target_param.data * (1.0 - tau) + param.data * tau)  # type: ignore
@@ -16,6 +17,7 @@ def hard_update(target: nn.Module, source: nn.Module):
 
 def to_np(t):
     return t.cpu().detach().numpy()
+
 
 def compute_gae(next_value, rewards, masks, values, gamma=0.99, tau=0.95):
     values = values + [next_value]

@@ -1,6 +1,6 @@
 from ai_traineree.agents.dqn import DQNAgent
+from ai_traineree.env_runner import EnvRunner
 from ai_traineree.tasks import GymTask
-from examples import EnvRunner
 
 import numpy as np
 import pylab as plt

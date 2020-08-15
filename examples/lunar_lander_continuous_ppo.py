@@ -1,7 +1,7 @@
 from ai_traineree.agents.ppo import PPOAgent as Agent
+from ai_traineree.env_runner import EnvRunner
 from ai_traineree.tasks import GymTask
 from ai_traineree.types import TaskType
-from examples import EnvRunner
 
 import numpy as np
 import pylab as plt
