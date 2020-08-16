@@ -1,6 +1,10 @@
 build/
 dist/
+/gifs
 
 .venv/
 __pycache__/
 .mypy_cache/
+
+*.png
+*.net

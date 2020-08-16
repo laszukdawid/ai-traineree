@@ -1,5 +1,5 @@
 import abc
-from typing import Any, Dict, Iterable, Sequence, Tuple, Union
+from typing import Any, Dict, Iterable, Optional, Sequence, Tuple, Union
 
 ActionType = Iterable
 DoneType = bool
@@ -23,7 +23,7 @@ class TaskType(abc.ABC):
     def act(self):
         raise NotImplementedError
 
-    def render(self) -> None:
+    def render(self, mode: Optional[str]=None) -> None:
         raise NotImplementedError
 
     def reset(self) -> StateType:
