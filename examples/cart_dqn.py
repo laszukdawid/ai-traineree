@@ -1,20 +1,22 @@
 from ai_traineree.agents.dqn import DQNAgent
 from ai_traineree.env_runner import EnvRunner
 from ai_traineree.tasks import GymTask
+from torch.utils.tensorboard import SummaryWriter
 
 import numpy as np
 import pylab as plt
 import gym
 
+writer = SummaryWriter()
 
 env_name = 'CartPole-v1'
 env = gym.make(env_name)
 
 task = GymTask(env, env_name)
 agent = DQNAgent(task.state_size, task.action_size)
-env_runner = EnvRunner(task, agent)
+env_runner = EnvRunner(task, agent, writer=writer)
 
-scores = env_runner.run(reward_goal=100, max_episodes=5000, eps_end=0.002, eps_decay=0.999)
+scores = env_runner.run(reward_goal=100, max_episodes=100, eps_end=0.002, eps_decay=0.999, log_every=5, gif_every_episodes=10)
 env_runner.interact_episode(100, render=True)
 
 # plot the scores

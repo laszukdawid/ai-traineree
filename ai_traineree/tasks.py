@@ -29,7 +29,7 @@ class GymTask(TaskType):
     def render(self, mode="rgb_array"):
         if self.can_render:
             # In case of OpenAI, mode can be ['human', 'rgb_array']
-            return self.env.render(mode)
+            return self.env.render(mode=mode)
         else:
             print("Can't render. Sorry.")  # Yes, this is for haha
 

@@ -107,7 +107,7 @@ class DDPGAgent(AgentType):
         critic_loss.backward()
         # torch.nn.utils.clip_grad_norm_(self.critic.parameters(), self.gradient_clip)
         self.critic_optimizer.step()
-        self.last_loss = critic_loss.item()
+        self.critic_loss = critic_loss.item()
 
         # Compute actor loss
         pred_actions = self.actor(states)
@@ -115,6 +115,7 @@ class DDPGAgent(AgentType):
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
         self.actor_optimizer.step()
+        self.actor_loss = actor_loss.item()
 
         soft_update(self.target_actor, self.actor, self.tau)
         soft_update(self.target_critic, self.critic, self.tau)

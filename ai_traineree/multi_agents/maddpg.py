@@ -125,6 +125,7 @@ class MADDPG(AgentType):
         if self.gradient_clip:
             torch.nn.utils.clip_grad_norm_(self.critic.parameters(), self.gradient_clip)
         self.critic_optimizer.step()
+        self.critic_loss = critic_loss.mean().item()
 
         # Compute actor loss
         pred_actions = actions.detach().clone()
@@ -134,6 +135,7 @@ class MADDPG(AgentType):
         agent.actor_optimizer.zero_grad()
         actor_loss.backward()
         agent.actor_optimizer.step()
+        self.actor_loss = actor_loss.mean().item()
 
         soft_update(agent.target_actor, agent.actor, self.tau)
         soft_update(self.target_critic, self.critic, self.tau)

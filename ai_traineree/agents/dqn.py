@@ -48,8 +48,6 @@ class DQNAgent(AgentType):
         self.target_qnet = QNetwork(self.state_size, self.action_size, hidden_layers=self.hidden_layers).to(self.device)
         self.optimizer = optim.AdamW(self.qnet.parameters(), lr=self.lr)
 
-        self.last_loss = np.inf
-
     def step(self, state, action, reward, next_state, done) -> None:
         self.iteration += 1
         self.buffer.add_sars(state, action, reward, next_state, done)
@@ -93,7 +91,7 @@ class DQNAgent(AgentType):
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        self.last_loss = loss.item()
+        self.loss = loss.item()
 
         # Update networks - sync local & target
         soft_update(self.target_qnet, self.qnet, self.tau)

@@ -49,8 +49,6 @@ class DQNPixelAgent(AgentType):
         self.target_qnet = QNetwork2D(self.state_dim, self.action_size, hidden_layers=self.hidden_layers).to(self.device)
         self.optimizer = optim.AdamW(self.qnet.parameters(), lr=self.lr)
 
-        self.last_loss = np.inf
-
     def step(self, state, action, reward, next_state, done) -> None:
         self.iteration += 1
         state = torch.tensor(state).unsqueeze(0).unsqueeze(0)
@@ -96,7 +94,7 @@ class DQNPixelAgent(AgentType):
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        self.last_loss = loss.item()
+        self.loss = loss.item()
 
         # Update networks - sync local & target
         soft_update(self.target_qnet, self.qnet, self.tau)

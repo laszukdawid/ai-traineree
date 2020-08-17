@@ -50,9 +50,6 @@ class PPOAgent(AgentType):
         self.actor_opt = torch.optim.SGD(self.policy.actor_params, lr=self.actor_lr)
         self.critic_opt = torch.optim.SGD(self.policy.critic_params, lr=self.critic_lr)
 
-        self.actor_loss = 0
-        self.critic_loss = 0
-
     def __clear_memory(self):
         self.memory = ReplayBuffer(batch_size=self.batch_size, buffer_size=self.rollout_length)
 

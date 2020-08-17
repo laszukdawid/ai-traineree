@@ -35,7 +35,7 @@ class AgentType(abc.ABC):
     name: str
     state_size: Union[Sequence[int], int]
     action_size: int
-    last_loss: Union[int, float] = 0
+    loss: Union[int, float] = 0
     actor_loss: Union[int, float] = 0
     critic_loss: Union[int, float] = 0
 

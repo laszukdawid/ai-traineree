@@ -14,7 +14,7 @@ agent = DQNAgent(task.state_size, task.action_size, hidden_layers=(400, 300))
 env_runner = EnvRunner(task, agent)
 
 # env_runner.interact_episode(0, render=True)
-scores = env_runner.run(reward_goal=5, max_episodes=5, print_every=1)
+scores = env_runner.run(reward_goal=5, max_episodes=5, log_every=1)
 env_runner.interact_episode(100, render=True)
 
 # plot the scores
