@@ -30,13 +30,13 @@ def compute_gae(next_value, rewards, masks, values, gamma=0.99, tau=0.95):
     return returns
 
 
-def revert_norm_returns(rewards, dones, gamma=0.99) -> torch.Tensor:
+def revert_norm_returns(rewards, dones, gamma=0.99, device=None) -> torch.Tensor:
     discounted_reward = 0
-    returns: List[float] = []
+    returns: List[torch.Tensor] = []
     for reward, done in zip(reversed(rewards), reversed(dones)):
         discounted_reward = reward + gamma * discounted_reward * (1 - done)
         returns.insert(0, discounted_reward)
 
-    t_returns = torch.tensor(returns)
+    t_returns = torch.tensor(returns, device=device)
     t_returns = (t_returns - t_returns.mean()) / (t_returns.std() + 1e-8)
     return t_returns

@@ -15,8 +15,11 @@ DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 class DQNPixelAgent(AgentType):
-    """
-    Deep Q-Learning Network.
+    """Deep Q-Learning Network.
+    Dual DQN implementation.
+
+    Note (18/08/2020): Currently, this implemention differs very little from the `dqn.py` implemention.
+    In the coming days/weeks there will be either a merge, or tuning that leads to higher separation.
     """
 
     name = "DQNPixels"
@@ -53,14 +56,14 @@ class DQNPixelAgent(AgentType):
         self.iteration += 1
         state = torch.tensor(state).unsqueeze(0).unsqueeze(0)
         next_state = torch.tensor(next_state).unsqueeze(0).unsqueeze(0)
-        self.buffer.add_sars(state, action, reward, next_state, done)
+        self.buffer.add(state=state, action=[action], reward=[reward], next_state=next_state, done=[done])
 
         if self.iteration < self.warm_up:
             return
 
         if len(self.buffer) > self.batch_size and (self.iteration % self.update_freq) == 0:
             for _ in range(self.number_updates):
-                self.learn(self.buffer.sample_sars())
+                self.learn(self.buffer.sample())
 
     def act(self, state, eps: float = 0.) -> int:
         """Returns actions for given state as per current policy.
@@ -83,11 +86,15 @@ class DQNPixelAgent(AgentType):
             return np.random.randint(self.action_size)
 
     def learn(self, experiences) -> None:
-        states, actions, rewards, next_states, dones = experiences
+        rewards = torch.tensor(experiences['reward']).to(self.device)
+        dones = torch.tensor(experiences['done']).type(torch.int).to(self.device)
+        states = torch.tensor(experiences['state'], dtype=torch.float32).to(self.device)
+        next_states = torch.tensor(experiences['next_state'], dtype=torch.float32).to(self.device)
+        actions = torch.tensor(experiences['action']).to(self.device).unsqueeze(1)
 
         Q_targets_next = self.target_qnet(next_states).detach().max(1)[0].unsqueeze(1)
         Q_targets = rewards + (self.gamma + Q_targets_next * (1 - dones))
-        Q_expected = self.qnet(states).gather(1, actions)
+        Q_expected = self.qnet(states).gather(1, actions.type(torch.long).to(self.device))
 
         loss = F.mse_loss(Q_expected, Q_targets)
 
@@ -96,13 +103,15 @@ class DQNPixelAgent(AgentType):
         self.optimizer.step()
         self.loss = loss.item()
 
+        if hasattr(self.buffer, 'priority_update'):
+            td_error = Q_expected - Q_targets
+            self.buffer.priority_update(experiences['index'], 1./td_error.abs())
+
         # Update networks - sync local & target
         soft_update(self.target_qnet, self.qnet, self.tau)
 
     def describe_agent(self) -> Dict:
-        """
-        Returns agent's state dictionary.
-        """
+        """Returns agent's state dictionary."""
         return self.qnet.state_dict()
 
     def save_state(self, path: str):

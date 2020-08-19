@@ -45,17 +45,13 @@ class AgentType(abc.ABC):
     def step(self, state: StateType, action: ActionType, reward: RewardType, next_state: StateType, done: DoneType):
         raise NotImplementedError
 
-    def describe_agent(self):
+    def describe_agent(self) -> None:
         raise NotImplementedError
 
     def save_state(self, path: str):
-        """
-        Saves the whole agent state into a local file.
-        """
+        """Saves the whole agent state into a local file."""
         raise NotImplementedError
 
     def load_state(self, path: str):
-        """
-        Reads the whole agent state from a local file.
-        """
+        """Reads the whole agent state from a local file."""
         raise NotImplementedError

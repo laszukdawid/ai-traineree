@@ -1,3 +1,4 @@
+from collections import defaultdict
 from ai_traineree.networks import ActorBody
 from ai_traineree.types import AgentType
 from ai_traineree.policies import StochasticActorCritic
@@ -35,6 +36,7 @@ class PPOAgent(AgentType):
         self.entropy_weight: float = float(config.get("entropy_weight", 0.0005))
         self.value_loss_weight: float = float(config.get("value_loss_weight", 1.0))
 
+        self.local_memory_buffer = {}
         self.memory = ReplayBuffer(batch_size=self.batch_size, buffer_size=self.rollout_length)
 
         self.action_scale: float = float(config.get("action_scale", 1))
@@ -60,20 +62,19 @@ class PPOAgent(AgentType):
             action = dist.sample()
             logprob = dist.log_prob(action)
 
-            self.memory.values.append(value)
-            self.memory.logprobs.append(logprob)
+            self.local_memory_buffer['value'] = value
+            self.local_memory_buffer['logprob'] = logprob
 
             action = action.cpu().numpy().flatten()
             return np.clip(action*self.action_scale, self.action_min, self.action_max)
 
-    def step(self, states, actions, rewards, next_state, done):
+    def step(self, states, actions, rewards, next_state, done, **kwargs):
         self.iteration += 1
 
-        self.memory.add_reward(torch.tensor([rewards], dtype=torch.float32).to(self.device))
-        self.memory.add_done(torch.tensor([done], dtype=torch.int).to(self.device))
-        self.memory.add_state(torch.tensor(states, dtype=torch.float32).unsqueeze(0).to(self.device))
-        self.memory.add_action(torch.tensor(actions, dtype=torch.float32).unsqueeze(0).to(self.device))
-        # self.memory.next_states.append(next_state)
+        self.memory.add(
+            state=states, action=actions, reward=rewards, done=done,
+            logprob=self.local_memory_buffer['logprob'], value=self.local_memory_buffer['value']
+        )
 
         if self.iteration % self.rollout_length == 0:
             self.update()
@@ -85,15 +86,28 @@ class PPOAgent(AgentType):
             rand_ids = np.random.choice(all_indices, mini_batch_size, replace=False)
             yield states[rand_ids], actions[rand_ids], log_probs[rand_ids], returns[rand_ids], advantage[rand_ids]
 
-    def update(self):
-        rewards = torch.cat(self.memory.sample_rewards()).detach()
-        dones = torch.cat(self.memory.sample_dones()).detach()
-        values = torch.cat(self.memory.sample_values()).detach()
-        states = torch.cat(self.memory.sample_states()).detach()
-        actions = torch.cat(self.memory.sample_actions()).detach()
-        log_probs = torch.cat(self.memory.sample_logprobs()).detach()
+    def _unpack_experiences(self, experiences):
+        unpacked_experiences = defaultdict(lambda: [])
+        for experience in experiences:
+            unpacked_experiences['rewards'].append(experience.reward)
+            unpacked_experiences['dones'].append(experience.done)
+            unpacked_experiences['values'].append(experience.value)
+            unpacked_experiences['states'].append(experience.state)
+            unpacked_experiences['actions'].append(experience.action)
+            unpacked_experiences['logprobs'].append(experience.logprob)
 
-        returns = revert_norm_returns(rewards, dones, self.gamma).unsqueeze(1)
+        return unpacked_experiences
+
+    def update(self):
+        experiences = self.memory.sample()
+        rewards = torch.tensor(experiences['reward']).to(self.device)
+        dones = torch.tensor(experiences['done']).type(torch.int).to(self.device)
+        states = torch.tensor(experiences['state']).to(self.device)
+        actions = torch.tensor(experiences['action']).to(self.device)
+        values = torch.cat(experiences['value'])
+        log_probs = torch.cat(experiences['logprob'])
+
+        returns = revert_norm_returns(rewards, dones, self.gamma, device=self.device).unsqueeze(1)
         advantages = returns - values
 
         for _ in range(self.number_updates):

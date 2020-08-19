@@ -81,7 +81,7 @@ class DDPGAgent(AgentType):
 
     def step(self, state, action, reward, next_state, done):
         self.iteration += 1
-        self.buffer.add_sars(state, action, reward, next_state, done)
+        self.buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
 
         if self.iteration < self.warm_up:
             return

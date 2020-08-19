@@ -1,5 +1,5 @@
 from ai_traineree.agents.utils import soft_update
-from ai_traineree.buffers import ReplayBuffer
+from ai_traineree.buffers import PERBuffer, ReplayBuffer
 from ai_traineree.networks import QNetwork
 from ai_traineree.types import AgentType
 
@@ -15,8 +15,8 @@ DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 class DQNAgent(AgentType):
-    """
-    Deep Q-Learning Network.
+    """Deep Q-Learning Network.
+    Dual DQN implementation.
     """
 
     name = "DQN"
@@ -41,6 +41,7 @@ class DQNAgent(AgentType):
         self.number_updates = int(config.get('number_updates', 1))
 
         self.iteration: int = 0
+        # self.buffer = PERBuffer(self.batch_size)  # At least for CartPole this gives bad performance. Needs checking.
         self.buffer = ReplayBuffer(self.batch_size)
 
         self.hidden_layers = config.get('hidden_layers', hidden_layers)
@@ -50,14 +51,14 @@ class DQNAgent(AgentType):
 
     def step(self, state, action, reward, next_state, done) -> None:
         self.iteration += 1
-        self.buffer.add_sars(state, action, reward, next_state, done)
+        self.buffer.add(state=state, action=torch.tensor(action), reward=[reward], next_state=next_state, done=[done])
 
         if self.iteration < self.warm_up:
             return
 
         if len(self.buffer) > self.batch_size and (self.iteration % self.update_freq) == 0:
             for _ in range(self.number_updates):
-                self.learn(self.buffer.sample_sars())
+                self.learn(self.buffer.sample())
 
     def act(self, state, eps: float = 0.) -> int:
         """Returns actions for given state as per current policy.
@@ -80,11 +81,15 @@ class DQNAgent(AgentType):
             return np.random.randint(self.action_size)
 
     def learn(self, experiences) -> None:
-        states, actions, rewards, next_states, dones = experiences
+        rewards = torch.tensor(experiences['reward']).to(self.device)
+        dones = torch.tensor(experiences['done']).type(torch.int).to(self.device)
+        states = torch.tensor(experiences['state'], dtype=torch.float32).to(self.device)
+        next_states = torch.tensor(experiences['next_state'], dtype=torch.float32).to(self.device)
+        actions = torch.tensor(experiences['action']).to(self.device).unsqueeze(1)
 
         Q_targets_next = self.target_qnet(next_states).detach().max(1)[0].unsqueeze(1)
         Q_targets = rewards + (self.gamma + Q_targets_next * (1 - dones))
-        Q_expected = self.qnet(states).gather(1, actions)
+        Q_expected = self.qnet(states).gather(1, actions.type(torch.long).to(self.device))  # Support for discrete only
 
         loss = F.mse_loss(Q_expected, Q_targets)
 
@@ -92,6 +97,10 @@ class DQNAgent(AgentType):
         loss.backward()
         self.optimizer.step()
         self.loss = loss.item()
+
+        if hasattr(self.buffer, 'priority_update'):
+            td_error = Q_expected - Q_targets
+            self.buffer.priority_update(experiences['index'], 1./td_error.abs())
 
         # Update networks - sync local & target
         soft_update(self.target_qnet, self.qnet, self.tau)
