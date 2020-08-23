@@ -1,49 +1,78 @@
 # ai-traineree
 
 The intention is to have a zoo of Deep Reinforcment Learning methods and showcasing their application on some environments.
-Currently focusing on a couple of popular agents (DQN, DDPG, PPO, A3C) for OpenAi gym environments.
+What will distinguish this repo from other DRL is the intention to have types and interfaces, for easier application and understanding, and having all components tested.
 
-What might distinguish this repo from other DRL is the intention to have types and interfaces, for easier application and understanding, and having all components tested.
+## Quick start
 
-## State
-
-Currently implemented agents:
-* DQN | Deep Q-learning Network
-* DDPG | Deep Deterministic Policy Gradient 
-* PPO | Proximal Policy Optimization
-
-Multi agents:
-* MADDPG | Multi Agent Deep Deterministic Policy Gradient
-
-... and more to come.
-
-Currently solved environments from OpenAI gyms:
-* CartPole-v1
-* LunarLander-v2
-* LunarLanderContinuous-v2
-
-## Running
-
-Firstly you need to install the package. See below for instructions.
-
-The easiest way to start exploring is through the examples. To run an example, e.g. `cart.py` execute
-```bash
-> python -m examples.cart
+To get started with training your RL agent you need three things: an agent, an environment and a runner. Let's say you want to train a DQN agent on OpenAI CartPole-v1:
 ```
-from the root directory, i.e. where this README.md.
+from ai_traineree.agents.dqn import DQNAgent
+from ai_traineree.env_runner import EnvRunner
+from ai_traineree.tasks import GymTask
 
-## Install
+task = GymTask('CartPole-v1)
+agent = DQNAgent(task.state_size, task.action_size)
+env_runner = EnvRunner(task, agent)
+
+scores = env_runner.run()
+```
+or execute one of provided examples
+```
+>  python -m examples.cart_dqn
+```
+
+That's it.
+
+## Installation
+
+There isn't currently any installation mechanism. Git clone is expected if you want to play yourself. Coming updates include pip package and installation instructions.
 
 As usual with Python, the expectation is to have own virtual environment and then pip install requirements. For example,
 ```bash
 > python -m venv .venv
+> git clone git@github.com:laszukdawid/ai-traineree.git
 > source .venv/bin/activate
 > pip install -r requirements.txt
 ```
 
-### Ubuntu
+On Ubuntu you might also need to install `swig` (`sudo apt install -y swig`).
 
-Install debs via `install-ubuntu-debs.sh`, e.g.
-```sh
-> sudo ./install-ubuntu-debs.sh
-```
+## Current state
+
+### Agents
+
+| Short | Progress | Link | Full name |
+|------|------|-------------|-----|
+| DQN  | [Implemented](ai_traineree/agents/dqn.py) | | Deep Q-learning Network  |
+| DQN (Pixels) | [Implemented](ai_traineree/agents/dqn_pixels.py) | | DQN on 2D/3D input  |
+| DDPG | [Implemented](ai_traineree/agents/ddpg.py) | [arXiv](https://arxiv.org/abs/1509.02971) | Deep Deterministic Policy Gradient |
+| MADDPG | [Implemented](ai_traineree/multi_agents/maddpg.py) | | Multi agent DDPG |
+| PPO | [Implemented](ai_traineree/agents/ppo.py) | [arXiv](https://arxiv.org/abs/1707.06347) | Proximal Policy Optimization |
+| TRPO | | [arXiv](https://arxiv.org/abs/1502.05477) | Trust Region Policy Optimization |
+| CQL | | [GoogleSite](https://sites.google.com/view/cql-offline-rl), [arXiv](https://arxiv.org/abs/2006.04779) | Conservative Q-Learning |
+| RAINBOW | | [arXiv](https://arxiv.org/abs/1710.02298) |
+
+### Environments
+
+| Name | Progress | Link |
+|-------|----------|------|
+| OpenAI Gym - Classic | Done |  |
+| OpenAI Gym - Atari | Implemeneted, Need more testing |  |
+| OpenAI Gym - MuJoCo | Not tested |  |
+| MAME Linux emulator | Interested. | [Official page](https://www.mamedev.org/)
+| Unity ML | Interested. | [Page](https://unity3d.com/machine-learning)
+
+### Development
+
+| Name | Progress |
+|------|----------|
+| Gif creation support | Done |
+| Tensorboard support | Implemented |
+| Pip package | Not started |
+| Test coverage > 80% | ~20%
+
+There are other potential things on the roadmap but haven't dedicated to them yet. 
+
+Should I focus on something specificallly? Let me know by leaving opening a feature request issue or contacting through [ai-traineree@dawid.lasz.uk](mailto:ai-traineree@dawid.lasz.uk).
+
