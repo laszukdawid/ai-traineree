@@ -3,13 +3,10 @@ from ai_traineree.env_runner import EnvRunner
 from ai_traineree.tasks import GymTask
 
 import pylab as plt
-import gym
 
 
 env_name = 'Breakout-ram-v0'
-env = gym.make(env_name)
-
-task = GymTask(env, env_name)
+task = GymTask(env_name)
 agent = DQNAgent(task.state_size, task.action_size, hidden_layers=(400, 300))
 env_runner = EnvRunner(task, agent)
 

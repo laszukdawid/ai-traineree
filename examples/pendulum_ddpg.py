@@ -1,6 +1,5 @@
 import numpy as np
 import pylab as plt
-import gym
 
 from ai_traineree.agents.ddpg import DDPGAgent
 from ai_traineree.env_runner import EnvRunner
@@ -8,9 +7,7 @@ from ai_traineree.tasks import GymTask
 
 
 env_name = 'Pendulum-v0'
-env = gym.make(env_name)
-
-task = GymTask(env, env_name)
+task = GymTask(env_name)
 config = {'batch_size': 32}
 agent = DDPGAgent(task.state_size, task.action_size, hidden_layers=(400, 300), noise_scale=1., clip=(-2, 2), config=config)
 env_runner = EnvRunner(task, agent)

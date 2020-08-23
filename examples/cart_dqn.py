@@ -5,14 +5,12 @@ from torch.utils.tensorboard import SummaryWriter
 
 import numpy as np
 import pylab as plt
-import gym
 
 writer = SummaryWriter()
 
 env_name = 'CartPole-v1'
-env = gym.make(env_name)
+task = GymTask(env_name)
 
-task = GymTask(env, env_name)
 agent = DQNAgent(task.state_size, task.action_size)
 env_runner = EnvRunner(task, agent, writer=writer)
 

@@ -195,10 +195,13 @@ class PERBuffer(BufferBase):
         self.alpha: float = alpha
         self.__default_weights = np.ones(self.batch_size)/self.buffer_size
 
+        self.tiny_offset: float = 0.05
+
     def __len__(self) -> int:
         return len(self.tree)
 
     def add(self, *, priority: float=0, **kwargs):
+        priority += self.tiny_offset
         self.tree.insert(kwargs, pow(priority, self.alpha))
 
     def add_sars(self, **kwargs):

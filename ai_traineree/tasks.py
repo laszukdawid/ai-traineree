@@ -1,17 +1,18 @@
+import gym
 from ai_traineree.types import StateType, TaskType
 
 from typing import Tuple
 
 
 class GymTask(TaskType):
-    def __init__(self, env, env_name: str, state_transform=None, can_render=True):
+    def __init__(self, env_name: str, state_transform=None, can_render=True):
         self.name = env_name
-        self.env = env
+        self.env = gym.make(env_name)
         self.can_render = can_render
-        self.is_discrete = "Discrete" in str(type(env.action_space))
+        self.is_discrete = "Discrete" in str(type(self.env.action_space))
 
-        self.state_size = env.observation_space.shape[0]
-        self.action_size = self.__determine_action_size(env.action_space)
+        self.state_size = self.env.observation_space.shape[0]
+        self.action_size = self.__determine_action_size(self.env.action_space)
         self.state_transform = state_transform
 
     @staticmethod

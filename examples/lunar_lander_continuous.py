@@ -4,13 +4,10 @@ from ai_traineree.tasks import GymTask
 from ai_traineree.types import TaskType
 
 import pylab as plt
-import gym
 
 
 env_name = 'LunarLanderContinuous-v2'
-env = gym.make(env_name)
-
-task: TaskType = GymTask(env, env_name)
+task: TaskType = GymTask(env_name)
 config = {'batch_size': 64, 'warm_up': 0, 'action_scale': 2, 'update_freq': 2}
 agent = DDPG(task.state_size, task.action_size, hidden_layers=(300, 200), noise_scale=0.4, noise_sigma=0.2, config=config)
 env_runner = EnvRunner(task, agent)

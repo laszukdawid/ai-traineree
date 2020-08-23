@@ -1,17 +1,14 @@
-from ai_traineree.tasks import GymTask
 import numpy as np
 import pylab as plt
-import gym
 
-from ai_traineree.types import TaskType
 from ai_traineree.env_runner import EnvRunner
 from ai_traineree.agents.dqn import DQNAgent
+from ai_traineree.tasks import GymTask
+from ai_traineree.types import TaskType
 
 
 env_name = 'LunarLander-v2'
-env = gym.make(env_name)
-
-task: TaskType = GymTask(env, env_name)
+task: TaskType = GymTask(env_name)
 config = {'batch_size': 64}
 agent = DQNAgent(task.state_size, task.action_size, config=config)
 env_runner = EnvRunner(task, agent)

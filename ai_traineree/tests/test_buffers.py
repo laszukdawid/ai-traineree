@@ -134,7 +134,8 @@ def test_per_buffer_add_two_sample_two_beta():
     for experience in experiences:
         if experience.index == 0:
             assert experience.state == range(5)
-            assert 0.936 < experience.weight < 0.937
+            # assert 0.936 < experience.weight < 0.937
+            assert 0.946 < experience.weight < 0.947
         else:
             assert experience.state == range(3, 8)
             assert experience.weight == 1.

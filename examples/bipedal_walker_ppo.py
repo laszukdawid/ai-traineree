@@ -5,13 +5,10 @@ from ai_traineree.types import TaskType
 
 import numpy as np
 import pylab as plt
-import gym
 
 
 env_name = 'BipedalWalker-v3'
-env = gym.make(env_name)
-
-task: TaskType = GymTask(env, env_name)
+task: TaskType = GymTask(env_name)
 config = {
     'rollout_length': 100,
     'batch_size': 100,

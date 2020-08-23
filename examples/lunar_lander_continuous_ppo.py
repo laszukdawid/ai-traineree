@@ -5,13 +5,11 @@ from ai_traineree.types import TaskType
 
 import numpy as np
 import pylab as plt
-import gym
 
 
 env_name = 'LunarLanderContinuous-v2'
-env = gym.make(env_name)
 
-task: TaskType = GymTask(env, env_name)
+task: TaskType = GymTask(env_name)
 config = {
     'rollout_length': 30,
     'batch_size': 30,

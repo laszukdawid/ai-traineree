@@ -1,10 +1,10 @@
 from ai_traineree.agents.dqn_pixels import DQNPixelAgent
 from ai_traineree.env_runner import EnvRunner
 from ai_traineree.tasks import GymTask
+from torch.utils.tensorboard import SummaryWriter
 
 import numpy as np
 import pylab as plt
-import gym
 
 
 def state_transform(state):
@@ -14,10 +14,10 @@ def state_transform(state):
     return state[30:-10].sum(-1) > 0
 
 
-env_name = 'Breakout-v0'
-env = gym.make(env_name)
+writer = SummaryWriter()
 
-task = GymTask(env, env_name, state_transform=state_transform)
+env_name = 'Breakout-v0'
+task = GymTask(env_name, state_transform=state_transform)
 state_size = np.array(task.reset()).shape
 
 config = {"update_freq": 12, "batch_size": 40, "warm_up": 1000}
