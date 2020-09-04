@@ -1,10 +1,10 @@
 import abc
-from typing import Any, Dict, Iterable, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
-ActionType = Iterable
+ActionType = Sequence
 DoneType = bool
 RewardType = Union[int, float]
-StateType = Iterable
+StateType = Sequence
 
 Hyperparameters = Dict[str, str]
 

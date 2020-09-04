@@ -1,8 +1,8 @@
-import logging
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
 
+from ai_traineree import DEVICE
 from ai_traineree.buffers import ReplayBuffer
 from ai_traineree.agents.ddpg import DDPGAgent
 from ai_traineree.agents.utils import hard_update, soft_update
@@ -11,12 +11,12 @@ from ai_traineree.types import AgentType
 
 from typing import Dict, Optional
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+class MADDPGAgent(AgentType):
 
-class MADDPG(AgentType):
+    name = "MADDPG"
+
     def __init__(self, env, state_size: int, action_size: int, agents_number: int, config: Dict):
-        self.logger = logging.getLogger("MADDPG")
 
         self.env = env
         self.state_size = state_size

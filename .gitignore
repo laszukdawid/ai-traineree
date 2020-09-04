@@ -1,6 +1,7 @@
 build/
 dist/
 /gifs
+/htmlcov
 
 .venv/
 __pycache__/

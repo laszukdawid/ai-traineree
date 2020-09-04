@@ -44,10 +44,10 @@ On Ubuntu you might also need to install `swig` (`sudo apt install -y swig`).
 
 | Short | Progress | Link | Full name |
 |------|------|-------------|-----|
-| DQN  | [Implemented](ai_traineree/agents/dqn.py) | | Deep Q-learning Network  |
+| DQN  | [Implemented](ai_traineree/agents/dqn.py) | [DeepMind](https://deepmind.com/research/publications/human-level-control-through-deep-reinforcement-learning), [Nature](https://www.nature.com/articles/nature14236)| Deep Q-learning Network  |
 | DQN (Pixels) | [Implemented](ai_traineree/agents/dqn_pixels.py) | | DQN on 2D/3D input  |
 | DDPG | [Implemented](ai_traineree/agents/ddpg.py) | [arXiv](https://arxiv.org/abs/1509.02971) | Deep Deterministic Policy Gradient |
-| MADDPG | [Implemented](ai_traineree/multi_agents/maddpg.py) | | Multi agent DDPG |
+| MADDPG | [Implemented](ai_traineree/multi_agents/maddpg.py) | [arXiv](https://arxiv.org/abs/1706.02275) | Multi agent DDPG |
 | PPO | [Implemented](ai_traineree/agents/ppo.py) | [arXiv](https://arxiv.org/abs/1707.06347) | Proximal Policy Optimization |
 | TRPO | | [arXiv](https://arxiv.org/abs/1502.05477) | Trust Region Policy Optimization |
 | CQL | | [GoogleSite](https://sites.google.com/view/cql-offline-rl), [arXiv](https://arxiv.org/abs/2006.04779) | Conservative Q-Learning |
