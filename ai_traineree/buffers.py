@@ -7,8 +7,6 @@ from collections import defaultdict, deque
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 from torch import Tensor
 
-device = DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
 
 class Experience(object):
 
@@ -47,15 +45,15 @@ class BufferBase(object):
 
     @staticmethod
     def convert_float(x):
-        return torch.from_numpy(np.vstack(x)).float().to(DEVICE)
+        return torch.from_numpy(np.vstack(x)).float()
 
     @staticmethod
     def convert_long(x):
-        return torch.from_numpy(np.vstack(x)).long().to(DEVICE)
+        return torch.from_numpy(np.vstack(x)).long()
 
     @staticmethod
     def convert_int(x):
-        return torch.from_numpy(np.vstack(x).astype(np.uint8)).float().to(DEVICE)
+        return torch.from_numpy(np.vstack(x).astype(np.uint8)).float()
 
 
 class ReplayBuffer(BufferBase):
@@ -64,7 +62,7 @@ class ReplayBuffer(BufferBase):
         super().__init__()
         self.batch_size = batch_size
         self.buffer_size = buffer_size
-        self.device = device if device is not None else DEVICE
+        self.device = device
         self.indices = range(batch_size)
 
         self.exp: deque[Experience] = deque(maxlen=buffer_size)
@@ -82,70 +80,12 @@ class ReplayBuffer(BufferBase):
     def __len__(self) -> int:
         return max(len(self.exp), len(self.states))
 
-    def prepare_batch(self) -> None:
-        self.indices = random.sample(range(len(self.rewards)), self.batch_size)
-
-    def __sample(self, prop):
-        return [prop[idx] for idx in self.indices]
-
     def add(self, **kwargs):
         self.exp.append(Experience(**kwargs))
 
     def add_sars(self, *, state=None, action=None, reward=None, next_state=None, done=None) -> None:
         """Adds (State, Actiom, Reward, State) to the buffer. Expects these arguments to be named properties."""
         self.exp.append(Experience(state=state, action=action, reward=reward, next_state=next_state, done=done))
-
-    def add_advantage(self, advantage):
-        self.advantages.append(advantage)
-
-    def add_value(self, value):
-        self.values.append(value)
-
-    def add_logprob(self, logprob):
-        self.logprobs.append(logprob)
-
-    def add_state(self, state):
-        self.states.append(state)
-
-    def add_action(self, action):
-        self.actions.append(action)
-
-    def add_next_state(self, next_state):
-        self.next_states.append(next_state)
-
-    def add_reward(self, reward):
-        self.rewards.append(reward)
-
-    def add_done(self, done):
-        self.dones.append(done)
-        self.masks.append(1-done)
-
-    def sample_advantages(self):
-        return self.__sample(self.advantages)
-
-    def sample_values(self):
-        return self.__sample(self.values)
-
-    def sample_logprobs(self):
-        return self.__sample(self.logprobs)
-
-    def sample_states(self):
-        return self.__sample(self.states)
-
-    def sample_actions(self):
-        return self.__sample(self.actions)
-
-    def sample_rewards(self):
-        return self.__sample(self.rewards)
-
-    def sample_next_states(self):
-        return self.__sample(self.next_states)
-
-    def sample_dones(self):
-        return self.__sample(self.dones)
-
-    def sample_masks(self):
-        return self.__sample(self.masks)
 
     def sample(self) -> Dict[str, List]:
         all_experiences = defaultdict(lambda: [])
@@ -156,8 +96,6 @@ class ReplayBuffer(BufferBase):
         return all_experiences
 
     def sample_sars(self) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
-        # self.prepare_batch()
-
         states = []
         actions = []
         rewards = []
@@ -170,11 +108,11 @@ class ReplayBuffer(BufferBase):
             next_states.append(exp.next_state)
             dones.append(exp.done)
 
-        states = self.convert_float(states)
-        actions = self.convert_float(actions)
-        rewards = self.convert_float(rewards)
-        next_states = self.convert_float(next_states)
-        dones = self.convert_int(dones)
+        states = self.convert_float(states).to(self.device)
+        actions = self.convert_float(actions).to(self.device)
+        rewards = self.convert_float(rewards).to(self.device)
+        next_states = self.convert_float(next_states).to(self.device)
+        dones = self.convert_int(dones).to(self.device)
 
         return (states, actions, rewards, next_states, dones)
 
@@ -190,7 +128,7 @@ class PERBuffer(BufferBase):
         super(PERBuffer, self).__init__()
         self.batch_size = batch_size
         self.buffer_size = buffer_size
-        self.device = device if device is not None else DEVICE
+        self.device = device
         self.tree = SumTree(buffer_size)
         self.alpha: float = alpha
         self.__default_weights = np.ones(self.batch_size)/self.buffer_size
@@ -234,9 +172,12 @@ class PERBuffer(BufferBase):
 
         return experiences
 
-    def sample(self, beta: float=1) -> Dict[str, List]:
+    def sample(self, beta: float=1) -> Optional[Dict[str, List]]:
         all_experiences = defaultdict(lambda: [])
         sampled_exp = self.sample_list(beta=beta)
+        if sampled_exp is None:
+            return None
+
         for exp in sampled_exp:
             for (key, val) in exp.__dict__.items():
                 all_experiences[key].append(val)

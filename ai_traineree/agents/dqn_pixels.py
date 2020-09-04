@@ -1,5 +1,6 @@
+from ai_traineree import DEVICE
 from ai_traineree.agents.utils import soft_update
-from ai_traineree.buffers import ReplayBuffer
+from ai_traineree.buffers import PERBuffer
 from ai_traineree.networks import QNetwork2D
 from ai_traineree.types import AgentType
 
@@ -9,9 +10,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from typing import Dict, Optional, Sequence, Union
-
-
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 class DQNPixelAgent(AgentType):
@@ -26,7 +24,8 @@ class DQNPixelAgent(AgentType):
 
     def __init__(
         self, state_size: Union[Sequence[int], int], action_size: int, hidden_layers: Sequence[int]=(64, 64),
-        lr: float = 0.001, gamma: float = 0.99, tau: float = 0.002, config: Optional[Dict]=None, device=None
+        lr: float = 0.001, gamma: float = 0.99, tau: float = 0.002, config: Optional[Dict]=None,
+        device=None, **kwargs
     ):
 
         config = config if config is not None else {}
@@ -45,12 +44,14 @@ class DQNPixelAgent(AgentType):
         self.number_updates = int(config.get('number_updates', 1))
 
         self.iteration: int = 0
-        self.buffer = ReplayBuffer(self.batch_size)
+        self.buffer = PERBuffer(self.batch_size)
 
         self.hidden_layers = config.get('hidden_layers', hidden_layers)
         self.qnet = QNetwork2D(self.state_dim, self.action_size, hidden_layers=self.hidden_layers).to(self.device)
         self.target_qnet = QNetwork2D(self.state_dim, self.action_size, hidden_layers=self.hidden_layers).to(self.device)
         self.optimizer = optim.AdamW(self.qnet.parameters(), lr=self.lr)
+
+        self.writer = kwargs.get("writer")
 
     def step(self, state, action, reward, next_state, done) -> None:
         self.iteration += 1
@@ -63,7 +64,7 @@ class DQNPixelAgent(AgentType):
 
         if len(self.buffer) > self.batch_size and (self.iteration % self.update_freq) == 0:
             for _ in range(self.number_updates):
-                self.learn(self.buffer.sample())
+                self.learn(self.buffer.sample(beta=0.4))
 
     def act(self, state, eps: float = 0.) -> int:
         """Returns actions for given state as per current policy.
@@ -88,9 +89,9 @@ class DQNPixelAgent(AgentType):
     def learn(self, experiences) -> None:
         rewards = torch.tensor(experiences['reward']).to(self.device)
         dones = torch.tensor(experiences['done']).type(torch.int).to(self.device)
-        states = torch.tensor(experiences['state'], dtype=torch.float32).to(self.device)
-        next_states = torch.tensor(experiences['next_state'], dtype=torch.float32).to(self.device)
-        actions = torch.tensor(experiences['action']).to(self.device).unsqueeze(1)
+        states = torch.cat(experiences['state']).type(torch.float32).to(self.device)
+        next_states = torch.cat(experiences['next_state']).type(torch.float32).to(self.device)
+        actions = torch.from_numpy(np.array(experiences['action'])).to(self.device)
 
         Q_targets_next = self.target_qnet(next_states).detach().max(1)[0].unsqueeze(1)
         Q_targets = rewards + (self.gamma + Q_targets_next * (1 - dones))
@@ -113,6 +114,10 @@ class DQNPixelAgent(AgentType):
     def describe_agent(self) -> Dict:
         """Returns agent's state dictionary."""
         return self.qnet.state_dict()
+
+    def log_writer(self, episode):
+        self.writer.add_scalar("Actor loss", self.actor_loss, episode)
+        self.writer.add_scalar("Critic loss", self.critic_loss, episode)
 
     def save_state(self, path: str):
         agent_state = dict(net_local=self.qnet.state_dict(), net_target=self.target_qnet.state_dict())

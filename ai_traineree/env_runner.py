@@ -108,8 +108,8 @@ class EnvRunner:
     def run(
         self,
         reward_goal: float=100.0, max_episodes: int=2000,
-        eps_start=1.0, eps_end=0.01, eps_decay=0.995, log_every=10,
-        gif_every_episodes: Optional[int]=None,
+        eps_start=1.0, eps_end=0.01, eps_decay=0.995,
+        log_every=10, gif_every_episodes: Optional[int]=None,
     ):
         """
         Evaluates the agent in the environment.
@@ -181,7 +181,9 @@ class EnvRunner:
         episode = kwargs['episode']
         self.writer.add_scalar("score", kwargs['score'], episode)
         self.writer.add_scalar("avg_score", kwargs['mean_score'], episode)
-        if 'critic_loss' in self.agent.__dict__:
+        if hasattr(self.agent, 'log_writer'):
+            self.agent.log_writer(episode)
+        elif 'critic_loss' in self.agent.__dict__:
             self.writer.add_scalar("Actor loss", kwargs['actor_loss'], episode)
             self.writer.add_scalar("Critic loss", kwargs['critic_loss'], episode)
         else:

@@ -22,7 +22,7 @@ state_size = np.array(task.reset()).shape
 
 config = {"update_freq": 12, "batch_size": 40, "warm_up": 1000}
 agent = DQNPixelAgent(state_size, task.action_size, hidden_layers=(200, 200))
-env_runner = EnvRunner(task, agent, max_iterations=20000)
+env_runner = EnvRunner(task, agent, max_iterations=20000, writer=writer)
 
 scores = env_runner.run(reward_goal=500, max_episodes=500, log_every=1, eps_start=0.8, gif_every_episodes=50)
 env_runner.interact_episode(render=True)

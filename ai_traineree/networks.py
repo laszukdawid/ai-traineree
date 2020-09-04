@@ -6,8 +6,6 @@ import torch.nn.functional as F
 from functools import reduce
 from typing import Optional, Sequence, Tuple
 
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
 
 def hidden_init(layer: nn.Module):
     fan_in = layer.weight.data.size()[0]  # type: ignore

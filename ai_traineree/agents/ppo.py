@@ -1,5 +1,5 @@
 from collections import defaultdict
-from ai_traineree.networks import ActorBody
+from ai_traineree import DEVICE
 from ai_traineree.types import AgentType
 from ai_traineree.policies import StochasticActorCritic
 import torch
@@ -10,14 +10,12 @@ import numpy as np
 from ai_traineree.agents.utils import revert_norm_returns
 from ai_traineree.buffers import ReplayBuffer
 
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
 
 class PPOAgent(AgentType):
 
     name = "PPO"
 
-    def __init__(self, state_size: int, action_size: int, hidden_layers=(300, 200), config=None, device=None):
+    def __init__(self, state_size: int, action_size: int, hidden_layers=(300, 200), config=None, device=None, **kwargs):
         config = config if config is not None else {}
         self.device = device if device is not None else DEVICE
 
@@ -51,6 +49,8 @@ class PPOAgent(AgentType):
         self.policy = StochasticActorCritic(state_size, action_size, self.hidden_layers, actor, critic).to(self.device)
         self.actor_opt = torch.optim.SGD(self.policy.actor_params, lr=self.actor_lr)
         self.critic_opt = torch.optim.SGD(self.policy.critic_params, lr=self.critic_lr)
+
+        self.writer = kwargs.get("writer")
 
     def __clear_memory(self):
         self.memory = ReplayBuffer(batch_size=self.batch_size, buffer_size=self.rollout_length)
@@ -142,6 +142,10 @@ class PPOAgent(AgentType):
         nn.utils.clip_grad_norm_(self.policy.critic_params, self.max_grad_norm_critic)
         self.critic_opt.step()
         self.critic_loss = value_loss.mean().item()
+
+    def log_writer(self, episode):
+        self.writer.add_scalar("Actor loss", self.actor_loss, episode)
+        self.writer.add_scalar("Critic loss", self.critic_loss, episode)
 
     def save_state(self, path: str):
         agent_state = dict(policy=self.policy.state_dict())

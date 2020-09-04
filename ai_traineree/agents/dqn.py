@@ -1,5 +1,6 @@
+from ai_traineree import DEVICE
 from ai_traineree.agents.utils import soft_update
-from ai_traineree.buffers import PERBuffer, ReplayBuffer
+from ai_traineree.buffers import ReplayBuffer
 from ai_traineree.networks import QNetwork
 from ai_traineree.types import AgentType
 
@@ -11,9 +12,6 @@ import torch.optim as optim
 from typing import Dict, Optional, Sequence
 
 
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-
 class DQNAgent(AgentType):
     """Deep Q-Learning Network.
     Dual DQN implementation.
@@ -23,7 +21,8 @@ class DQNAgent(AgentType):
 
     def __init__(
         self, state_size: int, action_size: int, hidden_layers: Sequence[int]=(64, 64),
-        lr: float = 0.001, gamma: float = 0.99, tau: float = 0.002, config: Optional[Dict]=None, device=None
+        lr: float = 0.001, gamma: float = 0.99, tau: float = 0.002, config: Optional[Dict]=None,
+        device=None, **kwargs
     ):
 
         config = config if config is not None else {}
@@ -48,6 +47,8 @@ class DQNAgent(AgentType):
         self.qnet = QNetwork(self.state_size, self.action_size, hidden_layers=self.hidden_layers).to(self.device)
         self.target_qnet = QNetwork(self.state_size, self.action_size, hidden_layers=self.hidden_layers).to(self.device)
         self.optimizer = optim.AdamW(self.qnet.parameters(), lr=self.lr)
+
+        self.writer = kwargs.get("writer")
 
     def step(self, state, action, reward, next_state, done) -> None:
         self.iteration += 1
@@ -91,7 +92,7 @@ class DQNAgent(AgentType):
         Q_targets = rewards + (self.gamma + Q_targets_next * (1 - dones))
         Q_expected = self.qnet(states).gather(1, actions.type(torch.long).to(self.device))  # Support for discrete only
 
-        loss = F.mse_loss(Q_expected, Q_targets)
+        loss = F.smooth_l1_loss(Q_expected, Q_targets)
 
         self.optimizer.zero_grad()
         loss.backward()
@@ -110,6 +111,10 @@ class DQNAgent(AgentType):
         Returns agent's state dictionary.
         """
         return self.qnet.state_dict()
+
+    def log_writer(self, episode):
+        self.writer.add_scalar("Actor loss", self.actor_loss, episode)
+        self.writer.add_scalar("Critic loss", self.critic_loss, episode)
 
     def save_state(self, path: str):
         agent_state = dict(net_local=self.qnet.state_dict(), net_target=self.target_qnet.state_dict())

@@ -2,6 +2,7 @@ build/
 dist/
 /gifs
 /htmlcov
+/.vscode
 
 .venv/
 __pycache__/

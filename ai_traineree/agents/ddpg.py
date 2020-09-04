@@ -1,3 +1,4 @@
+from ai_traineree import DEVICE
 from ai_traineree.agents.utils import hard_update, soft_update
 from ai_traineree.buffers import ReplayBuffer
 from ai_traineree.networks import ActorBody, CriticBody
@@ -10,8 +11,6 @@ from torch.optim import Adam
 from torch.nn.functional import mse_loss
 from typing import Any, Sequence, Tuple
 
-
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class DDPGAgent(AgentType):
@@ -26,7 +25,8 @@ class DDPGAgent(AgentType):
     def __init__(
         self, state_size: int, action_size: int, hidden_layers: Sequence[int]=(128, 128),
         actor_lr: float=2e-3, actor_lr_decay: float=0, critic_lr: float=2e-3, critic_lr_decay: float=0,
-        noise_scale: float=0.2, noise_sigma: float=0.1, clip: Tuple[int, int]=(-1, 1), config=None, device=None
+        noise_scale: float=0.2, noise_sigma: float=0.1, clip: Tuple[int, int]=(-1, 1), config=None, device=None,
+        **kwargs
     ):
         config = config if config is not None else dict()
         self.device = device if device is not None else DEVICE
@@ -65,6 +65,7 @@ class DDPGAgent(AgentType):
         # Breath, my child.
         self.reset_agent()
         self.iteration = 0
+        self.writer = kwargs.get("writer")
 
     def reset_agent(self) -> None:
         self.actor.reset_parameters()
@@ -72,12 +73,18 @@ class DDPGAgent(AgentType):
         self.target_actor.reset_parameters()
         self.target_critic.reset_parameters()
 
-    def describe_agent(self) -> Tuple[Any, Any, Any, Any]:
-        """
-        Returns network's weights in order:
-        Actor, TargetActor, Critic, TargetCritic
-        """
-        return (self.actor.state_dict(), self.target_actor.state_dict(), self.critic.state_dict(), self.target_critic())
+    def act(self, obs, noise: float=0.0):
+        with torch.no_grad():
+            obs = torch.tensor(obs.astype(np.float32)).to(self.device)
+            action = self.actor(obs)
+            action += noise*self.noise.sample()
+            return self.action_scale*torch.clamp(action, self.action_min, self.action_max).cpu().numpy().astype(np.float32)
+
+    def target_act(self, obs, noise: float=0.0):
+        with torch.no_grad():
+            obs = torch.tensor(obs).to(self.device)
+            action = self.target_actor(obs) + noise*self.noise.sample()
+            return torch.clamp(action, self.action_min, self.action_max).cpu().numpy().astype(np.float32)
 
     def step(self, state, action, reward, next_state, done):
         self.iteration += 1
@@ -120,6 +127,17 @@ class DDPGAgent(AgentType):
         soft_update(self.target_actor, self.actor, self.tau)
         soft_update(self.target_critic, self.critic, self.tau)
 
+    def describe_agent(self) -> Tuple[Any, Any, Any, Any]:
+        """
+        Returns network's weights in order:
+        Actor, TargetActor, Critic, TargetCritic
+        """
+        return (self.actor.state_dict(), self.target_actor.state_dict(), self.critic.state_dict(), self.target_critic())
+
+    def log_writer(self, episode):
+        self.writer.add_scalar("Actor loss", self.actor_loss, episode)
+        self.writer.add_scalar("Critic loss", self.critic_loss, episode)
+
     def save_state(self, path: str):
         agent_state = dict(
             actor=self.actor.state_dict(), target_actor=self.target_actor.state_dict(),
@@ -133,16 +151,3 @@ class DDPGAgent(AgentType):
         self.critic.load_state_dict(agent_state['critic'])
         self.target_actor.load_state_dict(agent_state['target_actor'])
         self.target_critic.load_state_dict(agent_state['target_critic'])
-
-    def act(self, obs, noise: float=0.0):
-        with torch.no_grad():
-            obs = torch.tensor(obs.astype(np.float32)).to(self.device)
-            action = self.actor(obs)
-            action += noise*self.noise.sample()
-            return self.action_scale*torch.clamp(action, self.action_min, self.action_max).cpu().numpy().astype(np.float32)
-
-    def target_act(self, obs, noise: float=0.0):
-        with torch.no_grad():
-            obs = torch.tensor(obs).to(self.device)
-            action = self.target_actor(obs) + noise*self.noise.sample()
-            return torch.clamp(action, self.action_min, self.action_max).cpu().numpy().astype(np.float32)
