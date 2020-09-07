@@ -49,6 +49,7 @@ On Ubuntu you might also need to install `swig` (`sudo apt install -y swig`).
 | DDPG | [Implemented](ai_traineree/agents/ddpg.py) | [arXiv](https://arxiv.org/abs/1509.02971) | Deep Deterministic Policy Gradient |
 | MADDPG | [Implemented](ai_traineree/multi_agents/maddpg.py) | [arXiv](https://arxiv.org/abs/1706.02275) | Multi agent DDPG |
 | PPO | [Implemented](ai_traineree/agents/ppo.py) | [arXiv](https://arxiv.org/abs/1707.06347) | Proximal Policy Optimization |
+| SAC | [Implemented](ai_traineree/agents/sac.py) | [arXiv](https://arxiv.org/abs/1801.01290) | Soft Actor Critic |
 | TRPO | | [arXiv](https://arxiv.org/abs/1502.05477) | Trust Region Policy Optimization |
 | CQL | | [GoogleSite](https://sites.google.com/view/cql-offline-rl), [arXiv](https://arxiv.org/abs/2006.04779) | Conservative Q-Learning |
 | RAINBOW | | [arXiv](https://arxiv.org/abs/1710.02298) |
