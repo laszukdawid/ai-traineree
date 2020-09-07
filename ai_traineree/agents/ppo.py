@@ -1,7 +1,8 @@
 from collections import defaultdict
 from ai_traineree import DEVICE
+from ai_traineree.networks import ActorBody, CriticBody
 from ai_traineree.types import AgentType
-from ai_traineree.policies import StochasticActorCritic
+from ai_traineree.policies import GaussianPolicy
 import torch
 import torch.nn as nn
 
@@ -44,11 +45,14 @@ class PPOAgent(AgentType):
         self.max_grad_norm_critic: float = float(config.get("max_grad_norm_critic", 100.0))
 
         self.hidden_layers = config.get('hidden_layers', hidden_layers)
-        actor = ActorBody(state_size, action_size, self.hidden_layers).to(self.device)
-        critic = ActorBody(state_size, action_size, self.hidden_layers, gate_out=None, last_layer_range=(-1e-5, 1e-5))
-        self.policy = StochasticActorCritic(state_size, action_size, self.hidden_layers, actor, critic).to(self.device)
-        self.actor_opt = torch.optim.SGD(self.policy.actor_params, lr=self.actor_lr)
-        self.critic_opt = torch.optim.SGD(self.policy.critic_params, lr=self.critic_lr)
+        self.actor = ActorBody(state_size, action_size, self.hidden_layers).to(self.device)
+        self.critic = CriticBody(state_size, action_size, self.hidden_layers).to(self.device)
+        self.policy = GaussianPolicy(action_size).to(self.device)
+
+        self.actor_params = list(self.actor.parameters()) + [self.policy.std]
+        self.critic_params = self.critic.parameters()
+        self.actor_opt = torch.optim.SGD(self.actor_params, lr=self.actor_lr)
+        self.critic_opt = torch.optim.SGD(self.critic_params, lr=self.critic_lr)
 
         self.writer = kwargs.get("writer")
 
@@ -58,7 +62,10 @@ class PPOAgent(AgentType):
     def act(self, state, noise=0):
         with torch.no_grad():
             state = torch.tensor(state.reshape(1, -1).astype(np.float32)).to(self.device)
-            dist, value = self.policy(state)
+            action_mu = self.actor(state)
+            value = self.critic(state, action_mu)
+
+            dist = self.policy(action_mu)
             action = dist.sample()
             logprob = dist.log_prob(action)
 
@@ -117,7 +124,10 @@ class PPOAgent(AgentType):
     def learn(self, samples):
         state, action, old_log_probs, return_, advantage = samples
 
-        dist, value = self.policy(state.detach())
+        action_mu = self.actor(state.detach())
+        dist = self.policy(action_mu)
+        value = self.critic(state.detach(), action_mu.detach())
+
         entropy = dist.entropy()
         new_log_probs = dist.log_prob(action.detach())
 
@@ -130,7 +140,7 @@ class PPOAgent(AgentType):
 
         self.actor_opt.zero_grad()
         actor_loss.backward()
-        nn.utils.clip_grad_norm_(self.policy.actor_params, self.max_grad_norm_actor)
+        nn.utils.clip_grad_norm_(self.actor_params, self.max_grad_norm_actor)
         self.actor_opt.step()
         self.actor_loss = actor_loss.item()
         # loss = policy_loss + value_loss + entropy_loss
@@ -139,13 +149,13 @@ class PPOAgent(AgentType):
 
         self.critic_opt.zero_grad()
         value_loss.backward()
-        nn.utils.clip_grad_norm_(self.policy.critic_params, self.max_grad_norm_critic)
+        nn.utils.clip_grad_norm_(self.critic_params, self.max_grad_norm_critic)
         self.critic_opt.step()
         self.critic_loss = value_loss.mean().item()
 
     def log_writer(self, episode):
-        self.writer.add_scalar("Actor loss", self.actor_loss, episode)
-        self.writer.add_scalar("Critic loss", self.critic_loss, episode)
+        self.writer.add_scalar("loss/actor", self.actor_loss, episode)
+        self.writer.add_scalar("loss/critic", self.critic_loss, episode)
 
     def save_state(self, path: str):
         agent_state = dict(policy=self.policy.state_dict())

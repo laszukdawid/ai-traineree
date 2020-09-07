@@ -16,7 +16,7 @@ class MADDPGAgent(AgentType):
 
     name = "MADDPG"
 
-    def __init__(self, env, state_size: int, action_size: int, agents_number: int, config: Dict):
+    def __init__(self, env, state_size: int, action_size: int, agents_number: int, config: Dict, **kwargs):
 
         self.env = env
         self.state_size = state_size
@@ -55,6 +55,8 @@ class MADDPGAgent(AgentType):
         hard_update(self.target_critic, self.critic)
 
         self.reset()
+
+        self.writer = kwargs.get("writer")
 
     def reset(self):
         self.iteration = 0
@@ -145,3 +147,7 @@ class MADDPGAgent(AgentType):
         for ddpg_agent in self.maddpg_agent:
             soft_update(ddpg_agent.target_actor, ddpg_agent.actor, self.tau)
         soft_update(self.target_critic, self.critic, self.tau)
+
+    def log_writer(self, episode):
+        self.writer.add_scalar("loss/actor", self.actor_loss, episode)
+        self.writer.add_scalar("loss/critic", self.critic_loss, episode)

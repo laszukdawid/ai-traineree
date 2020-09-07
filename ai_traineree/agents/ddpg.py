@@ -101,6 +101,11 @@ class DDPGAgent(AgentType):
         """update the critics and actors of all the agents """
 
         states, actions, rewards, next_states, dones = samples
+        rewards = rewards.to(self.device)
+        dones = dones.type(torch.int).to(self.device)
+        states = states.to(self.device)
+        next_states = next_states.to(self.device)
+        actions = actions.to(self.device)
 
         # critic loss
         next_actions = self.target_actor(next_states)
@@ -135,8 +140,8 @@ class DDPGAgent(AgentType):
         return (self.actor.state_dict(), self.target_actor.state_dict(), self.critic.state_dict(), self.target_critic())
 
     def log_writer(self, episode):
-        self.writer.add_scalar("Actor loss", self.actor_loss, episode)
-        self.writer.add_scalar("Critic loss", self.critic_loss, episode)
+        self.writer.add_scalar("loss/actor", self.actor_loss, episode)
+        self.writer.add_scalar("loss/critic", self.critic_loss, episode)
 
     def save_state(self, path: str):
         agent_state = dict(

@@ -179,8 +179,8 @@ class EnvRunner:
 
     def log_writer(self, **kwargs):
         episode = kwargs['episode']
-        self.writer.add_scalar("score", kwargs['score'], episode)
-        self.writer.add_scalar("avg_score", kwargs['mean_score'], episode)
+        self.writer.add_scalar("score/score", kwargs['score'], episode)
+        self.writer.add_scalar("score/avg_score", kwargs['mean_score'], episode)
         if hasattr(self.agent, 'log_writer'):
             self.agent.log_writer(episode)
         elif 'critic_loss' in self.agent.__dict__:

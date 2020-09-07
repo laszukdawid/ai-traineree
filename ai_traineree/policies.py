@@ -23,3 +23,21 @@ class StochasticActorCritic(nn.Module):
         # dist = Normal(action_mu, F.softmax(self.std))
         dist = Normal(action_mu, F.relu(self.std))
         return dist, value
+
+
+class GaussianPolicy(nn.Module):
+    def __init__(self, size):
+        super(GaussianPolicy, self).__init__()
+        self.std = nn.Parameter(torch.rand(size)*1)
+
+    def forward(self, x):
+        """Returns distribution"""
+        return Normal(x, F.relu(self.std))
+
+
+class DeterministicPolicy(nn.Module):
+    def __init__(self, size):
+        super(DeterministicPolicy, self).__init__()
+
+    def formward(self, x):
+        return x

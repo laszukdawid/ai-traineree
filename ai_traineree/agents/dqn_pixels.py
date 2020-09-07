@@ -116,8 +116,8 @@ class DQNPixelAgent(AgentType):
         return self.qnet.state_dict()
 
     def log_writer(self, episode):
-        self.writer.add_scalar("Actor loss", self.actor_loss, episode)
-        self.writer.add_scalar("Critic loss", self.critic_loss, episode)
+        self.writer.add_scalar("loss/actor", self.actor_loss, episode)
+        self.writer.add_scalar("loss/critic", self.critic_loss, episode)
 
     def save_state(self, path: str):
         agent_state = dict(net_local=self.qnet.state_dict(), net_target=self.target_qnet.state_dict())
