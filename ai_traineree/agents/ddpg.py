@@ -12,7 +12,6 @@ from torch.nn.functional import mse_loss
 from typing import Any, Sequence, Tuple
 
 
-
 class DDPGAgent(AgentType):
     """
     Deep Deterministic Policy Gradients (DDPG).

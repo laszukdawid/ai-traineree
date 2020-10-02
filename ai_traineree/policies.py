@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.distributions import Normal
+from torch.distributions import MultivariateNormal, Normal
 
 
 class StochasticActorCritic(nn.Module):
@@ -28,16 +28,20 @@ class StochasticActorCritic(nn.Module):
 class GaussianPolicy(nn.Module):
     def __init__(self, size):
         super(GaussianPolicy, self).__init__()
-        self.std = nn.Parameter(torch.rand(size)*1)
+        self.dist = Normal if size == 1 else MultivariateNormal
+        self.std = nn.Parameter(torch.rand(size)*0.5 + 0.5)
+        self.std_min = 0.001
+        self.std_max = 2
 
     def forward(self, x):
         """Returns distribution"""
-        return Normal(x, F.relu(self.std))
+        diag = torch.clamp(self.std, self.std_min, self.std_max)
+        return self.dist(x, torch.diag(diag))
 
 
 class DeterministicPolicy(nn.Module):
     def __init__(self, size):
         super(DeterministicPolicy, self).__init__()
 
-    def formward(self, x):
+    def forward(self, x):
         return x

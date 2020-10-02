@@ -91,8 +91,7 @@ class QNetwork2D(nn.Module):
 
 class ActorBody(nn.Module):
     def __init__(self, input_dim: int, output_dim: int, hidden_layers: Sequence[int]=(200, 100),
-                 gate=F.relu, gate_out=torch.tanh,
-                 last_layer_range=(-3e-3, 3e-3)):
+                 gate=F.elu, gate_out=torch.tanh, last_layer_range=(-3e-3, 3e-3)):
         super(ActorBody, self).__init__()
 
         num_layers = [input_dim] + list(hidden_layers) + [output_dim]
@@ -130,13 +129,11 @@ class CriticBody(nn.Module):
         self.layers = nn.ModuleList(layers)
         self.reset_parameters()
 
-        self.gate = F.relu
+        self.gate = F.elu
 
     def reset_parameters(self):
-        # for layer in self.layers[:-1]:
         for layer in self.layers:
             layer_init(layer, hidden_init(layer))
-        # layer_init(self.layers[-1], (-3e-5, 3e-5))
 
     def forward(self, x, actions):
         for idx, layer in enumerate(self.layers[:-1]):
@@ -145,3 +142,17 @@ class CriticBody(nn.Module):
             else:
                 x = self.gate(layer(x))
         return self.layers[-1](x)
+
+
+class DoubleCritic(nn.Module):
+    def __init__(self, input_dim: int, action_size: int, hidden_layers: Sequence[int]=(200, 100)):
+        super(DoubleCritic, self).__init__()
+        self.critic_1 = CriticBody(input_dim=input_dim, action_size=action_size, hidden_layers=hidden_layers)
+        self.critic_2 = CriticBody(input_dim=input_dim, action_size=action_size, hidden_layers=hidden_layers)
+    
+    def register_parameters(self):
+        self.critic_1.reset_parameters()
+        self.critic_2.reset_parameters()
+
+    def forward(self, state, actions):
+        return (self.critic_1(state, actions), self.critic_2(state, actions))
