@@ -30,7 +30,7 @@ class SACAgent(AgentType):
     def __init__(
         self, state_size: int, action_size: int, hidden_layers: Sequence[int]=(128, 128),
         actor_lr: float=2e-3, critic_lr: float=2e-3, clip: Tuple[int, int]=(-1, 1),
-        alpha_lr: float=1e-4, alpha: float=1.0, device=None, **kwargs
+        alpha: float=0.2, device=None, **kwargs
     ):
         self.device = device if device is not None else DEVICE
         self.action_size = action_size
@@ -48,7 +48,7 @@ class SACAgent(AgentType):
 
         # Optimization sequence initiation.
         self.target_entropy = -action_size
-        alpha_lr = kwargs.get("alpha_lr", alpha_lr)
+        self.alpha_lr = kwargs.get("alpha_lr")
         alpha_init = kwargs.get("alpha", alpha)
         self.log_alpha = torch.tensor(np.log(alpha_init), device=self.device, requires_grad=True)
 
@@ -56,7 +56,8 @@ class SACAgent(AgentType):
         self.critic_params = list(self.double_critic.parameters())
         self.actor_optimizer = optim.Adam(self.actor_params, lr=actor_lr)
         self.critic_optimizer = optim.Adam(list(self.critic_params), lr=critic_lr)
-        self.alpha_optimizer = optim.Adam([self.log_alpha], lr=alpha_lr)
+        if self.alpha_lr is not None:
+            self.alpha_optimizer = optim.Adam([self.log_alpha], lr=self.alpha_lr)
         self.action_min = clip[0]
         self.action_max = clip[1]
         self.action_scale = kwargs.get('action_scale', 1)
@@ -99,20 +100,20 @@ class SACAgent(AgentType):
         """
         return (self.actor.state_dict(), self.double_critic.state_dict(), self.target_double_critic.state_dict())
 
-    def act(self, state, epsilon: float=0.0):
+    def act(self, state, epsilon: float=0.0, deterministic=False):
         if np.random.random() < epsilon:
             return np.clip(self.action_scale*np.random.random(size=self.action_size), self.action_min, self.action_max)
 
         with torch.no_grad():
-            self.actor.eval()
             state = torch.tensor(state.reshape(1, -1).astype(np.float32)).to(self.device)
-            action_mu = self.actor(state.detach())
-            dist = self.policy(action_mu)
-            action = dist.sample()
+            action_mu = self.actor.act(state.detach())
+
+            if deterministic:
+                action = action_mu
+            else:
+                action = self.policy(action_mu).sample()
 
             action = action.cpu().numpy().flatten()
-            assert any(~np.isnan(action))
-            self.actor.train()
             return np.clip(action*self.action_scale, self.action_min, self.action_max)
 
     def step(self, state, action, reward, next_state, done):
@@ -128,15 +129,7 @@ class SACAgent(AgentType):
             for _ in range(self.number_updates):
                 self.learn(self.memory.sample())
 
-    def learn(self, samples):
-        """update the critics and actors of all the agents """
-
-        rewards = torch.tensor(samples['reward'], device=self.device).unsqueeze(1)
-        dones = torch.tensor(samples['done'], dtype=torch.int, device=self.device).unsqueeze(1)
-        states = torch.tensor(samples['state'], dtype=torch.float32, device=self.device)
-        next_states = torch.tensor(samples['next_state'], dtype=torch.float32, device=self.device)
-        actions = torch.tensor(samples['action'], dtype=torch.float32, device=self.device)
-
+    def _update_value_function(self, states, actions, rewards, next_states, dones):
         # critic loss
         action_mu = self.actor(next_states)
         dist = self.policy(action_mu)
@@ -144,10 +137,11 @@ class SACAgent(AgentType):
         # log_prob = dist.log_prob(next_actions).sum(-1, keepdim=True)
         log_prob = dist.log_prob(next_actions).unsqueeze(1)
 
-        Q_target_next, Q2_target_next = self.double_critic(next_states, next_actions)
-        V_target = torch.min(Q_target_next, Q2_target_next) - self.alpha.detach() * log_prob
-        Q_target = rewards + self.gamma * V_target * (1 - dones)
-        Q_target = Q_target.detach().type(torch.float32)
+        with torch.no_grad():
+            Q_target_next, Q2_target_next = self.double_critic.act(next_states, next_actions)
+            V_target = torch.min(Q_target_next, Q2_target_next) - self.alpha * log_prob
+            Q_target = rewards + self.gamma * V_target * (1 - dones)
+            Q_target = Q_target.type(torch.float32)
 
         Q_expected, Q2_expected = self.double_critic(states, actions)
         critic_loss = mse_loss(Q_expected, Q_target) + mse_loss(Q2_expected, Q_target)
@@ -159,14 +153,15 @@ class SACAgent(AgentType):
         self.critic_optimizer.step()
         self.critic_loss = critic_loss.item()
 
+    def _update_policy(self, states):
         # Compute actor loss
         actions_mu = self.actor(states)
         dist = self.policy(actions_mu)
-        pred_actions = dist.rsample().detach()
-        log_prob = dist.log_prob(pred_actions)
+        pred_actions = dist.rsample()
+        log_prob = dist.log_prob(pred_actions).unsqueeze(1)
 
         Q_actor = torch.min(*self.double_critic(states, pred_actions))
-        actor_loss = (self.alpha.detach() * log_prob - Q_actor).mean()
+        actor_loss = (self.alpha * log_prob - Q_actor).mean()
 
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
@@ -175,11 +170,24 @@ class SACAgent(AgentType):
         self.actor_loss = actor_loss.item()
 
         # Update alpha
-        # self.alpha_optimizer.zero_grad()
-        # alpha_loss = (self.alpha * (-log_prob - self.target_entropy).detach()).mean()
-        # alpha_loss.backward()
-        # clip_grad_norm_(self.log_alpha, self.max_grad_norm_alpha)
-        # self.alpha_optimizer.step()
+        if self.alpha_lr is not None:
+            self.alpha_optimizer.zero_grad()
+            alpha_loss = (self.alpha * (-log_prob - self.target_entropy).detach()).mean()
+            alpha_loss.backward()
+            clip_grad_norm_(self.log_alpha, self.max_grad_norm_alpha)
+            self.alpha_optimizer.step()
+
+    def learn(self, samples):
+        """update the critics and actors of all the agents """
+
+        rewards = torch.tensor(samples['reward'], device=self.device).unsqueeze(1)
+        dones = torch.tensor(samples['done'], dtype=torch.int, device=self.device).unsqueeze(1)
+        states = torch.tensor(samples['state'], dtype=torch.float32, device=self.device)
+        next_states = torch.tensor(samples['next_state'], dtype=torch.float32, device=self.device)
+        actions = torch.tensor(samples['action'], dtype=torch.float32, device=self.device)
+
+        self._update_value_function(states, actions, rewards, next_states, dones)
+        self._update_policy(states)
 
         soft_update(self.target_double_critic, self.double_critic, self.tau)
 

@@ -104,6 +104,13 @@ class ActorBody(nn.Module):
         self.gate = gate
         self.gate_out = gate_out
 
+    def act(self, state):
+        with torch.no_grad():
+            self.eval()
+            x = self.forward(state)
+            self.train()
+            return x
+
     def reset_parameters(self):
         for layer in self.layers[:-1]:
             layer_init(layer, hidden_init(layer))
@@ -135,6 +142,13 @@ class CriticBody(nn.Module):
         for layer in self.layers:
             layer_init(layer, hidden_init(layer))
 
+    def act(self, state, actions):
+        with torch.no_grad():
+            self.eval()
+            x = self.forward(state, actions)
+            self.train()
+            return x
+
     def forward(self, x, actions):
         for idx, layer in enumerate(self.layers[:-1]):
             if idx == 1:
@@ -149,10 +163,13 @@ class DoubleCritic(nn.Module):
         super(DoubleCritic, self).__init__()
         self.critic_1 = CriticBody(input_dim=input_dim, action_size=action_size, hidden_layers=hidden_layers)
         self.critic_2 = CriticBody(input_dim=input_dim, action_size=action_size, hidden_layers=hidden_layers)
-    
+
     def register_parameters(self):
         self.critic_1.reset_parameters()
         self.critic_2.reset_parameters()
+
+    def act(self, states, actions):
+        return (self.critic_1.act(states, actions), self.critic_2.act(states, actions))
 
     def forward(self, state, actions):
         return (self.critic_1(state, actions), self.critic_2(state, actions))

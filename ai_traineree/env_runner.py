@@ -28,10 +28,10 @@ def timing(f):
 def save_gif(path, images: List[Tuple]) -> None:
     print(f"Saving as a gif to {path}")
     from PIL import Image
-    imgs = [Image.fromarray(img) for img in images]
+    imgs = [Image.fromarray(img[::2, ::2]) for img in images]  # Reduce /4 size; pick w/2 h/2 pix
 
     Path(os.path.dirname(path)).mkdir(parents=True, exist_ok=True)
-    imgs[0].save(path, save_all=True, append_images=imgs[1:])
+    imgs[0].save(path, save_all=True, append_images=imgs[1:], optimize=True, quality=85)
 
 
 class EnvRunner:
