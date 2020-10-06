@@ -118,9 +118,9 @@ class DQNAgent(AgentType):
 
     def save_state(self, path: str):
         agent_state = dict(net_local=self.qnet.state_dict(), net_target=self.target_qnet.state_dict())
-        torch.save(agent_state, f'{path}_agent.net')
+        torch.save(agent_state, path)
 
     def load_state(self, path: str):
-        agent_state = torch.load(f'{path}_agent.net')
+        agent_state = torch.load(path)
         self.qnet.load_state_dict(agent_state['qnet'])
         self.target_qnet.load_state_dict(agent_state['target_qnet'])

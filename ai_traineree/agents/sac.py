@@ -205,10 +205,10 @@ class SACAgent(AgentType):
             double_critic=self.double_critic.state_dict(),
             target_double_critic=self.target_double_critic.state_dict(),
         )
-        torch.save(agent_state, f'{path}_agent.net')
+        torch.save(agent_state, path)
 
     def load_state(self, path: str):
-        agent_state = torch.load(f'{path}_agent.net')
+        agent_state = torch.load(path)
         self.actor.load_state_dict(agent_state['actor'])
         self.double_critic.load_state_dict(agent_state['double_critic'])
         self.target_double_critic.load_state_dict(agent_state['target_double_critic'])

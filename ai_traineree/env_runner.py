@@ -1,3 +1,4 @@
+import json
 import logging
 import numpy as np
 import time
@@ -25,7 +26,7 @@ def timing(f):
     return wrap
 
 
-def save_gif(path, images: List[Tuple]) -> None:
+def save_gif(path, images: List[np.ndarray]) -> None:
     print(f"Saving as a gif to {path}")
     from PIL import Image
     imgs = [Image.fromarray(img[::2, ::2]) for img in images]  # Reduce /4 size; pick w/2 h/2 pix
@@ -57,7 +58,9 @@ class EnvRunner:
         self.agent = agent
         self.max_iterations = max_iterations
         self.model_path = f"{task.name}_{agent.name}"
+        self.state_dir = 'run_states'
 
+        self.episode = 0
         self.all_scores = []
         self.all_iterations = []
         self.window_len = kwargs.get('window_len', 50)
@@ -71,8 +74,10 @@ class EnvRunner:
 
     def reset(self):
         """Resets the EnvRunner. The task env and the agent are preserved."""
+        self.episode = 0
         self.all_scores = []
         self.all_iterations = []
+        self.scores_window = deque(maxlen=self.window_len)
 
     def interact_episode(self, eps: float=0, max_iterations=None, render=False, render_gif=False) -> Tuple[RewardType, int]:
         score = 0
@@ -110,6 +115,7 @@ class EnvRunner:
         reward_goal: float=100.0, max_episodes: int=2000,
         eps_start=1.0, eps_end=0.01, eps_decay=0.995,
         log_every=10, gif_every_episodes: Optional[int]=None,
+        checkpoint_every=200, force_new=False,
     ):
         """
         Evaluates the agent in the environment.
@@ -118,39 +124,49 @@ class EnvRunner:
 
         To help debugging one can set the `gif_every_episodes` to a positive integer which relates to how often a gif
         of the episode evaluation is written to the disk.
+
+        Every `checkpoint_every` (default: 200) iterations the Runner will store current state of the runner and the agent.
+        These states can be used to resume previous run. By default the runner checks whether there is ongoing run for
+        the combination of the environment and the agent.
         """
+        self.epsilon = eps_start
         self.reset()
-        scores_window = deque(maxlen=self.window_len)
-        eps = eps_start
+        if not force_new:
+            self.load_state(self.model_path)
 
-        for episode in range(1, max_episodes+1):
-            render_gif = gif_every_episodes is not None and (episode % gif_every_episodes) == 0
-            score, iterations = self.interact_episode(eps, render_gif=render_gif)
+        while (self.episode < max_episodes):
+            self.episode += 1
+            render_gif = gif_every_episodes is not None and (self.episode % gif_every_episodes) == 0
+            score, iterations = self.interact_episode(self.epsilon, render_gif=render_gif)
 
-            scores_window.append(score)
+            self.scores_window.append(score)
             self.all_iterations.append(iterations)
             self.all_scores.append(score)
 
-            mean_score: float = sum(scores_window) / len(scores_window)
+            mean_score: float = sum(self.scores_window) / len(self.scores_window)
 
-            eps = max(eps_end, eps_decay * eps)
+            self.epsilon = max(eps_end, eps_decay * self.epsilon)
 
-            if episode % log_every == 0:
+            if self.episode % log_every == 0:
                 if 'critic_loss' in self.agent.__dict__:
                     loss = {'actor_loss': self.agent.actor_loss, 'critic_loss': self.agent.critic_loss}
                 else:
                     loss = {'loss': self.agent.loss}
-                self.info(episode=episode, iterations=iterations, score=score, mean_score=mean_score, epsilon=eps, **loss)
+                self.info(episode=self.episode, iterations=iterations, score=score, mean_score=mean_score, epsilon=self.epsilon, **loss)
 
             if render_gif and len(self.__images):
-                gif_path = "gifs/{}_e{}.gif".format(self.model_path, str(episode).zfill(len(str(max_episodes))))
+                gif_path = "gifs/{}_e{}.gif".format(self.model_path, str(self.episode).zfill(len(str(max_episodes))))
                 save_gif(gif_path, self.__images)
                 self.__images = []
 
             if mean_score >= reward_goal:
-                print(f'Environment solved after {episode} episodes!\tAverage Score: {mean_score:.2f}')
-                self.agent.save_state(self.model_path)
+                print(f'Environment solved after {self.episode} episodes!\tAverage Score: {mean_score:.2f}')
+                self.save_state(self.model_path)
+                self.agent.save_state(f'{self.model_path}_agent.net')
                 break
+
+            if self.episode % checkpoint_every == 0:
+                self.save_state(self.model_path)
 
         return self.all_scores
 
@@ -178,14 +194,64 @@ class EnvRunner:
         self.logger.info(line.format(**kwargs))
 
     def log_writer(self, **kwargs):
-        episode = kwargs['episode']
-        self.writer.add_scalar("score/score", kwargs['score'], episode)
-        self.writer.add_scalar("score/avg_score", kwargs['mean_score'], episode)
+        self.writer.add_scalar("score/score", kwargs['score'], self.episode)
+        self.writer.add_scalar("score/avg_score", kwargs['mean_score'], self.episode)
         if hasattr(self.agent, 'log_writer'):
-            self.agent.log_writer(episode)
+            self.agent.log_writer(self.episode)
         elif 'critic_loss' in self.agent.__dict__:
-            self.writer.add_scalar("Actor loss", kwargs['actor_loss'], episode)
-            self.writer.add_scalar("Critic loss", kwargs['critic_loss'], episode)
+            self.writer.add_scalar("Actor loss", kwargs['actor_loss'], self.episode)
+            self.writer.add_scalar("Critic loss", kwargs['critic_loss'], self.episode)
         else:
-            self.writer.add_scalar("loss", kwargs['loss'], episode)
-        self.writer.add_scalar("epsilon", kwargs['epsilon'], episode)
+            self.writer.add_scalar("loss", kwargs['loss'], self.episode)
+        self.writer.add_scalar("epsilon", kwargs['epsilon'], self.episode)
+
+    def save_state(self, state_name: str):
+        """Saves the current state of the runner and the agent.
+        
+        Files are stored with appended episode number.
+        Agents are saved with their internal saving mechanism.
+        """
+        state = {
+            'tot_iterations': sum(self.all_iterations),
+            'episode': self.episode,
+            'epsilon': self.epsilon,
+            'score': self.all_scores[-1],
+            'average_score': sum(self.scores_window) / len(self.scores_window),
+            'actor_loss': self.agent.actor_loss,
+            'critic_loss': self.agent.critic_loss,
+        }
+
+        Path(self.state_dir).mkdir(parents=True, exist_ok=True)
+        self.agent.save_state(f'{self.state_dir}/{state_name}_e{self.episode}.agent')
+        with open(f'{self.state_dir}/{state_name}_e{self.episode}.json', 'w') as f:
+            json.dump(state, f)
+
+    def load_state(self, state_prefix: str):
+        """
+        Loads state with the highest episode value for given agent and environment.
+        """
+        try:
+            state_files = list(filter(lambda f: f.startswith(state_prefix) and f.endswith('json'), os.listdir(self.state_dir)))
+            e = max([int(f[f.index('_e')+2:f.index('.')]) for f in state_files])
+        except Exception:
+            self.logger.warning("Couldn't load state. Forcing restart.")
+            return
+
+        state_name = [n for n in state_files if n.endswith(f"_e{e}.json")][0][:-5]
+        self.logger.info("Loading saved state under: %s/%s.json", self.state_dir, state_name)
+        with open(f'{self.state_dir}/{state_name}.json', 'r') as f:
+            state = json.load(f)
+        self.episode = state.get('episode')
+        self.epsilon = state.get('epsilon')
+
+        self.all_scores.append(state.get('score'))
+        self.all_iterations = []
+
+        avg_score = state.get('average_score')
+        for _ in range(min(self.window_len, self.episode)):
+            self.scores_window.append(avg_score)
+
+        self.logger.info("Loading saved agent state: %s/%s.agent", self.state_dir, state_name)
+        self.agent.load_state(f'{self.state_dir}/{state_name}.agent')
+        self.agent.actor_loss = state.get('actor_loss')
+        self.agent.critic_loss = state.get('critic_loss')

@@ -1,19 +1,27 @@
 import numpy as np
 import pylab as plt
 
-from ai_traineree.agents.ddpg import DDPGAgent
+from ai_traineree.agents.td3 import TD3Agent as Agent
 from ai_traineree.env_runner import EnvRunner
 from ai_traineree.tasks import GymTask
 
 
 env_name = 'Pendulum-v0'
 task = GymTask(env_name)
-config = {'batch_size': 32}
-agent = DDPGAgent(task.state_size, task.action_size, hidden_layers=(400, 300), noise_scale=1., clip=(-2, 2), config=config)
+config = {
+    'warm_up': 100,
+    'batch_size': 50,
+    'hidden_layers': (50, 50),
+    'noise_scale': 1.,
+    'clip': (-2, 2),
+    'actor_lr': 1e-4,
+    'critic_lr': 2e-4,
+}
+agent = Agent(task.state_size, task.action_size, **config)
 env_runner = EnvRunner(task, agent)
 
-env_runner.interact_episode(0, render=True)
-scores = env_runner.run(0, 2000, eps_start=1.0, eps_end=0.05, eps_decay=0.999)
+# env_runner.interact_episode(0, render=True)
+scores = env_runner.run(0, 2000, eps_start=1.0, eps_end=0.05, eps_decay=0.99, log_every=1)
 env_runner.interact_episode(0, render=True)
 
 # plot the scores

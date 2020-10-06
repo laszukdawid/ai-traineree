@@ -147,10 +147,10 @@ class DDPGAgent(AgentType):
             actor=self.actor.state_dict(), target_actor=self.target_actor.state_dict(),
             critic=self.critic.state_dict(), target_critic=self.target_critic.state_dict(),
         )
-        torch.save(agent_state, f'{path}_agent.net')
+        torch.save(agent_state, path)
 
     def load_state(self, path: str):
-        agent_state = torch.load(f'{path}_agent.net')
+        agent_state = torch.load(path)
         self.actor.load_state_dict(agent_state['actor'])
         self.critic.load_state_dict(agent_state['critic'])
         self.target_actor.load_state_dict(agent_state['target_actor'])
