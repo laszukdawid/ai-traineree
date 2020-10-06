@@ -90,8 +90,8 @@ class SACAgent(AgentType):
 
     def reset_agent(self) -> None:
         self.actor.reset_parameters()
-        self.double_critic.register_parameters()
-        self.target_double_critic.register_parameters()
+        self.double_critic.reset_parameters()
+        self.target_double_critic.reset_parameters()
 
     def describe_agent(self) -> Sequence[dict]:
         """

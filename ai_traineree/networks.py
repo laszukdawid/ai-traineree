@@ -164,7 +164,7 @@ class DoubleCritic(nn.Module):
         self.critic_1 = CriticBody(input_dim=input_dim, action_size=action_size, hidden_layers=hidden_layers)
         self.critic_2 = CriticBody(input_dim=input_dim, action_size=action_size, hidden_layers=hidden_layers)
 
-    def register_parameters(self):
+    def reset_parameters(self):
         self.critic_1.reset_parameters()
         self.critic_2.reset_parameters()
 
