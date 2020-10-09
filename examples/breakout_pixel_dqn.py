@@ -1,4 +1,5 @@
-from ai_traineree.agents.dqn_pixels import DQNPixelAgent
+from ai_traineree.networks import QNetwork2D
+from ai_traineree.agents.dqn import DQNAgent
 from ai_traineree.env_runner import EnvRunner
 from ai_traineree.tasks import GymTask
 from torch.utils.tensorboard import SummaryWriter
@@ -11,20 +12,30 @@ def state_transform(state):
     """
     Simple cropping of the top and bottom edge and converting to blackwhite scale.
     """
-    return state[30:-10].sum(-1) > 0
+    return (state[40:-10].sum(-1) > 0)[None, ...]
 
 
-writer = SummaryWriter()
+def agent_state_tranform(state):
+    return state
+
 
 env_name = 'Breakout-v0'
 task = GymTask(env_name, state_transform=state_transform)
 state_size = np.array(task.reset()).shape
+writer = SummaryWriter()
 
-config = {"update_freq": 12, "batch_size": 40, "warm_up": 1000}
-agent = DQNPixelAgent(state_size, task.action_size, hidden_layers=(200, 200))
-env_runner = EnvRunner(task, agent, max_iterations=20000, writer=writer)
+config = {
+    "update_freq": 10,
+    "batch_size": 100,
+    "warm_up": 100,
+    "lr": 1e-4,
+    "network_fn": lambda: QNetwork2D(state_size, task.action_size, hidden_layers=(200, 200)),
+    "state_transform": agent_state_tranform,
+}
+agent = DQNAgent(state_size, task.action_size, **config)
+env_runner = EnvRunner(task, agent, max_iterations=2000, writer=writer)
 
-scores = env_runner.run(reward_goal=500, max_episodes=500, log_every=1, eps_start=0.8, gif_every_episodes=50)
+scores = env_runner.run(reward_goal=500, max_episodes=1000, log_every=1, eps_start=0.99, gif_every_episodes=100)
 env_runner.interact_episode(render=True)
 
 # plot the scores

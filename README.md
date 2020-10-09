@@ -45,7 +45,6 @@ On Ubuntu you might also need to install `swig` (`sudo apt install -y swig`).
 | Short | Progress | Link | Full name |
 |------|------|-------------|-----|
 | DQN  | [Implemented](ai_traineree/agents/dqn.py) | [DeepMind](https://deepmind.com/research/publications/human-level-control-through-deep-reinforcement-learning), [Nature](https://www.nature.com/articles/nature14236)| Deep Q-learning Network  |
-| DQN (Pixels) | [Implemented](ai_traineree/agents/dqn_pixels.py) | | DQN on 2D/3D input  |
 | DDPG | [Implemented](ai_traineree/agents/ddpg.py) | [arXiv](https://arxiv.org/abs/1509.02971) | Deep Deterministic Policy Gradient |
 | TD3 | [Implemented](ai_traineree/agents/td3.py) | [arXiv](https://arxiv.org/abs/1802.09477) | Twine Delayed Deep Deterministic policy gradient |
 | PPO | [Implemented](ai_traineree/agents/ppo.py) | [arXiv](https://arxiv.org/abs/1707.06347) | Proximal Policy Optimization |

@@ -16,6 +16,7 @@ class TaskType(abc.ABC):
     name: str
     action_size: int
     state_size: int
+    is_discrete: bool
 
     def step(self, action: ActionType) -> TaskStepType:
         raise NotImplementedError

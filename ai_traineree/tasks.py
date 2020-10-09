@@ -1,11 +1,12 @@
 import gym
 from ai_traineree.types import StateType, TaskType
 
-from typing import Tuple
+from typing import Callable, Optional, Tuple
 
 
 class GymTask(TaskType):
-    def __init__(self, env_name: str, state_transform=None, can_render=True):
+    def __init__(self, env_name: str, state_transform: Optional[Callable]=None, reward_transform: Optional[Callable]=None, can_render=True):
+    
         self.name = env_name
         self.env = gym.make(env_name)
         self.can_render = can_render
@@ -14,6 +15,7 @@ class GymTask(TaskType):
         self.state_size = self.env.observation_space.shape[0]
         self.action_size = self.__determine_action_size(self.env.action_space)
         self.state_transform = state_transform
+        self.reward_transform = reward_transform
 
     @staticmethod
     def __determine_action_size(action_space):
@@ -43,4 +45,6 @@ class GymTask(TaskType):
         state, reward, done, info = self.env.step(actions)
         if self.state_transform is not None:
             state = self.state_transform(state)
+        if self.reward_transform is not None:
+            reward = self.reward_transform(reward)
         return (state, reward, done, info)

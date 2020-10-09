@@ -4,7 +4,16 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from functools import reduce
-from typing import Optional, Sequence, Tuple
+from typing import Optional, Sequence, Tuple, Union
+
+
+class NetworkType(nn.Module):
+    def act(self, *args):
+        with torch.no_grad():
+            self.eval()
+            x = self.forward(*args)
+            self.train()
+            return x
 
 
 def hidden_init(layer: nn.Module):
@@ -22,11 +31,12 @@ def layer_init(layer: nn.Module, range_value: Optional[Tuple[float, float]]=None
     nn.init.xavier_uniform_(layer.weight)
 
 
-class QNetwork(nn.Module):
-    def __init__(self, state_size, action_size, hidden_layers: Sequence[int]):
+class QNetwork(NetworkType):
+    def __init__(self, state_size: Union[Sequence[int], int], action_size: int, hidden_layers: Sequence[int]):
         super(QNetwork, self).__init__()
 
-        layers_conn = [state_size] + list(hidden_layers) + [action_size]
+        state_size_list = list(state_size) if not isinstance(state_size, int) else [state_size]
+        layers_conn = state_size_list + list(hidden_layers) + [action_size]
         layers = [nn.Linear(layers_conn[idx], layers_conn[idx + 1]) for idx in range(len(layers_conn) - 1)]
         self.layers = nn.ModuleList(layers)
         self.reset_parameters()
@@ -44,10 +54,11 @@ class QNetwork(nn.Module):
         return x
 
 
-class QNetwork2D(nn.Module):
+class QNetwork2D(NetworkType):
     def __init__(self, state_dim: Sequence[int], action_size, hidden_layers: Sequence[int]):
         super(QNetwork2D, self).__init__()
 
+        # state_dim = (num_layers, x_img, y_img)
         self.conv_layers = nn.Sequential(
             nn.Conv2d(1, 16, 3, stride=1),
             nn.MaxPool2d(2, 2),
@@ -67,8 +78,9 @@ class QNetwork2D(nn.Module):
         self.gate = F.relu
         self.gate_out = F.softmax
 
-    def _calculate_output_size(self, input_dim: Sequence[int], conv_layers):
-        test_tensor = torch.zeros((1, 1,) + tuple(input_dim))
+    @staticmethod
+    def _calculate_output_size(input_dim: Sequence[int], conv_layers):
+        test_tensor = torch.zeros((1,) + tuple(input_dim))
         with torch.no_grad():
             out = conv_layers(test_tensor)
         return out.shape
@@ -89,7 +101,7 @@ class QNetwork2D(nn.Module):
         return self.gate_out(x, dim=-1)
 
 
-class ActorBody(nn.Module):
+class ActorBody(NetworkType):
     def __init__(self, input_dim: int, output_dim: int, hidden_layers: Sequence[int]=(200, 100),
                  gate=F.elu, gate_out=torch.tanh, last_layer_range=(-3e-3, 3e-3)):
         super(ActorBody, self).__init__()
@@ -104,13 +116,6 @@ class ActorBody(nn.Module):
         self.gate = gate
         self.gate_out = gate_out
 
-    def act(self, state):
-        with torch.no_grad():
-            self.eval()
-            x = self.forward(state)
-            self.train()
-            return x
-
     def reset_parameters(self):
         for layer in self.layers[:-1]:
             layer_init(layer, hidden_init(layer))
@@ -124,7 +129,7 @@ class ActorBody(nn.Module):
         return self.gate_out(self.layers[-1](x))
 
 
-class CriticBody(nn.Module):
+class CriticBody(NetworkType):
     def __init__(self, input_dim: int, action_size: int, hidden_layers: Sequence[int]=(200, 100)):
         super(CriticBody, self).__init__()
 
@@ -158,7 +163,7 @@ class CriticBody(nn.Module):
         return self.layers[-1](x)
 
 
-class DoubleCritic(nn.Module):
+class DoubleCritic(NetworkType):
     def __init__(self, input_dim: int, action_size: int, hidden_layers: Sequence[int]=(200, 100)):
         super(DoubleCritic, self).__init__()
         self.critic_1 = CriticBody(input_dim=input_dim, action_size=action_size, hidden_layers=hidden_layers)

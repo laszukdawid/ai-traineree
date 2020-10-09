@@ -96,7 +96,8 @@ class EnvRunner:
                 self.task.render()
                 time.sleep(1./FRAMES_PER_SEC)
             action = self.agent.act(state, eps)
-            action = np.array(action, dtype=np.float32)
+            if not self.task.is_discrete:
+                action = np.array(action, dtype=np.float32)
             next_state, reward, done, _ = self.task.step(action)
             score += reward
             if render_gif:
@@ -197,7 +198,7 @@ class EnvRunner:
         self.writer.add_scalar("score/score", kwargs['score'], self.episode)
         self.writer.add_scalar("score/avg_score", kwargs['mean_score'], self.episode)
         if hasattr(self.agent, 'log_writer'):
-            self.agent.log_writer(self.episode)
+            self.agent.log_writer(self.writer, self.episode)
         elif 'critic_loss' in self.agent.__dict__:
             self.writer.add_scalar("Actor loss", kwargs['actor_loss'], self.episode)
             self.writer.add_scalar("Critic loss", kwargs['critic_loss'], self.episode)
@@ -207,7 +208,7 @@ class EnvRunner:
 
     def save_state(self, state_name: str):
         """Saves the current state of the runner and the agent.
-        
+
         Files are stored with appended episode number.
         Agents are saved with their internal saving mechanism.
         """

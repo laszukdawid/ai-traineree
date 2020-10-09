@@ -20,9 +20,6 @@ class SageMakerExecutor:
         if agent_name.upper() == "DQN":
             from ai_traineree.agents.dqn import DQNAgent
             agent = DQNAgent
-        elif agent_name.upper() == "DQNPIXELS":
-            from ai_traineree.agents.dqn_pixels import DQNPixelAgent
-            agent = DQNPixelAgent
         elif agent_name.upper() == "PPO":
             from ai_traineree.agents.ppo import PPOAgent
             agent = PPOAgent
