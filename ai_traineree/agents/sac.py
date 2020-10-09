@@ -82,8 +82,6 @@ class SACAgent(AgentType):
         self.actor_loss = np.nan
         self.critic_loss = np.nan
 
-        self.writer = kwargs.get("writer")
-
     @property
     def alpha(self):
         return self.log_alpha.exp()
@@ -191,13 +189,13 @@ class SACAgent(AgentType):
 
         soft_update(self.target_double_critic, self.double_critic, self.tau)
 
-    def log_writer(self, episode):
-        self.writer.add_scalar("loss/actor", self.actor_loss, episode)
-        self.writer.add_scalar("loss/critic", self.critic_loss, episode)
-        self.writer.add_scalar("loss/alpha", self.alpha, episode)
+    def log_writer(self, writer, episode):
+        writer.add_scalar("loss/actor", self.actor_loss, episode)
+        writer.add_scalar("loss/critic", self.critic_loss, episode)
+        writer.add_scalar("loss/alpha", self.alpha, episode)
 
         for idx, std in enumerate(self.policy.std):
-            self.writer.add_scalar(f"policy/std_{idx}", std, episode)
+            writer.add_scalar(f"policy/std_{idx}", std, episode)
 
     def save_state(self, path: str):
         agent_state = dict(

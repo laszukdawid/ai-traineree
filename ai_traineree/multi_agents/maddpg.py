@@ -56,8 +56,6 @@ class MADDPGAgent(AgentType):
 
         self.reset()
 
-        self.writer = kwargs.get("writer")
-
     def reset(self):
         self.iteration = 0
         self.reset_agents()
@@ -148,6 +146,6 @@ class MADDPGAgent(AgentType):
             soft_update(ddpg_agent.target_actor, ddpg_agent.actor, self.tau)
         soft_update(self.target_critic, self.critic, self.tau)
 
-    def log_writer(self, episode):
-        self.writer.add_scalar("loss/actor", self.actor_loss, episode)
-        self.writer.add_scalar("loss/critic", self.critic_loss, episode)
+    def log_writer(self, writer, episode):
+        writer.add_scalar("loss/actor", self.actor_loss, episode)
+        writer.add_scalar("loss/critic", self.critic_loss, episode)

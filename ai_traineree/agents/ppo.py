@@ -29,7 +29,7 @@ class PPOAgent(AgentType):
         self.gamma: float = float(config.get("gamma", 0.99))
         self.ppo_ratio_clip: float = float(config.get("ppo_ratio_clip", 0.2))
 
-        self.rollout_length: int = int(config.get("rollout_length", 2048))  # "Much less than the episode length"
+        self.rollout_length: int = int(config.get("rollout_length", 48))  # "Much less than the episode length"
         self.batch_size: int = int(config.get("batch_size", self.rollout_length // 2))
         self.number_updates: int = int(config.get("number_updates", 5))
         self.entropy_weight: float = float(config.get("entropy_weight", 0.0005))
@@ -53,8 +53,6 @@ class PPOAgent(AgentType):
         self.critic_params = self.critic.parameters()
         self.actor_opt = torch.optim.SGD(self.actor_params, lr=self.actor_lr)
         self.critic_opt = torch.optim.SGD(self.critic_params, lr=self.critic_lr)
-
-        self.writer = kwargs.get("writer")
 
     def __clear_memory(self):
         self.memory = ReplayBuffer(batch_size=self.batch_size, buffer_size=self.rollout_length)
@@ -153,9 +151,9 @@ class PPOAgent(AgentType):
         self.critic_opt.step()
         self.critic_loss = value_loss.mean().item()
 
-    def log_writer(self, episode):
-        self.writer.add_scalar("loss/actor", self.actor_loss, episode)
-        self.writer.add_scalar("loss/critic", self.critic_loss, episode)
+    def log_writer(self, writer, episode):
+        writer.add_scalar("loss/actor", self.actor_loss, episode)
+        writer.add_scalar("loss/critic", self.critic_loss, episode)
 
     def save_state(self, path: str):
         agent_state = dict(policy=self.policy.state_dict())

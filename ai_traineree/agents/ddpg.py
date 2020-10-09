@@ -64,7 +64,6 @@ class DDPGAgent(AgentType):
         # Breath, my child.
         self.reset_agent()
         self.iteration = 0
-        self.writer = kwargs.get("writer")
 
     def reset_agent(self) -> None:
         self.actor.reset_parameters()
@@ -138,9 +137,9 @@ class DDPGAgent(AgentType):
         """
         return (self.actor.state_dict(), self.target_actor.state_dict(), self.critic.state_dict(), self.target_critic())
 
-    def log_writer(self, episode):
-        self.writer.add_scalar("loss/actor", self.actor_loss, episode)
-        self.writer.add_scalar("loss/critic", self.critic_loss, episode)
+    def log_writer(self, writer, episode):
+        writer.add_scalar("loss/actor", self.actor_loss, episode)
+        writer.add_scalar("loss/critic", self.critic_loss, episode)
 
     def save_state(self, path: str):
         agent_state = dict(
