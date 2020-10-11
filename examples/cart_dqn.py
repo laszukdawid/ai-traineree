@@ -10,12 +10,15 @@ writer = SummaryWriter()
 
 env_name = 'CartPole-v1'
 task = GymTask(env_name)
-
-agent = DQNAgent(task.state_size, task.action_size)
+agent = DQNAgent(task.state_size, task.action_size, n_steps=5)
 env_runner = EnvRunner(task, agent, writer=writer)
 
-scores = env_runner.run(reward_goal=100, max_episodes=100, eps_end=0.002, eps_decay=0.999, log_every=5, gif_every_episodes=10)
-env_runner.interact_episode(100, render=True)
+scores = env_runner.run(
+    reward_goal=100, max_episodes=5000, eps_end=0.002, eps_decay=0.99,
+    gif_every_episodes=500,
+    force_new=True,
+)
+env_runner.interact_episode(1000, render=True)
 
 # plot the scores
 fig = plt.figure()

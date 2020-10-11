@@ -34,6 +34,9 @@ class Experience(object):
         self.index = kwargs.get('index')
         self.weight = kwargs.get('weight')
 
+    def get_dict(self) -> Dict[str, Any]:
+        return dict(state=self.state, action=self.action, reward=self.reward, next_state=self.next_state, done=self.done)
+
 
 class BufferBase(object):
 
@@ -56,6 +59,37 @@ class BufferBase(object):
         return torch.from_numpy(np.vstack(x).astype(np.uint8)).float()
 
 
+class NStepBuffer(BufferBase):
+    def __init__(self, n_steps: int, gamma: float):
+        super().__init__()
+        self.gamma = gamma
+        self.n_steps = n_steps
+        self.n_gammas = [gamma**i for i in range(1, n_steps+1)]
+
+        self.buffer = []
+        self.reward_buffer = []
+        self.done_buffer = []
+
+    def __len__(self):
+        return len(self.buffer)
+
+    @property
+    def available(self):
+        return len(self.buffer) >= self.n_steps
+
+    def add(self, **kwargs):
+        self.buffer.append(Experience(**kwargs))
+
+    def get(self) -> Experience:
+        current_exp = self.buffer.pop(0)
+
+        for (idx, exp) in enumerate(self.buffer):
+            if exp.done[0]:
+                break
+            current_exp.reward[0] += self.n_gammas[idx]*exp.reward[0]
+        return current_exp
+
+
 class ReplayBuffer(BufferBase):
 
     def __init__(self, batch_size: int, buffer_size=int(1e6), device=None):
@@ -65,7 +99,7 @@ class ReplayBuffer(BufferBase):
         self.device = device
         self.indices = range(batch_size)
 
-        self.exp: deque[Experience] = deque(maxlen=buffer_size)
+        self.exp: deque = deque(maxlen=buffer_size)
 
         self.advantages = deque(maxlen=buffer_size)
         self.states = deque(maxlen=buffer_size)
@@ -172,7 +206,7 @@ class PERBuffer(BufferBase):
 
         return experiences
 
-    def sample(self, beta: float=1) -> Optional[Dict[str, List]]:
+    def sample(self, beta: float=0.5) -> Optional[Dict[str, List]]:
         all_experiences = defaultdict(lambda: [])
         sampled_exp = self.sample_list(beta=beta)
         if sampled_exp is None:

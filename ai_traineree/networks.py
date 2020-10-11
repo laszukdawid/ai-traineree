@@ -101,6 +101,34 @@ class QNetwork2D(NetworkType):
         return self.gate_out(x, dim=-1)
 
 
+class FcNet(NetworkType):
+    def __init__(self, input_dim: int, output_dim: int, hidden_layers: Sequence[int]=(200, 100),
+                 gate=F.elu, gate_out=torch.tanh, last_layer_range=(-3e-3, 3e-3)):
+        super(FcNet, self).__init__()
+
+        num_layers = [input_dim] + list(hidden_layers) + [output_dim]
+        layers = [nn.Linear(dim_in, dim_out) for dim_in, dim_out in zip(num_layers[:-1], num_layers[1:])]
+
+        self.last_layer_range = last_layer_range
+        self.layers = nn.ModuleList(layers)
+        self.reset_parameters()
+
+        self.gate = gate
+        self.gate_out = gate_out
+
+    def reset_parameters(self):
+        for layer in self.layers[:-1]:
+            layer_init(layer, hidden_init(layer))
+        layer_init(self.layers[-1], self.last_layer_range)
+
+    def forward(self, x):
+        for layer in self.layers[:-1]:
+            x = self.gate(layer(x))
+        if self.gate_out is None:
+            return self.layers[-1](x)
+        return self.gate_out(self.layers[-1](x))
+
+
 class ActorBody(NetworkType):
     def __init__(self, input_dim: int, output_dim: int, hidden_layers: Sequence[int]=(200, 100),
                  gate=F.elu, gate_out=torch.tanh, last_layer_range=(-3e-3, 3e-3)):
@@ -178,3 +206,25 @@ class DoubleCritic(NetworkType):
 
     def forward(self, state, actions):
         return (self.critic_1(state, actions), self.critic_2(state, actions))
+
+
+class DuelingNet(NetworkType):
+    def __init__(self, state_size: int, action_size: int, hidden_layers: Sequence[int], precompute_net: Optional[NetworkType]=None):
+        super(DuelingNet, self).__init__()
+        self.precompute_net = precompute_net
+        self.value_net = FcNet(state_size, 1, hidden_layers=hidden_layers, gate_out=None)
+        self.advantage_net = FcNet(state_size, action_size, hidden_layers=hidden_layers, gate_out=None)
+
+    def reset_parameters(self) -> None:
+        if self.precompute_net and hasattr(self.precompute_net, "reset_parameters"):
+            self.precompute_net.reset_parameters()
+        self.value_net.reset_parameters()
+        self.advantage_net.reset_parameters()
+
+    def forward(self, x):
+        if self.precompute_net:
+            x = self.precompute_net(x)
+        value = self.value_net(x)
+        advantange = self.advantage_net(x)
+        q = value.expand_as(advantange) + (advantange - advantange.mean(1, keepdim=True).expand_as(advantange))
+        return q
