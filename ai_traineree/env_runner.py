@@ -63,7 +63,7 @@ class EnvRunner:
         self.episode = 0
         self.all_scores = []
         self.all_iterations = []
-        self.window_len = kwargs.get('window_len', 50)
+        self.window_len = kwargs.get('window_len', 100)
         self.__images = []
 
         self.writer = kwargs.get("writer")
@@ -160,7 +160,7 @@ class EnvRunner:
                 save_gif(gif_path, self.__images)
                 self.__images = []
 
-            if mean_score >= reward_goal:
+            if mean_score >= reward_goal and len(self.scores_window) == self.window_len:
                 print(f'Environment solved after {self.episode} episodes!\tAverage Score: {mean_score:.2f}')
                 self.save_state(self.model_path)
                 self.agent.save_state(f'{self.model_path}_agent.net')

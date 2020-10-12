@@ -1,3 +1,4 @@
+from math import sqrt
 import numpy as np
 import torch
 import torch.nn as nn
@@ -228,3 +229,110 @@ class DuelingNet(NetworkType):
         advantange = self.advantage_net(x)
         q = value.expand_as(advantange) + (advantange - advantange.mean(1, keepdim=True).expand_as(advantange))
         return q
+
+class NoisyLayer(nn.Module):
+    def __init__(self, in_size: int, out_size: int, sigma: float=0.4, factorised: bool=True):
+        """
+        A Linear layer with values being pertrubed by the noise while training.
+
+        :param sigma: float
+            Used to intiated noise distribution.
+        :param factorised: bool
+            Whether to use independent Gaussian (False) or Factorised Gaussian (True) noise.
+            Suggested [1] for DQN and Duelling nets to use factorised as it's quicker.
+
+        Based on:
+        [1] "Noisy Networks for Exploration" by Fortunato et al. (ICLR 2018), https://arxiv.org/abs/1706.10295.
+        """
+        super(NoisyLayer, self).__init__()
+
+        self.in_size = in_size
+        self.out_size = out_size
+        self.sigma_0 = sigma
+        self.factorised = factorised
+
+        self.weight_mu = nn.Parameter(torch.zeros((out_size, in_size)))
+        self.weight_sigma = nn.Parameter(torch.zeros((out_size, in_size)))
+
+        self.bias_mu = nn.Parameter(torch.zeros(out_size))
+        self.bias_sigma = nn.Parameter(torch.zeros(out_size))
+
+        self.register_buffer('weight_eps', torch.zeros((out_size, in_size)))
+        self.register_buffer('bias_eps', torch.zeros(out_size))
+
+        self.bias_noise = torch.zeros(out_size)
+        if factorised:
+            self.weight_noise = torch.zeros(in_size)
+        else:
+            self.weight_noise = torch.zeros(out_size, in_size)
+
+        self.reset_parameters()
+        self.reset_noise()
+
+    def forward(self, x):
+        weight = self.weight_mu
+        bias = self.bias_mu
+        if self.training:
+            weight = weight.add(self.weight_sigma.mul(self.weight_eps))
+            bias = bias.add(self.bias_sigma.mul(self.bias_eps))
+
+        return F.linear(x, weight, bias)
+
+    def reset_parameters(self):
+        if self.factorised:
+            bound = sqrt(1./self.in_size)
+            sigma = self.sigma_0 * bound
+        else:
+            bound = sqrt(3./self.in_size)
+            sigma = 0.017  # Yes, that's correct. [1]
+
+        self.weight_mu.data.uniform_(-bound, bound)
+        self.weight_sigma.data.fill_(sigma)
+
+        self.bias_mu.data.uniform_(-bound, bound)
+        self.bias_sigma.data.fill_(sigma)
+
+    def reset_noise(self):
+        self.bias_noise.normal_(std=self.sigma_0)
+        self.weight_noise.normal_(std=self.sigma_0)
+
+        if self.factorised:
+            self.weight_eps.copy_(self.noise_function(self.bias_noise).ger(self.noise_function(self.weight_noise)))
+            self.bias_eps.copy_(self.noise_function(self.bias_noise))
+        else:
+            self.weight_eps.copy_(self.weight_noise.data)
+            self.bias_eps.copy_(self.bias_noise.data)
+
+    @staticmethod
+    def noise_function(x):
+        return x.sign().mul_(x.abs().sqrt())
+
+
+class NoisyNet(NetworkType):
+    def __init__(self, in_size: int, out_size: int, hidden_layers=(100, 100), gate=None, gate_out=None, sigma=0.4, factorised=True):
+        """
+            :param factorised: bool
+                Whether to use independent Gaussian (False) or Factorised Gaussian (True) noise.
+                Suggested [1] for DQN and Duelling nets to use factorised as it's quicker.
+        """
+        super(NoisyNet, self).__init__()
+
+        num_layers = [in_size] + list(hidden_layers) + [out_size]
+        layers = [NoisyLayer(dim_in, dim_out, sigma=sigma, factorised=factorised) for dim_in, dim_out in zip(num_layers[:-1], num_layers[1:])]
+        self.layers = nn.ModuleList(layers)
+
+        self.gate = gate if gate is not None else lambda x: x
+        self.gate_out = gate_out if gate_out is not None else lambda x: x
+
+    def reset_noise(self):
+        for layer in self.layers:
+            layer.reset_noise()
+
+    def reset_parameters(self):
+        for layer in self.layers:
+            layer.reset_parameters()
+
+    def forward(self, x):
+        for layer in self.layers[:-1]:
+            x = self.gate(layer(x))
+        return self.gate_out(self.layers[-1](x))

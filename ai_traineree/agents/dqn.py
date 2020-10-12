@@ -47,12 +47,13 @@ class DQNAgent(AgentType):
 
         self.update_freq = int(kwargs.get('update_freq', 1))
         self.batch_size = int(kwargs.get('batch_size', 32))
+        self.buffer_size = kwargs.get('buffer_size', int(1e5))
         self.warm_up = int(kwargs.get('warm_up', 0))
         self.number_updates = int(kwargs.get('number_updates', 1))
         self.max_grad_norm = float(kwargs.get('max_grad_norm', 10))
 
         self.iteration: int = 0
-        self.buffer = PERBuffer(self.batch_size)
+        self.buffer = PERBuffer(batch_size=self.batch_size, buffer_size=self.buffer_size)
         self.using_double_q = bool(kwargs.get("using_double_q", False))
 
         self.n_steps = kwargs.get("n_steps", 1)
