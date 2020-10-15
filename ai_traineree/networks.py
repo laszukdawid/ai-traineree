@@ -104,7 +104,9 @@ class QNetwork2D(NetworkType):
 
 class FcNet(NetworkType):
     def __init__(self, input_dim: int, output_dim: int, hidden_layers: Sequence[int]=(200, 100),
-                 gate=F.elu, gate_out=torch.tanh, last_layer_range=(-3e-3, 3e-3)):
+                 gate=F.leaky_relu, gate_out=torch.tanh, last_layer_range=(-3e-3, 3e-3),
+                 device: Optional[torch.device]=None,
+                 ):
         super(FcNet, self).__init__()
 
         num_layers = [input_dim] + list(hidden_layers) + [output_dim]
@@ -210,25 +212,86 @@ class DoubleCritic(NetworkType):
 
 
 class DuelingNet(NetworkType):
-    def __init__(self, state_size: int, action_size: int, hidden_layers: Sequence[int], precompute_net: Optional[NetworkType]=None):
+    def __init__(self, state_size: int, action_size: int, hidden_layers: Sequence[int],
+                 net_fn: Optional[Callable[..., NetworkType]]=None, net_class: Optional[Type[TNetworkType]]=None,
+                 **kwargs
+                 ):
         super(DuelingNet, self).__init__()
-        self.precompute_net = precompute_net
-        self.value_net = FcNet(state_size, 1, hidden_layers=hidden_layers, gate_out=None)
-        self.advantage_net = FcNet(state_size, action_size, hidden_layers=hidden_layers, gate_out=None)
+        device = kwargs.get("device")
+        if net_fn is not None:
+            self.value_net = net_fn(state_size, 1, hidden_layers=hidden_layers)
+            self.advantage_net = net_fn(state_size, action_size, hidden_layers=hidden_layers)
+        elif net_class is not None:
+            self.value_net = net_class(state_size, 1, hidden_layers=hidden_layers, device=device)
+            self.advantage_net = net_class(state_size, action_size, hidden_layers=hidden_layers, device=device)
+        else:
+            self.value_net = FcNet(state_size, 1, hidden_layers=hidden_layers, gate_out=None, device=device)
+            self.advantage_net = FcNet(state_size, action_size, hidden_layers=hidden_layers, gate_out=None, device=device)
 
     def reset_parameters(self) -> None:
-        if self.precompute_net and hasattr(self.precompute_net, "reset_parameters"):
-            self.precompute_net.reset_parameters()
         self.value_net.reset_parameters()
         self.advantage_net.reset_parameters()
 
-    def forward(self, x):
-        if self.precompute_net:
-            x = self.precompute_net(x)
-        value = self.value_net(x)
-        advantange = self.advantage_net(x)
-        q = value.expand_as(advantange) + (advantange - advantange.mean(1, keepdim=True).expand_as(advantange))
+    def act(self, x):
+        value = self.value_net.act(x).float()
+        advantage = self.advantage_net.act(x).float()
+        q = value.expand_as(advantage) + (advantage - advantage.mean(1, keepdim=True).expand_as(advantage))
         return q
+
+    def forward(self, x):
+        value = self.value_net(x).float()
+        advantage = self.advantage_net(x).float()
+        q = value.expand_as(advantage) + (advantage - advantage.mean(1, keepdim=True).expand_as(advantage))
+        return q
+
+class RainbowNet(NetworkType, nn.Module):
+    def __init__(self, state_dim, action_dim, num_atoms, hidden_layers=(200, 200), noisy=False, device=None):
+        super(RainbowNet, self).__init__()
+        if noisy:
+            self.fc_value = NoisyNet(state_dim, num_atoms, hidden_layers=hidden_layers, gate=F.elu)
+            self.fc_advantage = NoisyNet(state_dim, action_dim*num_atoms, hidden_layers=hidden_layers, gate=F.elu)
+        else:
+            self.fc_value = FcNet(state_dim, num_atoms, hidden_layers=hidden_layers, gate_out=None)
+            self.fc_advantage = FcNet(state_dim, action_dim*num_atoms, hidden_layers=hidden_layers, gate_out=None)
+
+        self.noisy = noisy
+        self.action_dim = action_dim
+        self.num_atoms = num_atoms
+        self.to(device=device)
+
+    def reset_noise(self):
+        if self.noisy:
+            self.fc_value.reset_noise()
+            self.fc_advantage.reset_noise()
+
+    def act(self, x, log_prob=False):
+        """
+        :param log_prob: bool
+            Whether to return log(prob) which uses pytorch's function. According to doc it's quicker and more stable
+            than taking prob.log().
+        """
+        with torch.no_grad():
+            self.eval()
+            value = self.fc_value.act(x).view(-1, 1, self.num_atoms)
+            advantage = self.fc_advantage.act(x).view(-1, self.action_dim, self.num_atoms)
+            q = value + advantage - advantage.mean(1, keepdim=True)
+            out = F.softmax(q, dim=-1) if not log_prob else F.log_softmax(q, dim=-1)  # Doc: It's computationally quicker than log(softmax) and more stable
+            self.train()
+        return out
+
+    def forward(self, x, log_prob=False):
+        """
+        :param log_prob: bool
+            Whether to return log(prob) which uses pytorch's function. According to doc it's quicker and more stable
+            than taking prob.log().
+        """
+        value = self.fc_value(x).view((-1, 1, self.num_atoms))
+        advantage = self.fc_advantage(x).view(-1, self.action_dim, self.num_atoms)
+        q = value + advantage - advantage.mean(1, keepdim=True)
+        if log_prob:
+            return F.log_softmax(q, dim=-1)  # Doc: It's computationally quicker than log(softmax) and more stable
+        return F.softmax(q, dim=-1)
+
 
 class NoisyLayer(nn.Module):
     def __init__(self, in_size: int, out_size: int, sigma: float=0.4, factorised: bool=True):
@@ -309,7 +372,8 @@ class NoisyLayer(nn.Module):
 
 
 class NoisyNet(NetworkType):
-    def __init__(self, in_size: int, out_size: int, hidden_layers=(100, 100), gate=None, gate_out=None, sigma=0.4, factorised=True):
+    def __init__(self, in_size: int, out_size: int, hidden_layers=(100, 100), sigma=0.4,
+                 gate=None, gate_out=None, factorised=True, device: Optional[torch.device]=None):
         """
             :param factorised: bool
                 Whether to use independent Gaussian (False) or Factorised Gaussian (True) noise.
@@ -323,6 +387,7 @@ class NoisyNet(NetworkType):
 
         self.gate = gate if gate is not None else lambda x: x
         self.gate_out = gate_out if gate_out is not None else lambda x: x
+        self.to(device=device)
 
     def reset_noise(self):
         for layer in self.layers:

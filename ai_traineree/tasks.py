@@ -6,7 +6,7 @@ from typing import Callable, Optional, Tuple
 
 class GymTask(TaskType):
     def __init__(self, env_name: str, state_transform: Optional[Callable]=None, reward_transform: Optional[Callable]=None, can_render=True):
-    
+
         self.name = env_name
         self.env = gym.make(env_name)
         self.can_render = can_render

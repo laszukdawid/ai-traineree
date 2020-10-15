@@ -158,7 +158,7 @@ class PERBuffer(BufferBase):
     https://arxiv.org/pdf/1511.05952.pdf
     """
 
-    def __init__(self, batch_size, buffer_size: int=int(1e6), alpha=0.05, device=None):
+    def __init__(self, batch_size, buffer_size: int=int(1e6), alpha=0.5, device=None):
         super(PERBuffer, self).__init__()
         self.batch_size = batch_size
         self.buffer_size = buffer_size
@@ -301,7 +301,7 @@ class SumTree(object):
 
     def _find(self, weight, index) -> Tuple[Any, float, int]:
         if self.leaf_offset <= index:  # Moved to the leaf layer
-            return self.data[index - self.leaf_offset], self.tree[index], index - self.leaf_offset
+            return self.data[min(index - self.leaf_offset, self.leafs_num-1)], self.tree[index], index - self.leaf_offset
 
         left_idx = 2*index + 1
         left_weight = self.tree[left_idx]
