@@ -5,16 +5,26 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from functools import reduce
-from typing import Optional, Sequence, Tuple, Union
+from typing import Callable, Optional, Sequence, Type, TypeVar, Tuple
 
 
 class NetworkType(nn.Module):
+    def reset_parameters(self):
+        raise NotImplementedError("You shoulnd't see this.")
+
+    def reset_noise(self):
+        if hasattr(self.net, 'reset_noise'):
+            self.net.reset_noise()
+
     def act(self, *args):
         with torch.no_grad():
             self.eval()
             x = self.forward(*args)
             self.train()
             return x
+
+
+TNetworkType = TypeVar("TNetworkType", bound=NetworkType)
 
 
 def hidden_init(layer: nn.Module):
@@ -32,52 +42,31 @@ def layer_init(layer: nn.Module, range_value: Optional[Tuple[float, float]]=None
     nn.init.xavier_uniform_(layer.weight)
 
 
-class QNetwork(NetworkType):
-    def __init__(self, state_size: Union[Sequence[int], int], action_size: int, hidden_layers: Sequence[int]):
-        super(QNetwork, self).__init__()
-
-        state_size_list = list(state_size) if not isinstance(state_size, int) else [state_size]
-        layers_conn = state_size_list + list(hidden_layers) + [action_size]
-        layers = [nn.Linear(layers_conn[idx], layers_conn[idx + 1]) for idx in range(len(layers_conn) - 1)]
-        self.layers = nn.ModuleList(layers)
-        self.reset_parameters()
-
-        self.gate = F.relu
-
-    def reset_parameters(self):
-        for layer in self.layers[:-1]:
-            layer_init(layer, hidden_init(layer))
-        layer_init(self.layers[-1], (-1e-3, 1e-3))
-
-    def forward(self, x):
-        for layer in self.layers:
-            x = self.gate(layer(x))
-        return x
-
-
 class QNetwork2D(NetworkType):
-    def __init__(self, state_dim: Sequence[int], action_size, hidden_layers: Sequence[int]):
+    def __init__(self, state_dim: Sequence[int], action_size, **kwargs):
+        """
+        **Temporary class to simplify development. Will be significantly changed/removed "shortly".**
+
+        Combines ConvNets with FcNet. Params for the FcNet are passed in **kwargs.
+        >>> config = {"hidden_layers": (300, 200), "gate_out": torch.tanh}
+        >>> net = QNetowork2D(10, 3, **config)
+        """
         super(QNetwork2D, self).__init__()
 
         # state_dim = (num_layers, x_img, y_img)
         self.conv_layers = nn.Sequential(
-            nn.Conv2d(1, 16, 3, stride=1),
+            nn.Conv2d(state_dim[0], 4, kernel_size=1, stride=1),
             nn.MaxPool2d(2, 2),
-            nn.Conv2d(16, 32, 4, stride=1, padding=1),
+            nn.Conv2d(4, 4, kernel_size=2, stride=1, padding=1),
             nn.MaxPool2d(2, 2),
-            nn.Conv2d(32, 64, 3, stride=1, padding=1),
-            nn.MaxPool2d(8, 8),
+            nn.Conv2d(4, 8, kernel_size=3, stride=1, padding=1),
+            nn.MaxPool2d(2, 2),
         )
 
         output_size = reduce(lambda a, b: a*b, self._calculate_output_size(state_dim, self.conv_layers))
-        layers_conn = [output_size] + list(hidden_layers) + [action_size]
 
-        fc_layers = [nn.Linear(layers_conn[idx], layers_conn[idx + 1]) for idx in range(len(layers_conn) - 1)]
-        self.fc_layers = nn.ModuleList(fc_layers)
-
+        self.fc = FcNet(output_size, action_size, **kwargs)
         self.reset_parameters()
-        self.gate = F.relu
-        self.gate_out = F.softmax
 
     @staticmethod
     def _calculate_output_size(input_dim: Sequence[int], conv_layers):
@@ -88,18 +77,13 @@ class QNetwork2D(NetworkType):
 
     def reset_parameters(self):
         self.conv_layers.apply(layer_init)
-        for layer in self.fc_layers[:-1]:
-            layer_init(layer, hidden_init(layer))
-        layer_init(self.fc_layers[-1], (-1e-3, 1e-3))
+        self.fc.reset_parameters()
 
     def forward(self, x):
         x = self.conv_layers(x)
-
-        x = x.view(x.size(0), -1)
-        for layer in self.fc_layers[:-1]:
-            x = self.gate(layer(x))
-        x = self.fc_layers[-1](x)
-        return self.gate_out(x, dim=-1)
+        x = x.view(x.size(0), -1)  # dim: [batch, flatten_img]
+        x = self.fc(x)
+        return x
 
 
 class FcNet(NetworkType):
@@ -116,8 +100,10 @@ class FcNet(NetworkType):
         self.layers = nn.ModuleList(layers)
         self.reset_parameters()
 
-        self.gate = gate
-        self.gate_out = gate_out
+        self.gate = gate if gate is not None else lambda x: x
+        self.gate_out = gate_out if gate_out is not None else lambda x: x
+
+        self.to(device=device)
 
     def reset_parameters(self):
         for layer in self.layers[:-1]:
@@ -213,7 +199,8 @@ class DoubleCritic(NetworkType):
 
 class DuelingNet(NetworkType):
     def __init__(self, state_size: int, action_size: int, hidden_layers: Sequence[int],
-                 net_fn: Optional[Callable[..., NetworkType]]=None, net_class: Optional[Type[TNetworkType]]=None,
+                 net_fn: Optional[Callable[..., NetworkType]]=None,
+                 net_class: Optional[Type[TNetworkType]]=None,
                  **kwargs
                  ):
         super(DuelingNet, self).__init__()
@@ -243,6 +230,48 @@ class DuelingNet(NetworkType):
         advantage = self.advantage_net(x).float()
         q = value.expand_as(advantage) + (advantage - advantage.mean(1, keepdim=True).expand_as(advantage))
         return q
+
+
+class CategoricalNet(NetworkType):
+    """
+    Computes discrete probability distribution for the state-action Q function.
+
+    CategoricalNet [1] learns significantly different compared to other nets here.
+    For this reason it won't be suitable for simple replacement in most (current) agents.
+    Please check the Agent whether it supports. 
+
+    The algorithm is used in the RainbowNet but not this particular net.
+
+    [1] "A Distributional Perspective on Reinforcement Learning" (2017) by M. G. Bellemare, W. Dabney, R. Munos.
+        Link: http://arxiv.org/abs/1707.06887
+    """
+    def __init__(self, state_size: int, action_size: int, 
+                 n_atoms: int=21, v_min: float=-10., v_max: float=10.,
+                 hidden_layers: Sequence[int]=(200, 200),
+                 net: Optional[NetworkType]=None,
+                 device: Optional[torch.device]=None,
+                 ):
+        super(CategoricalNet, self).__init__()
+        self.action_size = action_size
+        self.n_atoms = n_atoms
+        self.v_min = v_min
+        self.v_max = v_max
+        self.z_atoms = torch.linspace(v_min, v_max, n_atoms, device=device)
+        self.z_delta = self.z_atoms[1] - self.z_atoms[0]
+        self.net = net if net is not None else NoisyNet(state_size, action_size*n_atoms, hidden_layers=hidden_layers, device=device)
+        self.to(device=device)
+
+    def reset_paramters(self):
+        self.net.reset_parameters()
+
+    def forward(self, x, log_prob=False) -> torch.Tensor:
+        """
+        :param log_prob: bool
+            Whether to return log(prob) which uses pytorch's function. According to doc it's quicker and more stable
+            than taking prob.log().
+        """
+        return self.net(x).view((-1, self.action_size, self.num_atoms))
+
 
 class RainbowNet(NetworkType, nn.Module):
     def __init__(self, state_dim, action_dim, num_atoms, hidden_layers=(200, 200), noisy=False, device=None):

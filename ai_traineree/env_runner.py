@@ -93,7 +93,7 @@ class EnvRunner:
             iterations += 1
             state = np.array(state, np.float32)
             if render:
-                self.task.render()
+                self.task.render("human")
                 time.sleep(1./FRAMES_PER_SEC)
             action = self.agent.act(state, eps)
             if not self.task.is_discrete:
@@ -218,9 +218,14 @@ class EnvRunner:
             'epsilon': self.epsilon,
             'score': self.all_scores[-1],
             'average_score': sum(self.scores_window) / len(self.scores_window),
-            'actor_loss': self.agent.actor_loss,
-            'critic_loss': self.agent.critic_loss,
         }
+        if hasattr(self.agent, "actor_loss"):
+            state['actor_loss'] = self.agent.actor_loss,
+            state['critic_loss'] = self.agent.critic_loss,
+        elif hasattr(self.agent, "loss"):
+            state['loss'] = self.agent.loss
+        else:
+            pass
 
         Path(self.state_dir).mkdir(parents=True, exist_ok=True)
         self.agent.save_state(f'{self.state_dir}/{state_name}_e{self.episode}.agent')
@@ -254,5 +259,9 @@ class EnvRunner:
 
         self.logger.info("Loading saved agent state: %s/%s.agent", self.state_dir, state_name)
         self.agent.load_state(f'{self.state_dir}/{state_name}.agent')
-        self.agent.actor_loss = state.get('actor_loss')
-        self.agent.critic_loss = state.get('critic_loss')
+
+        if hasattr(self.agent, "actor_loss"):
+            self.agent.actor_loss = state.get('actor_loss', 0)
+            self.agent.critic_loss = state.get('critic_loss', 0)
+        else:
+            self.agent.loss = state.get('loss', 0)

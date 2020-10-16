@@ -1,7 +1,7 @@
 from ai_traineree import DEVICE
 from ai_traineree.agents.utils import soft_update
-from ai_traineree.buffers import NStepBuffer, PERBuffer, ReplayBuffer
-from ai_traineree.networks import DuelingNet, QNetwork, NetworkType
+from ai_traineree.buffers import NStepBuffer, PERBuffer
+from ai_traineree.networks import DuelingNet, NetworkType, TNetworkType
 from ai_traineree.types import AgentType
 
 import numpy as np
@@ -10,13 +10,20 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.nn.utils import clip_grad_norm_
 
-from typing import Callable, Dict, Optional, Sequence, Union
+from typing import Callable, Dict, Optional, Type, Sequence, Union
 
 
 class DQNAgent(AgentType):
-    """Deep Q-Learning Network.
-    Dual DQN implementation.
-    """
+    """Deep Q-Learning Network (DQN).
+
+    The agent is not a vanilla DQN, although can be configured as such.
+    The default config includes dual dueling nets and the priority experience buffer.
+    Learning is also delayed by slowly copying to target nets (via tau parameter).
+    Although NStep is implemented the default value is 1-step reward.
+
+    There is also a specific implemntation of the DQN called the Rainbow which differs
+    to this implementation by working on the discrete space projection of the Q(s,a) function.
+    """ 
 
     name = "DQN"
 
@@ -24,6 +31,7 @@ class DQNAgent(AgentType):
         self, state_size: Union[Sequence[int], int], action_size: int,
         lr: float = 0.001, gamma: float = 0.99, tau: float = 0.002,
         network_fn: Callable[[], NetworkType]=None,
+        network_class: Type[TNetworkType]=None,
         hidden_layers: Sequence[int]=(64, 64),
         state_transform: Optional[Callable]=None,
         reward_transform: Optional[Callable]=None,
@@ -54,20 +62,23 @@ class DQNAgent(AgentType):
 
         self.iteration: int = 0
         self.buffer = PERBuffer(batch_size=self.batch_size, buffer_size=self.buffer_size)
-        self.using_double_q = bool(kwargs.get("using_double_q", False))
+        self.using_double_q = bool(kwargs.get("using_double_q", True))
 
         self.n_steps = kwargs.get("n_steps", 1)
         self.n_buffer = NStepBuffer(n_steps=self.n_steps, gamma=self.gamma)
 
         self.state_transform = state_transform if state_transform is not None else lambda x: x
         self.reward_transform = reward_transform if reward_transform is not None else lambda x: x
-        if network_fn:
-            self.net = network_fn().to(self.device)
-            self.target_net = network_fn().to(self.device)
+        if network_fn is not None:
+            self.net = network_fn()
+            self.target_net = network_fn()
+        elif network_class is not None:
+            self.net = network_class(self.state_size[0], self.action_size, hidden_layers=hidden_layers, device=self.device)
+            self.target_net = network_class(self.state_size[0], self.action_size, hidden_layers=hidden_layers, device=self.device)
         else:
             hidden_layers = kwargs.get('hidden_layers', hidden_layers)
-            self.net = DuelingNet(self.state_size[0], self.action_size, hidden_layers=hidden_layers).to(self.device)
-            self.target_net = DuelingNet(self.state_size[0], self.action_size, hidden_layers=hidden_layers).to(self.device)
+            self.net = DuelingNet(self.state_size[0], self.action_size, hidden_layers=hidden_layers, device=self.device)
+            self.target_net = DuelingNet(self.state_size[0], self.action_size, hidden_layers=hidden_layers, device=self.device)
         self.optimizer = optim.SGD(self.net.parameters(), lr=self.lr)
 
     def step(self, state, action, reward, next_state, done) -> None:
@@ -77,7 +88,7 @@ class DQNAgent(AgentType):
         reward = self.reward_transform(reward)
 
         # Delay adding to buffer to account for n_steps (particularly the reward)
-        self.n_buffer.add(state=state, action=[action], reward=[reward], done=[done], next_state=next_state)
+        self.n_buffer.add(state=state, action=[int(action)], reward=[reward], done=[done], next_state=next_state)
         if not self.n_buffer.available:
             return
 
@@ -123,7 +134,6 @@ class DQNAgent(AgentType):
                 max_Q_targets_next = Q_targets_next.max(1)[0].unsqueeze(1)
         Q_targets = rewards + self.n_buffer.n_gammas[-1] * max_Q_targets_next * (1 - dones)
         Q_expected = self.net(states).gather(1, actions)
-
         loss = F.mse_loss(Q_expected, Q_targets)
 
         self.optimizer.zero_grad()
@@ -133,9 +143,9 @@ class DQNAgent(AgentType):
         self.loss = loss.item()
 
         if hasattr(self.buffer, 'priority_update'):
-            td_error = Q_expected - Q_targets + 1e-9  # Tiny offset for zero-div
-            assert any(~torch.isnan(td_error))
-            self.buffer.priority_update(experiences['index'], 1./td_error.abs())
+            error = Q_expected - Q_targets
+            assert any(~torch.isnan(error))
+            self.buffer.priority_update(experiences['index'], error.abs())
 
         # Update networks - sync local & target
         soft_update(self.target_net, self.net, self.tau)
@@ -156,3 +166,15 @@ class DQNAgent(AgentType):
         agent_state = torch.load(path)
         self.net.load_state_dict(agent_state['net'])
         self.target_net.load_state_dict(agent_state['target_net'])
+
+    def save_buffer(self, path: str):
+        import json
+        dump = self.buffer.dump_buffer(serialize=True)
+        with open(path, 'w') as f:
+            json.dump(dump, f)
+
+    def load_buffer(self, path: str):
+        import json
+        with open(path, 'r') as f:
+            buffer_dump = json.load(f)
+        self.buffer.load_buffer(buffer_dump)

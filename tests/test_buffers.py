@@ -1,6 +1,7 @@
 import numpy as np
 
 from ai_traineree.buffers import Experience, PERBuffer, ReplayBuffer
+from typing import Dict, List
 
 
 def generate_sample_SARS(state_size: int=4, action_size: int=2):
@@ -19,7 +20,7 @@ def test_buffer_size():
     # Act
     for _ in range(buffer_size+2):
         (state, action, reward, next_state, done) = generate_sample_SARS()
-        buffer.add_sars(state=state, action=action, reward=reward, next_state=next_state, done=done)
+        buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
 
     # Assert
     assert len(buffer) == buffer_size
@@ -55,7 +56,7 @@ def test_buffer_add():
     # Act
     assert len(buffer) == 0
     (state, actions, reward, next_state, done) = generate_sample_SARS()
-    buffer.add_sars(state=state, action=actions, reward=reward, next_state=next_state, done=done)
+    buffer.add(state=state, action=actions, reward=reward, next_state=next_state, done=done)
 
     # Assert
     assert len(buffer) == 1
@@ -69,7 +70,7 @@ def test_buffer_sample():
     # Act
     for _ in range(20):
         (state, actions, reward, next_state, done) = generate_sample_SARS()
-        buffer.add_sars(state=state, action=actions, reward=reward, next_state=next_state, done=done)
+        buffer.add(state=state, action=actions, reward=reward, next_state=next_state, done=done)
 
     # Assert
     (states, actions, rewards, next_states, dones) = buffer.sample_sars()
@@ -122,7 +123,7 @@ def test_per_buffer_add_one_sample_one():
 
 def test_per_buffer_add_two_sample_two_beta():
     # Assign
-    per_buffer = PERBuffer(2, 20)
+    per_buffer = PERBuffer(2, 20, 0.4)
 
     # Act
     per_buffer.add(state=range(5), priority=0.9)
@@ -134,8 +135,7 @@ def test_per_buffer_add_two_sample_two_beta():
     for experience in experiences:
         if experience.index == 0:
             assert experience.state == range(5)
-            # assert 0.936 < experience.weight < 0.937
-            assert 0.946 < experience.weight < 0.947
+            assert 0.642 < experience.weight < 0.643
         else:
             assert experience.state == range(3, 8)
             assert experience.weight == 1.
@@ -204,3 +204,61 @@ def test_per_buffer_reset_alpha():
         assert new_sample.index == old_sample.index
         assert new_sample.weight != old_sample.weight
         assert new_sample.reward == old_sample.reward
+
+
+def test_replay_buffer_dump():
+    import torch
+    # Assign
+    filled_buffer = 8
+    prop_keys = ["state", "action", "reward", "next_state"]
+    buffer = ReplayBuffer(batch_size=5, buffer_size=10)
+    for _ in range(filled_buffer):
+        sars = generate_sample_SARS(state_size=10)
+        buffer.add(state=torch.tensor(sars[0]), reward=sars[1], action=[sars[2]], next_state=torch.tensor(sars[3]), dones=sars[4])
+
+    # Act
+    dump: List[Dict[str, List]] = buffer.dump_buffer()
+
+    # Assert
+    assert all([len(dump) == filled_buffer])
+    assert all([key in dump[0] for key in prop_keys])
+
+
+def test_replay_buffer_dump_serializable():
+    import json
+    import torch
+    # Assign
+    filled_buffer = 8
+    buffer = ReplayBuffer(batch_size=5, buffer_size=10)
+    for _ in range(filled_buffer):
+        sars = generate_sample_SARS(state_size=10)
+        buffer.add(state=torch.tensor(sars[0]), reward=sars[1], action=[sars[2]], next_state=torch.tensor(sars[3]), dones=sars[4])
+
+    # Act
+    dump = buffer.dump_buffer(serialize=True)
+
+    # Assert
+    ser_dump = json.dumps(dump)
+    assert isinstance(ser_dump, str)
+    assert json.loads(ser_dump) == dump
+
+
+def test_replay_buffer_load_json_dump():
+    # Assign
+    prop_keys = ["state", "action", "reward", "next_state", "done"]
+    buffer = ReplayBuffer(batch_size=20, buffer_size=20)
+    ser_buffer = []
+    for _ in range(10):
+        sars = generate_sample_SARS()
+        ser_buffer.append({"state": sars[0], "action": sars[1], "reward": [sars[2]], "next_state": sars[3], "done": [sars[4]]})
+
+    # Act
+    buffer.load_buffer(ser_buffer)
+
+    # Assert
+    samples = buffer.sample_list()
+    assert len(buffer) == 10
+    assert len(samples) == 10
+    for sample in samples:
+        assert all([hasattr(sample, key) for key in prop_keys])
+        assert all([isinstance(getattr(sample, key), list) for key in prop_keys])

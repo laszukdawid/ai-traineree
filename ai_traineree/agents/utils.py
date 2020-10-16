@@ -15,10 +15,6 @@ def hard_update(target: nn.Module, source: nn.Module):
         target_param.data.copy_(param.data)  # type: ignore
 
 
-def to_np(t):
-    return t.cpu().detach().numpy()
-
-
 def compute_gae(next_value, rewards, masks, values, gamma=0.99, tau=0.95):
     values = values + [next_value]
     gae = 0

@@ -68,7 +68,7 @@ class MADDPGAgent(AgentType):
 
     def step(self, state, action, reward, next_state, done) -> None:
         self.iteration += 1
-        self.buffer.add_sars(state=state, action=action, reward=reward, next_state=next_state, done=done)
+        self.buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
 
         if self.iteration < self.warm_up:
             return

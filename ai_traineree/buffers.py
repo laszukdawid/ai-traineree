@@ -1,11 +1,11 @@
 import math
 import numpy as np
 import random
-import torch
 
 from collections import defaultdict, deque
 from typing import Any, Dict, List, Optional, Sequence, Tuple
-from torch import Tensor
+from torch import from_numpy, Tensor
+from ai_traineree import to_list
 
 
 class Experience(object):
@@ -17,10 +17,6 @@ class Experience(object):
     ]
 
     def __init__(self, **kwargs):
-
-        # for key in self.keys:
-        #     if key in kwargs:
-        #         self.__setattr__(key, kwargs[key])
 
         self.state = kwargs.get('state')
         self.action = kwargs.get('action')
@@ -34,7 +30,12 @@ class Experience(object):
         self.index = kwargs.get('index')
         self.weight = kwargs.get('weight')
 
-    def get_dict(self) -> Dict[str, Any]:
+    def get_dict(self, serialize=False) -> Dict[str, Any]:
+        if serialize:
+            return dict(
+                state=to_list(self.state), action=to_list(self.action), reward=to_list(self.reward),
+                next_state=to_list(self.next_state), done=to_list(self.done)
+            )
         return dict(state=self.state, action=self.action, reward=self.reward, next_state=self.next_state, done=self.done)
 
 
@@ -46,17 +47,23 @@ class BufferBase(object):
     def sample(self, *args, **kwargs) -> Optional[List[Experience]]:
         raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
 
+    def dump_buffer(self) -> List[Dict]:
+        raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
+
+    def load_buffer(self, buffer: List[Dict]):
+        raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
+
     @staticmethod
     def convert_float(x):
-        return torch.from_numpy(np.vstack(x)).float()
+        return from_numpy(np.vstack(x)).float()
 
     @staticmethod
     def convert_long(x):
-        return torch.from_numpy(np.vstack(x)).long()
+        return from_numpy(np.vstack(x)).long()
 
     @staticmethod
     def convert_int(x):
-        return torch.from_numpy(np.vstack(x).astype(np.uint8)).float()
+        return from_numpy(np.vstack(x).astype(np.uint8)).float()
 
 
 class NStepBuffer(BufferBase):
@@ -92,6 +99,8 @@ class NStepBuffer(BufferBase):
 
 class ReplayBuffer(BufferBase):
 
+    keys = ["states", "actions", "rewards", "next_states", "dones"]
+
     def __init__(self, batch_size: int, buffer_size=int(1e6), device=None):
         super().__init__()
         self.batch_size = batch_size
@@ -117,16 +126,18 @@ class ReplayBuffer(BufferBase):
     def add(self, **kwargs):
         self.exp.append(Experience(**kwargs))
 
-    def add_sars(self, *, state=None, action=None, reward=None, next_state=None, done=None) -> None:
-        """Adds (State, Actiom, Reward, State) to the buffer. Expects these arguments to be named properties."""
-        self.exp.append(Experience(state=state, action=action, reward=reward, next_state=next_state, done=done))
+    def sample_list(self, keys: Optional[Sequence[str]]=None) -> List[Experience]:
+        sampled_exp = random.sample(self.exp, min(self.batch_size, len(self.exp)))
+        return sampled_exp
 
-    def sample(self) -> Dict[str, List]:
+    def sample(self, keys: Optional[Sequence[str]]=None) -> Dict[str, List]:
         all_experiences = defaultdict(lambda: [])
-        sampled_exp = random.sample(self.exp, self.batch_size)
+        sampled_exp: List[Experience] = random.sample(self.exp, self.batch_size)
+        keys = keys if keys is not None else list(self.exp[0].__dict__.keys())
         for exp in sampled_exp:
-            for (key, val) in exp.__dict__.items():
-                all_experiences[key].append(val)
+            for key in keys:
+            # for (key, val) in exp.__dict__.items():
+                all_experiences[key].append(getattr(exp, key))
         return all_experiences
 
     def sample_sars(self) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
@@ -149,6 +160,20 @@ class ReplayBuffer(BufferBase):
         dones = self.convert_int(dones).to(self.device)
 
         return (states, actions, rewards, next_states, dones)
+
+    def dump_buffer(self, serialize: bool=False) -> List[Dict[str, List]]:
+        batch_size = self.batch_size
+        self.batch_size = len(self.exp)
+        samples: List[Experience] = self.sample_list()
+        out = []
+        for sample in samples:
+            out.append(sample.get_dict(serialize=serialize))
+        self.batch_size = batch_size
+        return out
+
+    def load_buffer(self, buffer: List[Dict[str, List]]):
+        for experience in buffer:
+            self.add(**experience)
 
 
 class PERBuffer(BufferBase):
@@ -175,9 +200,6 @@ class PERBuffer(BufferBase):
     def add(self, *, priority: float=0, **kwargs):
         priority += self.tiny_offset
         self.tree.insert(kwargs, pow(priority, self.alpha))
-
-    def add_sars(self, **kwargs):
-        self.add(**kwargs)
 
     def sample_list(self, beta: float=1, **kwargs) -> Optional[List[Experience]]:
         """The method return samples randomly without duplicates"""
