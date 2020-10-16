@@ -10,33 +10,22 @@ from ai_traineree import to_list
 
 class Experience(object):
 
-    keys = [
-        'state', 'action', 'reward', 'next_state', 'done',
-        'advantage', 'logprob', 'value',
-        'priority', 'index',
-    ]
+    __must_haves = ['state', 'action', 'reward', 'next_state', 'done']
+    keys = __must_haves + ['advantage', 'logprob', 'value', 'priority', 'index', 'weight']
 
     def __init__(self, **kwargs):
 
-        self.state = kwargs.get('state')
-        self.action = kwargs.get('action')
-        self.reward = kwargs.get('reward')
-        self.next_state = kwargs.get('next_state')
-        self.done = kwargs.get('done')
-        self.advantage = kwargs.get('advantage')
-        self.logprob = kwargs.get('logprob')
-        self.value = kwargs.get('value')
+        for key in self.__must_haves:
+            setattr(self, key, kwargs.pop(key, None))
 
-        self.index = kwargs.get('index')
-        self.weight = kwargs.get('weight')
+        for key in self.keys:
+            if key in kwargs:
+                setattr(self, key, kwargs.get(key))
 
     def get_dict(self, serialize=False) -> Dict[str, Any]:
         if serialize:
-            return dict(
-                state=to_list(self.state), action=to_list(self.action), reward=to_list(self.reward),
-                next_state=to_list(self.next_state), done=to_list(self.done)
-            )
-        return dict(state=self.state, action=self.action, reward=self.reward, next_state=self.next_state, done=self.done)
+            return {k: to_list(v) for (k, v) in self.__dict__.items() if k in self.keys}
+        return {k: v for (k, v) in self.__dict__.items() if k in self.keys}
 
 
 class BufferBase(object):
@@ -47,7 +36,7 @@ class BufferBase(object):
     def sample(self, *args, **kwargs) -> Optional[List[Experience]]:
         raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
 
-    def dump_buffer(self) -> List[Dict]:
+    def dump_buffer(self, serialize: bool=False) -> List[Dict]:
         raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
 
     def load_buffer(self, buffer: List[Dict]):
@@ -201,10 +190,10 @@ class PERBuffer(BufferBase):
         priority += self.tiny_offset
         self.tree.insert(kwargs, pow(priority, self.alpha))
 
-    def sample_list(self, beta: float=1, **kwargs) -> Optional[List[Experience]]:
+    def sample_list(self, beta: float=1, **kwargs) -> List[Experience]:
         """The method return samples randomly without duplicates"""
         if len(self.tree) < self.batch_size:
-            return None
+            return []
 
         samples = []
         experiences = []
@@ -231,7 +220,7 @@ class PERBuffer(BufferBase):
     def sample(self, beta: float=0.5) -> Optional[Dict[str, List]]:
         all_experiences = defaultdict(lambda: [])
         sampled_exp = self.sample_list(beta=beta)
-        if sampled_exp is None:
+        if len(sampled_exp) == 0:
             return None
 
         for exp in sampled_exp:
@@ -273,6 +262,13 @@ class PERBuffer(BufferBase):
         priorities = [pow(self.tree[i], -old_alpha) for i in range(tree_len)]
         self.priority_update(range(tree_len), priorities)
 
+    def dump_buffer(self, serialize: bool=False) -> List[Dict[str, List]]:
+        return [Experience(**d).get_dict(serialize=serialize) for d in self.tree.data[:len(self.tree)]]
+
+    def load_buffer(self, buffer: List[Dict[str, List]]):
+        for experience in buffer:
+            self.add(**experience)
+
 
 class SumTree(object):
     """Binary tree that is a SumTree.
@@ -285,7 +281,7 @@ class SumTree(object):
         self.leaf_offset = 2**(self.tree_height-1) - 1
         self.tree_size = 2**self.tree_height - 1
         self.tree = np.zeros(self.tree_size)
-        self.data = [None for i in range(self.leafs_num)]
+        self.data: List[Optional[Dict]] = [None for i in range(self.leafs_num)]
         self.size = 0
         self.cursor = 0
 
@@ -333,9 +329,5 @@ class SumTree(object):
         else:
             return self._find(weight - left_weight, 2*(index+1))
 
-    def __str__(self):
-        s = ""
-        for k in range(self.tree_height):
-            s += " ".join([str(v) for v in self.tree[2**k-1:2**(k+1)-1]])
-            s += "\n"
-        return s
+    def get_n_first_nodes(self, n):
+        return self.data[:n]

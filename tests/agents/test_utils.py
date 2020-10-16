@@ -4,18 +4,6 @@ import torch
 from ai_traineree.agents import utils
 
 
-def test_to_np():
-    # Assign
-    test = torch.tensor([0, 1, 2, 3], device="cpu")
-    expected = np.array([0, 1, 2, 3])
-
-    # Act
-    out = utils.to_np(test)
-
-    # Assert
-    assert all(out == expected)
-
-
 def test_revert_norm_returns_default():
     # Assign
     rewards = [0, 0, 0, 1, 0, 1]

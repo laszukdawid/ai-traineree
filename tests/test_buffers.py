@@ -99,10 +99,10 @@ def test_per_buffer_too_few_samples():
 
     # Act & Assert
     for _ in range(batch_size):
-        assert per_buffer.sample_list() is None
+        assert len(per_buffer.sample_list()) == 0
         per_buffer.add(priority=0.1, reward=0.1)
 
-    assert per_buffer.sample_list() is not None
+    assert len(per_buffer.sample_list()) == 5
 
 
 def test_per_buffer_add_one_sample_one():
@@ -247,6 +247,46 @@ def test_replay_buffer_load_json_dump():
     # Assign
     prop_keys = ["state", "action", "reward", "next_state", "done"]
     buffer = ReplayBuffer(batch_size=20, buffer_size=20)
+    ser_buffer = []
+    for _ in range(10):
+        sars = generate_sample_SARS()
+        ser_buffer.append({"state": sars[0], "action": sars[1], "reward": [sars[2]], "next_state": sars[3], "done": [sars[4]]})
+
+    # Act
+    buffer.load_buffer(ser_buffer)
+
+    # Assert
+    samples = buffer.sample_list()
+    assert len(buffer) == 10
+    assert len(samples) == 10
+    for sample in samples:
+        assert all([hasattr(sample, key) for key in prop_keys])
+        assert all([isinstance(getattr(sample, key), list) for key in prop_keys])
+
+
+def test_priority_buffer_dump_serializable():
+    import json
+    import torch
+    # Assign
+    filled_buffer = 8
+    buffer = PERBuffer(batch_size=5, buffer_size=10)
+    for _ in range(filled_buffer):
+        sars = generate_sample_SARS(state_size=10)
+        buffer.add(state=torch.tensor(sars[0]), reward=sars[1], action=[sars[2]], next_state=torch.tensor(sars[3]), dones=sars[4])
+
+    # Act
+    dump = buffer.dump_buffer(serialize=True)
+
+    # Assert
+    ser_dump = json.dumps(dump)
+    assert isinstance(ser_dump, str)
+    assert json.loads(ser_dump) == dump
+
+
+def test_priority_buffer_load_json_dump():
+    # Assign
+    prop_keys = ["state", "action", "reward", "next_state", "done"]
+    buffer = PERBuffer(batch_size=10, buffer_size=20)
     ser_buffer = []
     for _ in range(10):
         sars = generate_sample_SARS()
