@@ -40,6 +40,16 @@ On Ubuntu you might also need to install `swig` (`sudo apt install -y swig`).
 
 ## Current state
 
+### Playing gym
+One way to improve learning speed is to simply show them how to play or, more researchy/creepy, provide a proper seed.
+This isn't a general rule, since some algorithms train better without any human interaction, but since you're on GitHub... that's unlikely your case.
+Currently there's a script [`interact.py`](scripts/interact.py) which uses OpenAI Gym's play API to record moves and AI Traineree to store them
+in a buffer. Such buffers can be loaded by agents on initiation.
+
+This is just a beginning and there will be more work on these interactions.
+
+*Requirement*: Install `pygame`.
+
 ### Agents
 
 | Short | Progress | Link | Full name |
@@ -70,7 +80,7 @@ On Ubuntu you might also need to install `swig` (`sudo apt install -y swig`).
 | Gif creation support | Done |
 | Tensorboard support | Implemented |
 | Pip package | Not started |
-| Test coverage > 80% | ~20%
+| Test coverage > 80% | Tested ~20%, Covered 80% |
 
 There are other potential things on the roadmap but haven't dedicated to them yet. 
 

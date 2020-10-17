@@ -88,9 +88,16 @@ class QNetwork2D(NetworkType):
 
 class FcNet(NetworkType):
     def __init__(self, input_dim: int, output_dim: int, hidden_layers: Sequence[int]=(200, 100),
-                 gate=F.leaky_relu, gate_out=torch.tanh, last_layer_range=(-3e-3, 3e-3),
+                 gate=torch.tanh, gate_out=torch.tanh, last_layer_range=(-3e-3, 3e-3),
                  device: Optional[torch.device]=None,
                  ):
+        """
+        For the activation layer we use tanh by default which was observed to be much better, e.g. compared to ReLU,
+        for policy networks [1]. The last gate, however, might be changed depending on the actual task.
+
+        [1] "What Matters In On-Policy Reinforcement Learning? A Large-Scale Empirical Study"
+            Link: https://arxiv.org/abs/2006.05990
+        """
         super(FcNet, self).__init__()
 
         num_layers = [input_dim] + list(hidden_layers) + [output_dim]

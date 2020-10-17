@@ -217,7 +217,7 @@ def test_replay_buffer_dump():
         buffer.add(state=torch.tensor(sars[0]), reward=sars[1], action=[sars[2]], next_state=torch.tensor(sars[3]), dones=sars[4])
 
     # Act
-    dump: List[Dict[str, List]] = buffer.dump_buffer()
+    dump: List[Dict[str, List]] = list(buffer.dump_buffer())
 
     # Assert
     assert all([len(dump) == filled_buffer])
@@ -235,7 +235,7 @@ def test_replay_buffer_dump_serializable():
         buffer.add(state=torch.tensor(sars[0]), reward=sars[1], action=[sars[2]], next_state=torch.tensor(sars[3]), dones=sars[4])
 
     # Act
-    dump = buffer.dump_buffer(serialize=True)
+    dump = list(buffer.dump_buffer(serialize=True))
 
     # Assert
     ser_dump = json.dumps(dump)
@@ -275,7 +275,7 @@ def test_priority_buffer_dump_serializable():
         buffer.add(state=torch.tensor(sars[0]), reward=sars[1], action=[sars[2]], next_state=torch.tensor(sars[3]), dones=sars[4])
 
     # Act
-    dump = buffer.dump_buffer(serialize=True)
+    dump = list(buffer.dump_buffer(serialize=True))
 
     # Assert
     ser_dump = json.dumps(dump)

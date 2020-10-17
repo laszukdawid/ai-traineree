@@ -23,13 +23,13 @@ class DQNAgent(AgentType):
 
     There is also a specific implemntation of the DQN called the Rainbow which differs
     to this implementation by working on the discrete space projection of the Q(s,a) function.
-    """ 
+    """
 
     name = "DQN"
 
     def __init__(
         self, state_size: Union[Sequence[int], int], action_size: int,
-        lr: float = 0.001, gamma: float = 0.99, tau: float = 0.002,
+        lr: float = 3e-4, gamma: float = 0.99, tau: float = 0.002,
         network_fn: Callable[[], NetworkType]=None,
         network_class: Type[TNetworkType]=None,
         hidden_layers: Sequence[int]=(64, 64),
@@ -41,8 +41,7 @@ class DQNAgent(AgentType):
         Accepted parameters:
         :param float lr: learning rate (default: 1e-3)
         :param float gamma: discount factor (default: 0.99)
-        :param float tau: soft-copy factor (default: 0.002) 
-
+        :param float tau: soft-copy factor (default: 0.002)
         """
 
         self.device = device if device is not None else DEVICE
@@ -79,7 +78,7 @@ class DQNAgent(AgentType):
             hidden_layers = kwargs.get('hidden_layers', hidden_layers)
             self.net = DuelingNet(self.state_size[0], self.action_size, hidden_layers=hidden_layers, device=self.device)
             self.target_net = DuelingNet(self.state_size[0], self.action_size, hidden_layers=hidden_layers, device=self.device)
-        self.optimizer = optim.SGD(self.net.parameters(), lr=self.lr)
+        self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
 
     def step(self, state, action, reward, next_state, done) -> None:
         self.iteration += 1

@@ -3,7 +3,7 @@ import numpy as np
 import random
 
 from collections import defaultdict, deque
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Generator, List, Optional, Sequence, Tuple
 from torch import from_numpy, Tensor
 from ai_traineree import to_list
 
@@ -150,15 +150,9 @@ class ReplayBuffer(BufferBase):
 
         return (states, actions, rewards, next_states, dones)
 
-    def dump_buffer(self, serialize: bool=False) -> List[Dict[str, List]]:
-        batch_size = self.batch_size
-        self.batch_size = len(self.exp)
-        samples: List[Experience] = self.sample_list()
-        out = []
-        for sample in samples:
-            out.append(sample.get_dict(serialize=serialize))
-        self.batch_size = batch_size
-        return out
+    def dump_buffer(self, serialize: bool=False) -> Generator[Dict[str, List], None, None]:
+        for exp in self.exp:
+            yield exp.get_dict(serialize=serialize)
 
     def load_buffer(self, buffer: List[Dict[str, List]]):
         for experience in buffer:
@@ -262,8 +256,9 @@ class PERBuffer(BufferBase):
         priorities = [pow(self.tree[i], -old_alpha) for i in range(tree_len)]
         self.priority_update(range(tree_len), priorities)
 
-    def dump_buffer(self, serialize: bool=False) -> List[Dict[str, List]]:
-        return [Experience(**d).get_dict(serialize=serialize) for d in self.tree.data[:len(self.tree)]]
+    def dump_buffer(self, serialize: bool=False) -> Generator[Dict[str, List], None, None]:
+        for exp in self.tree.data[:len(self.tree)]:
+            yield Experience(**exp).get_dict(serialize=serialize)
 
     def load_buffer(self, buffer: List[Dict[str, List]]):
         for experience in buffer:

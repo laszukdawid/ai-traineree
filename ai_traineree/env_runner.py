@@ -46,7 +46,7 @@ class EnvRunner:
     >>> env_runner.run()
     """
 
-    def __init__(self, task: TaskType, agent: AgentType, max_iterations: int=1000, **kwargs):
+    def __init__(self, task: TaskType, agent: AgentType, max_iterations: int=int(1e5), **kwargs):
         """
         Expects the environment to come as the TaskType and the agent as the AgentType.
         Additional args:
