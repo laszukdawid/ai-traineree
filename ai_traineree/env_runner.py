@@ -2,28 +2,17 @@ import json
 import logging
 import numpy as np
 import time
+import torch
 import os
 import sys
 from ai_traineree.types import AgentType, RewardType, TaskType
 
 from collections import deque
-from functools import wraps
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 FRAMES_PER_SEC = 25
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="")
-
-
-def timing(f):
-    @wraps(f)
-    def wrap(*args, **kw):
-        t_init = time.perf_counter()
-        result = f(*args, **kw)
-        t_fin = time.perf_counter()
-        print(f'func: {f.__name__} args:[{kw}] took: {t_fin-t_init:2.4f} sec')
-        return result
-    return wrap
 
 
 def save_gif(path, images: List[np.ndarray]) -> None:
@@ -61,6 +50,7 @@ class EnvRunner:
         self.state_dir = 'run_states'
 
         self.episode = 0
+        self.iteration = 0
         self.all_scores = []
         self.all_iterations = []
         self.window_len = kwargs.get('window_len', 100)
@@ -79,7 +69,7 @@ class EnvRunner:
         self.all_iterations = []
         self.scores_window = deque(maxlen=self.window_len)
 
-    def interact_episode(self, eps: float=0, max_iterations=None, render=False, render_gif=False) -> Tuple[RewardType, int]:
+    def interact_episode(self, eps: float=0, max_iterations=None, render=False, render_gif=False, log_loss_every: Optional[int]=None) -> Tuple[RewardType, int]:
         score = 0
         state = self.task.reset()
         iterations = 0
@@ -91,13 +81,13 @@ class EnvRunner:
 
         while(iterations < max_iterations):
             iterations += 1
-            state = np.array(state, np.float32)
+            self.iteration += 1
             if render:
                 self.task.render("human")
                 time.sleep(1./FRAMES_PER_SEC)
             action = self.agent.act(state, eps)
             if not self.task.is_discrete:
-                action = np.array(action, dtype=np.float32)
+                action = torch.tensor(action, dtype=torch.float32)
             next_state, reward, done, _ = self.task.step(action)
             score += reward
             if render_gif:
@@ -105,12 +95,13 @@ class EnvRunner:
                 img = self.task.render(mode='rgb_array')
                 self.__images.append(img)
             self.agent.step(state, action, reward, next_state, done)
+            if log_loss_every is not None and (iterations % log_loss_every) == 0:
+                self.log_loss()
             state = next_state
             if done:
                 break
         return score, iterations
 
-    @timing
     def run(
         self,
         reward_goal: float=100.0, max_episodes: int=2000,
@@ -185,7 +176,7 @@ class EnvRunner:
         line_chunks = ["Episode {episode};", "Iter: {iterations};"]
         line_chunks += ["Current Score: {score:.2f};"]
         line_chunks += ["Average Score: {mean_score:.2f};"]
-        if 'critic_loss' in self.agent.__dict__:
+        if 'critic_loss' in self.agent.__dict__ and self.agent.critic_loss is not None:
             line_chunks += ["Actor loss: {actor_loss:10.4f};"]
             line_chunks += ["Critic loss: {critic_loss:10.4f};"]
         else:
@@ -197,14 +188,17 @@ class EnvRunner:
     def log_writer(self, **kwargs):
         self.writer.add_scalar("score/score", kwargs['score'], self.episode)
         self.writer.add_scalar("score/avg_score", kwargs['mean_score'], self.episode)
+        self.writer.add_scalar("epsilon", kwargs['epsilon'], self.iteration)
+        self.log_loss(**kwargs)
+
+    def log_loss(self, **kwargs):
         if hasattr(self.agent, 'log_writer'):
-            self.agent.log_writer(self.writer, self.episode)
-        elif 'critic_loss' in self.agent.__dict__:
-            self.writer.add_scalar("Actor loss", kwargs['actor_loss'], self.episode)
-            self.writer.add_scalar("Critic loss", kwargs['critic_loss'], self.episode)
+            self.agent.log_writer(self.writer, self.iteration)
+        elif 'critic_loss' in self.agent.__dict__ and self.agent.critic_loss is not None:
+            self.writer.add_scalar("Actor loss", kwargs['actor_loss'], self.iteration)
+            self.writer.add_scalar("Critic loss", kwargs['critic_loss'], self.iteration)
         else:
-            self.writer.add_scalar("loss", kwargs['loss'], self.episode)
-        self.writer.add_scalar("epsilon", kwargs['epsilon'], self.episode)
+            self.writer.add_scalar("loss", kwargs['loss'], self.iteration)
 
     def save_state(self, state_name: str):
         """Saves the current state of the runner and the agent.
@@ -219,7 +213,7 @@ class EnvRunner:
             'score': self.all_scores[-1],
             'average_score': sum(self.scores_window) / len(self.scores_window),
         }
-        if hasattr(self.agent, "actor_loss"):
+        if hasattr(self.agent, "critic_loss") and self.agent.critic_loss is not None:
             state['actor_loss'] = self.agent.actor_loss,
             state['critic_loss'] = self.agent.critic_loss,
         elif hasattr(self.agent, "loss"):
@@ -260,7 +254,7 @@ class EnvRunner:
         self.logger.info("Loading saved agent state: %s/%s.agent", self.state_dir, state_name)
         self.agent.load_state(f'{self.state_dir}/{state_name}.agent')
 
-        if hasattr(self.agent, "actor_loss"):
+        if hasattr(self.agent, "actor_loss") and self.agent.actor_loss is not None:
             self.agent.actor_loss = state.get('actor_loss', 0)
             self.agent.critic_loss = state.get('critic_loss', 0)
         else:
