@@ -1,7 +1,9 @@
+from ai_traineree.utils import to_tensor
 from ai_traineree import DEVICE
 from ai_traineree.agents.utils import hard_update, soft_update
 from ai_traineree.buffers import ReplayBuffer
-from ai_traineree.networks import ActorBody, DoubleCritic
+from ai_traineree.networks.bodies import ActorBody, CriticBody
+from ai_traineree.networks.heads import DoubleCritic
 from ai_traineree.noise import GaussianNoise
 from ai_traineree.types import AgentType
 
@@ -33,9 +35,9 @@ class TD3Agent(AgentType):
         # Reason sequence initiation.
         self.hidden_layers = config.get('hidden_layers', hidden_layers)
         self.actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
-        self.critic = DoubleCritic(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
+        self.critic = DoubleCritic(state_size, action_size, CriticBody, hidden_layers=hidden_layers).to(self.device)
         self.target_actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
-        self.target_critic = DoubleCritic(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
+        self.target_critic = DoubleCritic(state_size, action_size, CriticBody, hidden_layers=hidden_layers).to(self.device)
 
         # Noise sequence initiation
         self.noise = GaussianNoise(shape=(action_size,), mu=1e-8, sigma=noise_sigma, scale=noise_scale, device=device)
@@ -74,14 +76,14 @@ class TD3Agent(AgentType):
 
     def act(self, obs, noise: float=0.0):
         with torch.no_grad():
-            obs = torch.tensor(obs.astype(np.float32)).to(self.device)
+            obs = to_tensor(obs).float().to(self.device)
             action = self.actor(obs)
             action += noise*self.noise.sample()
             return self.action_scale*torch.clamp(action, self.action_min, self.action_max).cpu().numpy().astype(np.float32)
 
     def target_act(self, obs, noise: float=0.0):
         with torch.no_grad():
-            obs = torch.tensor(obs).to(self.device)
+            obs = to_tensor(obs).float().to(self.device)
             action = self.target_actor(obs) + noise*self.noise.sample()
             return torch.clamp(action, self.action_min, self.action_max).cpu().numpy().astype(np.float32)
 

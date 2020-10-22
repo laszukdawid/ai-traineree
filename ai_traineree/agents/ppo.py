@@ -1,6 +1,7 @@
+from ai_traineree.utils import to_tensor
 from collections import defaultdict
 from ai_traineree import DEVICE
-from ai_traineree.networks import ActorBody, CriticBody
+from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.types import AgentType
 from ai_traineree.policies import GaussianPolicy
 import torch
@@ -59,9 +60,9 @@ class PPOAgent(AgentType):
 
     def act(self, state, noise=0):
         with torch.no_grad():
-            state = torch.tensor(state.reshape(1, -1).astype(np.float32)).to(self.device)
-            action_mu = self.actor(state)
-            value = self.critic(state, action_mu)
+            state = to_tensor(state).view(1, -1).float().to(self.device)
+            action_mu = self.actor.act(state)
+            value = self.critic.act(state, action_mu)
 
             dist = self.policy(action_mu)
             action = dist.sample()
@@ -105,10 +106,10 @@ class PPOAgent(AgentType):
 
     def update(self):
         experiences = self.memory.sample()
-        rewards = torch.tensor(experiences['reward']).to(self.device)
-        dones = torch.tensor(experiences['done']).type(torch.int).to(self.device)
-        states = torch.tensor(experiences['state']).to(self.device)
-        actions = torch.tensor(experiences['action']).to(self.device)
+        rewards = to_tensor(experiences['reward']).to(self.device)
+        dones = to_tensor(experiences['done']).type(torch.int).to(self.device)
+        states = to_tensor(experiences['state']).float().to(self.device)
+        actions = to_tensor(experiences['action']).to(self.device)
         values = torch.cat(experiences['value'])
         log_probs = torch.cat(experiences['logprob'])
 

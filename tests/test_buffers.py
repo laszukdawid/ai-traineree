@@ -5,21 +5,25 @@ from typing import Dict, List
 
 
 def generate_sample_SARS(state_size: int=4, action_size: int=2):
-    states = np.random.random((2, state_size))
+    state = np.random.random(state_size)
     action = np.random.random(action_size)
     reward = float(np.random.random() - 0.5)
     done = np.random.random() > 0.5
-    return (list(states[0]), list(action), reward, list(states[1]), bool(done))
+    while True:
+        next_state = np.random.random(state_size)
+        yield (list(state), list(action), reward, list(next_state), bool(done))
+        state = next_state
 
 
 def test_buffer_size():
     # Assign
     buffer_size = 10
     buffer = ReplayBuffer(batch_size=5, buffer_size=buffer_size)
+    env = generate_sample_SARS()
 
     # Act
     for _ in range(buffer_size+2):
-        (state, action, reward, next_state, done) = generate_sample_SARS()
+        (state, action, reward, next_state, done) = next(env)
         buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
 
     # Assert
@@ -52,10 +56,11 @@ def test_experience_init():
 def test_buffer_add():
     # Assign
     buffer = ReplayBuffer(batch_size=5, buffer_size=5)
+    env = generate_sample_SARS()
 
     # Act
     assert len(buffer) == 0
-    (state, actions, reward, next_state, done) = generate_sample_SARS()
+    (state, actions, reward, next_state, done) = next(env)
     buffer.add(state=state, action=actions, reward=reward, next_state=next_state, done=done)
 
     # Assert
@@ -66,10 +71,11 @@ def test_buffer_sample():
     # Assign
     batch_size = 5
     buffer = ReplayBuffer(batch_size=batch_size, buffer_size=10)
+    env = generate_sample_SARS()
 
     # Act
-    for _ in range(20):
-        (state, actions, reward, next_state, done) = generate_sample_SARS()
+    for i in range(20):
+        (state, actions, reward, next_state, done) = next(env)
         buffer.add(state=state, action=actions, reward=reward, next_state=next_state, done=done)
 
     # Assert
@@ -212,8 +218,9 @@ def test_replay_buffer_dump():
     filled_buffer = 8
     prop_keys = ["state", "action", "reward", "next_state"]
     buffer = ReplayBuffer(batch_size=5, buffer_size=10)
+    env = generate_sample_SARS()
     for _ in range(filled_buffer):
-        sars = generate_sample_SARS(state_size=10)
+        sars = next(env)
         buffer.add(state=torch.tensor(sars[0]), reward=sars[1], action=[sars[2]], next_state=torch.tensor(sars[3]), dones=sars[4])
 
     # Act
@@ -229,9 +236,10 @@ def test_replay_buffer_dump_serializable():
     import torch
     # Assign
     filled_buffer = 8
+    env = generate_sample_SARS()
     buffer = ReplayBuffer(batch_size=5, buffer_size=10)
     for _ in range(filled_buffer):
-        sars = generate_sample_SARS(state_size=10)
+        sars = next(env)
         buffer.add(state=torch.tensor(sars[0]), reward=sars[1], action=[sars[2]], next_state=torch.tensor(sars[3]), dones=sars[4])
 
     # Act
@@ -248,8 +256,9 @@ def test_replay_buffer_load_json_dump():
     prop_keys = ["state", "action", "reward", "next_state", "done"]
     buffer = ReplayBuffer(batch_size=20, buffer_size=20)
     ser_buffer = []
+    env = generate_sample_SARS()
     for _ in range(10):
-        sars = generate_sample_SARS()
+        sars = next(env)
         ser_buffer.append({"state": sars[0], "action": sars[1], "reward": [sars[2]], "next_state": sars[3], "done": [sars[4]]})
 
     # Act
@@ -270,8 +279,9 @@ def test_priority_buffer_dump_serializable():
     # Assign
     filled_buffer = 8
     buffer = PERBuffer(batch_size=5, buffer_size=10)
+    env = generate_sample_SARS()
     for _ in range(filled_buffer):
-        sars = generate_sample_SARS(state_size=10)
+        sars = next(env)
         buffer.add(state=torch.tensor(sars[0]), reward=sars[1], action=[sars[2]], next_state=torch.tensor(sars[3]), dones=sars[4])
 
     # Act
@@ -287,9 +297,10 @@ def test_priority_buffer_load_json_dump():
     # Assign
     prop_keys = ["state", "action", "reward", "next_state", "done"]
     buffer = PERBuffer(batch_size=10, buffer_size=20)
+    env = generate_sample_SARS()
     ser_buffer = []
     for _ in range(10):
-        sars = generate_sample_SARS()
+        sars = next(env)
         ser_buffer.append({"state": sars[0], "action": sars[1], "reward": [sars[2]], "next_state": sars[3], "done": [sars[4]]})
 
     # Act

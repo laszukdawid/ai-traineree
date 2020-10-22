@@ -1,7 +1,8 @@
+from ai_traineree.utils import to_tensor
 from ai_traineree import DEVICE
 from ai_traineree.agents.utils import hard_update, soft_update
 from ai_traineree.buffers import ReplayBuffer
-from ai_traineree.networks import ActorBody, CriticBody
+from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.noise import GaussianNoise
 from ai_traineree.types import AgentType
 
@@ -73,14 +74,14 @@ class DDPGAgent(AgentType):
 
     def act(self, obs, noise: float=0.0):
         with torch.no_grad():
-            obs = torch.tensor(obs.astype(np.float32)).to(self.device)
+            obs = to_tensor(obs).float().to(self.device)
             action = self.actor(obs)
             action += noise*self.noise.sample()
             return self.action_scale*torch.clamp(action, self.action_min, self.action_max).cpu().numpy().astype(np.float32)
 
     def target_act(self, obs, noise: float=0.0):
         with torch.no_grad():
-            obs = torch.tensor(obs).to(self.device)
+            obs = to_tensor(obs).float().to(self.device)
             action = self.target_actor(obs) + noise*self.noise.sample()
             return torch.clamp(action, self.action_min, self.action_max).cpu().numpy().astype(np.float32)
 

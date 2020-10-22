@@ -30,7 +30,7 @@ def test_dqn_runs():
     env_runner.run(reward_goal=10, max_episodes=20)
 
 
-def test_raindow_runs():
+def test_rainbow_runs():
     # Assign
     task = GymTask('CartPole-v1')
     agent = RainbowAgent(task.state_size, task.action_size, device=DEVICE)

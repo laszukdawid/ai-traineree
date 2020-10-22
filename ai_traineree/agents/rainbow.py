@@ -1,7 +1,8 @@
 from ai_traineree.agents.dqn import DQNAgent
 from ai_traineree.agents.utils import soft_update
 from ai_traineree.buffers import NStepBuffer, PERBuffer, ReplayBuffer
-from ai_traineree.networks import RainbowNet
+from ai_traineree.networks.heads import RainbowNet
+from ai_traineree.utils import to_tensor
 
 import numpy as np
 import torch
@@ -64,7 +65,7 @@ class RainbowAgent(DQNAgent):
         self.net = RainbowNet(self.state_size[0], self.action_size, num_atoms=self.n_atoms, hidden_layers=hidden_layers, device=self.device)
         self.target_net = RainbowNet(self.state_size[0], self.action_size, num_atoms=self.n_atoms, hidden_layers=hidden_layers, device=self.device)
 
-        self.optimizer = optim.SGD(self.net.parameters(), lr=self.lr)
+        self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
 
     def act(self, state, eps: float = 0.) -> int:
         """Returns actions for given state as per current policy.
@@ -78,19 +79,19 @@ class RainbowAgent(DQNAgent):
         if np.random.random() < eps:
             return np.random.randint(self.action_size)
 
-        state = self.state_transform(state)
-        state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
+        state = to_tensor(self.state_transform(state)).float()
+        state = state.unsqueeze(0).to(self.device)
         prob = self.net.act(state)
         q = (prob * self.z_atoms).sum(-1)
         action_values = q.argmax(-1)
         return np.argmax(action_values.cpu().data.numpy())
 
     def learn(self, experiences) -> None:
-        rewards = torch.tensor(experiences['reward'], dtype=torch.float32).to(self.device)
-        dones = torch.tensor(experiences['done']).type(torch.int).to(self.device)
-        states = torch.tensor(experiences['state'], dtype=torch.float32).to(self.device)
-        next_states = torch.tensor(experiences['next_state'], dtype=torch.float32).to(self.device)
-        actions = torch.tensor(experiences['action'], dtype=torch.long).to(self.device)
+        rewards = to_tensor(experiences['reward']).float().to(self.device)
+        dones = to_tensor(experiences['done']).type(torch.int).to(self.device)
+        states = to_tensor(experiences['state']).float().to(self.device)
+        next_states = to_tensor(experiences['next_state']).float().to(self.device)
+        actions = to_tensor(experiences['action']).type(torch.long).to(self.device)
 
         with torch.no_grad():
             prob_next = self.target_net.act(next_states)

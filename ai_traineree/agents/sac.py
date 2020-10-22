@@ -1,14 +1,15 @@
 from ai_traineree import DEVICE
 from ai_traineree.agents.utils import hard_update, soft_update
 from ai_traineree.buffers import ReplayBuffer as Buffer
-from ai_traineree.networks import ActorBody, DoubleCritic
+from ai_traineree.networks.bodies import ActorBody, CriticBody
+from ai_traineree.networks.heads import DoubleCritic
 from ai_traineree.policies import GaussianPolicy
 from ai_traineree.types import AgentType
+from ai_traineree.utils import to_tensor
 
 import numpy as np
 import torch
 from torch import optim
-# from torch.optim import AdamW, SGD
 from torch.nn.functional import mse_loss
 from torch.nn.utils import clip_grad_norm_
 from typing import Sequence, Tuple
@@ -28,20 +29,23 @@ class SACAgent(AgentType):
     name = "SAC"
 
     def __init__(
-        self, state_size: int, action_size: int, hidden_layers: Sequence[int]=(128, 128),
+        self, state_size: int, action_size: int,
         actor_lr: float=2e-3, critic_lr: float=2e-3, clip: Tuple[int, int]=(-1, 1),
         alpha: float=0.2, device=None, **kwargs
     ):
+        """
+        :param hidden_layers: default (128, 128)
+        """
         self.device = device if device is not None else DEVICE
         self.action_size = action_size
 
         # Reason sequence initiation.
-        self.hidden_layers = kwargs.get('hidden_layers', hidden_layers)
+        hidden_layers = kwargs.get('hidden_layers', (128, 128))
         self.policy = GaussianPolicy(action_size).to(self.device)
         self.actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
 
-        self.double_critic = DoubleCritic(state_size, action_size, hidden_layers).to(self.device)
-        self.target_double_critic = DoubleCritic(state_size, action_size, hidden_layers).to(self.device)
+        self.double_critic = DoubleCritic(state_size, action_size, CriticBody, hidden_layers=hidden_layers).to(self.device)
+        self.target_double_critic = DoubleCritic(state_size, action_size, CriticBody, hidden_layers=hidden_layers).to(self.device)
 
         # Target sequence initiation
         hard_update(self.target_double_critic, self.double_critic)
@@ -103,7 +107,7 @@ class SACAgent(AgentType):
             return np.clip(self.action_scale*np.random.random(size=self.action_size), self.action_min, self.action_max)
 
         with torch.no_grad():
-            state = torch.tensor(state.reshape(1, -1).astype(np.float32)).to(self.device)
+            state = to_tensor(state).view(1, -1).float().to(self.device)
             action_mu = self.actor.act(state.detach())
 
             if deterministic:
@@ -178,11 +182,11 @@ class SACAgent(AgentType):
     def learn(self, samples):
         """update the critics and actors of all the agents """
 
-        rewards = torch.tensor(samples['reward'], device=self.device).unsqueeze(1)
-        dones = torch.tensor(samples['done'], dtype=torch.int, device=self.device).unsqueeze(1)
-        states = torch.tensor(samples['state'], dtype=torch.float32, device=self.device)
-        next_states = torch.tensor(samples['next_state'], dtype=torch.float32, device=self.device)
-        actions = torch.tensor(samples['action'], dtype=torch.float32, device=self.device)
+        rewards = to_tensor(samples['reward']).to(self.device).unsqueeze(1)
+        dones = to_tensor(samples['done']).int().to(self.device).unsqueeze(1)
+        states = to_tensor(samples['state']).float().to(self.device)
+        next_states = to_tensor(samples['next_state']).float().to(self.device)
+        actions = torch.stack(samples['action']).to(self.device)
 
         self._update_value_function(states, actions, rewards, next_states, dones)
         self._update_policy(states)

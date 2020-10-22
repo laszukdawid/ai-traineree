@@ -1,10 +1,11 @@
 import abc
+import torch
 from typing import Any, Dict, Optional, Sequence, Tuple, Union
 
-ActionType = Sequence
+ActionType = torch.Tensor
 DoneType = bool
 RewardType = Union[int, float]
-StateType = Sequence
+StateType = torch.Tensor
 
 Hyperparameters = Dict[str, str]
 
@@ -36,9 +37,9 @@ class AgentType(abc.ABC):
     name: str
     state_size: Union[Sequence[int], int]
     action_size: int
-    loss: Union[int, float] = 0
-    actor_loss: Union[int, float] = 0
-    critic_loss: Union[int, float] = 0
+    loss: Optional[Union[int, float]] = None
+    actor_loss: Optional[Union[int, float]] = None
+    critic_loss: Optional[Union[int, float]] = None
 
     def act(self, state: StateType, noise: Any):
         raise NotImplementedError

@@ -1,8 +1,10 @@
 from ai_traineree import DEVICE
 from ai_traineree.agents.utils import soft_update
-from ai_traineree.buffers import NStepBuffer, PERBuffer
-from ai_traineree.networks import DuelingNet, NetworkType, TNetworkType
+from ai_traineree.buffers import NStepBuffer, PERBuffer, ReplayBuffer
+from ai_traineree.networks import NetworkType, NetworkTypeClass
+from ai_traineree.networks.heads import DuelingNet
 from ai_traineree.types import AgentType
+from ai_traineree.utils import to_tensor
 
 import numpy as np
 import torch
@@ -31,7 +33,7 @@ class DQNAgent(AgentType):
         self, state_size: Union[Sequence[int], int], action_size: int,
         lr: float = 3e-4, gamma: float = 0.99, tau: float = 0.002,
         network_fn: Callable[[], NetworkType]=None,
-        network_class: Type[TNetworkType]=None,
+        network_class: Type[NetworkTypeClass]=None,
         hidden_layers: Sequence[int]=(64, 64),
         state_transform: Optional[Callable]=None,
         reward_transform: Optional[Callable]=None,
@@ -78,16 +80,17 @@ class DQNAgent(AgentType):
             hidden_layers = kwargs.get('hidden_layers', hidden_layers)
             self.net = DuelingNet(self.state_size[0], self.action_size, hidden_layers=hidden_layers, device=self.device)
             self.target_net = DuelingNet(self.state_size[0], self.action_size, hidden_layers=hidden_layers, device=self.device)
-        self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
+        self.optimizer = optim.SGD(self.net.parameters(), lr=self.lr)
+        self.loss = -np.inf
 
     def step(self, state, action, reward, next_state, done) -> None:
         self.iteration += 1
-        state = self.state_transform(state)
-        next_state = self.state_transform(next_state)
+        state = to_tensor(self.state_transform(state)).float().to("cpu")
+        next_state = to_tensor(self.state_transform(next_state)).float().to("cpu")
         reward = self.reward_transform(reward)
 
         # Delay adding to buffer to account for n_steps (particularly the reward)
-        self.n_buffer.add(state=state, action=[int(action)], reward=[reward], done=[done], next_state=next_state)
+        self.n_buffer.add(state=state.numpy(), action=[int(action)], reward=[reward], done=[done], next_state=next_state.numpy())
         if not self.n_buffer.available:
             return
 
@@ -112,17 +115,17 @@ class DQNAgent(AgentType):
         if np.random.random() < eps:
             return np.random.randint(self.action_size)
 
-        state = self.state_transform(state)
-        state = torch.from_numpy(state).float().unsqueeze(0).to(self.device)
+        state = to_tensor(self.state_transform(state)).float()
+        state = state.unsqueeze(0).to(self.device)
         action_values = self.net.act(state)
         return np.argmax(action_values.cpu().data.numpy())
 
     def learn(self, experiences) -> None:
-        rewards = torch.tensor(experiences['reward'], dtype=torch.float32).to(self.device)
-        dones = torch.tensor(experiences['done']).type(torch.int).to(self.device)
-        states = torch.tensor(experiences['state'], dtype=torch.float32).to(self.device)
-        next_states = torch.tensor(experiences['next_state'], dtype=torch.float32).to(self.device)
-        actions = torch.tensor(experiences['action'], dtype=torch.long).to(self.device)
+        rewards = to_tensor(experiences['reward']).type(torch.float32).to(self.device)
+        dones = to_tensor(experiences['done']).type(torch.int).to(self.device)
+        states = to_tensor(experiences['state']).type(torch.float32).to(self.device)
+        next_states = to_tensor(experiences['next_state']).type(torch.float32).to(self.device)
+        actions = to_tensor(experiences['action']).type(torch.long).to(self.device)
 
         with torch.no_grad():
             Q_targets_next = self.target_net(next_states).detach()
@@ -154,8 +157,7 @@ class DQNAgent(AgentType):
         return self.net.state_dict()
 
     def log_writer(self, writer, episode):
-        writer.add_scalar("loss/actor", self.actor_loss, episode)
-        writer.add_scalar("loss/critic", self.critic_loss, episode)
+        writer.add_scalar("loss/agent", self.loss, episode)
 
     def save_state(self, path: str):
         agent_state = dict(net=self.net.state_dict(), target_net=self.target_net.state_dict())

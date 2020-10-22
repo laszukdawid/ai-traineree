@@ -11,4 +11,7 @@ def to_list(e):
     elif e is None:
         return None
     else:
-        return list(e)
+        try:
+            return list(e)
+        except Exception:
+            return [e]
