@@ -3,14 +3,14 @@ import numpy as np
 import random
 
 from collections import defaultdict, deque
-from typing import Any, Dict, Generator, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Generator, List, Optional, Sequence, Tuple, Union
 from torch import from_numpy, Tensor
 from ai_traineree import to_list
 
 
 class Experience(object):
 
-    __must_haves = ['state', 'action', 'reward', 'next_state', 'done']
+    __must_haves = ['state', 'action', 'reward', 'next_state', 'done', 'state_idx', 'next_state_idx']
     keys = __must_haves + ['advantage', 'logprob', 'value', 'priority', 'index', 'weight']
 
     def __init__(self, **kwargs):
@@ -86,11 +86,48 @@ class NStepBuffer(BufferBase):
         return current_exp
 
 
+class ReferenceBuffer(object):
+    def __init__(self, buffer_size: int):
+        self.buffer = dict()
+        self.indices = []
+        self.buffer_size = buffer_size
+
+    def __len__(self) -> int:
+        return len(self.indices)
+
+    @staticmethod
+    def _hash_element(el) -> Union[int, str]:
+        if isinstance(el, np.ndarray):
+            return hash(el.data.tobytes())
+        elif isinstance(el, Tensor):
+            return hash(str(el))
+        else:
+            return str(el)
+
+    def add(self, el) -> Union[int, str]:
+        # idx = str(el)
+        idx = self._hash_element(el)
+        if idx not in self.buffer:
+            self.buffer[idx] = el
+            self.indices.append(idx)
+        if len(self.indices) > self.buffer_size:
+            self.buffer.pop(self.indices.pop(0), None)
+        return idx
+
+    def get(self, idx: str):
+        return self.buffer[idx]
+
+
 class ReplayBuffer(BufferBase):
 
     keys = ["states", "actions", "rewards", "next_states", "dones"]
 
-    def __init__(self, batch_size: int, buffer_size=int(1e6), device=None):
+    def __init__(self, batch_size: int, buffer_size=int(1e6), device=None, **kwargs):
+        """
+        :param compress_state: bool (default: False)
+            Whether manage memory used by states. Useful when states are "large".
+            Improves memory usage but has a significant performance penalty.
+        """
         super().__init__()
         self.batch_size = batch_size
         self.buffer_size = buffer_size
@@ -99,6 +136,8 @@ class ReplayBuffer(BufferBase):
 
         self.exp: deque = deque(maxlen=buffer_size)
 
+        self._states_mng = kwargs.get("compress_state", False)
+        self._states = ReferenceBuffer(buffer_size + 20)
         self.advantages = deque(maxlen=buffer_size)
         self.states = deque(maxlen=buffer_size)
         self.actions = deque(maxlen=buffer_size)
@@ -113,10 +152,19 @@ class ReplayBuffer(BufferBase):
         return max(len(self.exp), len(self.states))
 
     def add(self, **kwargs):
+        if self._states_mng:
+            state_idx = self._states.add(kwargs.pop("state"))
+            next_state_idx = self._states.add(kwargs.pop("next_state", "None"))
+            kwargs['state_idx'] = state_idx
+            kwargs['next_state_idx'] = next_state_idx
         self.exp.append(Experience(**kwargs))
 
     def sample_list(self, keys: Optional[Sequence[str]]=None) -> List[Experience]:
         sampled_exp = random.sample(self.exp, min(self.batch_size, len(self.exp)))
+        if self._states_mng:
+            for exp in sampled_exp:
+                exp.state = self._states.get(exp.state_idx)
+                exp.next_state = self._states.get(exp.next_state_idx)
         return sampled_exp
 
     def sample(self, keys: Optional[Sequence[str]]=None) -> Dict[str, List]:
@@ -125,8 +173,12 @@ class ReplayBuffer(BufferBase):
         keys = keys if keys is not None else list(self.exp[0].__dict__.keys())
         for exp in sampled_exp:
             for key in keys:
-            # for (key, val) in exp.__dict__.items():
-                all_experiences[key].append(getattr(exp, key))
+                if self._states_mng and (key == 'state' or key == 'next_state'):
+                    value = self._states.get(getattr(exp, key + '_idx'))
+                else:
+                    value = getattr(exp, key)
+
+                all_experiences[key].append(value)
         return all_experiences
 
     def sample_sars(self) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
@@ -136,10 +188,14 @@ class ReplayBuffer(BufferBase):
         next_states = []
         dones = []
         for exp in random.sample(self.exp, self.batch_size):
-            states.append(exp.state)
+            if self._states_mng:
+                states.append(self._states.get(exp.state_idx))
+                next_states.append(self._states.get(exp.next_state_idx))
+            else:
+                states.append(exp.state)
+                next_states.append(exp.next_state)
             actions.append(exp.action)
             rewards.append(exp.reward)
-            next_states.append(exp.next_state)
             dones.append(exp.done)
 
         states = self.convert_float(states).to(self.device)
