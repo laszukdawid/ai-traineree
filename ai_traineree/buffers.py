@@ -89,6 +89,7 @@ class NStepBuffer(BufferBase):
 class ReferenceBuffer(object):
     def __init__(self, buffer_size: int):
         self.buffer = dict()
+        self.counter = defaultdict(int)
         self.indices = []
         self.buffer_size = buffer_size
 
@@ -105,13 +106,18 @@ class ReferenceBuffer(object):
             return str(el)
 
     def add(self, el) -> Union[int, str]:
-        # idx = str(el)
         idx = self._hash_element(el)
-        if idx not in self.buffer:
+        self.counter[idx] += 1
+        self.indices.append(idx)
+        if self.counter[idx] < 2:
             self.buffer[idx] = el
-            self.indices.append(idx)
+
         if len(self.indices) > self.buffer_size:
-            self.buffer.pop(self.indices.pop(0), None)
+            left_idx = self.indices.pop(0)
+
+            self.counter[left_idx] -= 1
+            if self.counter[left_idx] == 0:
+                self.buffer.pop(left_idx, None)
         return idx
 
     def get(self, idx: str):
@@ -138,25 +144,15 @@ class ReplayBuffer(BufferBase):
 
         self._states_mng = kwargs.get("compress_state", False)
         self._states = ReferenceBuffer(buffer_size + 20)
-        self.advantages = deque(maxlen=buffer_size)
-        self.states = deque(maxlen=buffer_size)
-        self.actions = deque(maxlen=buffer_size)
-        self.next_states = deque(maxlen=buffer_size)
-        self.logprobs = deque(maxlen=buffer_size)
-        self.rewards = deque(maxlen=buffer_size)
-        self.dones = deque(maxlen=buffer_size)
-        self.masks = deque(maxlen=buffer_size)
-        self.values = deque(maxlen=buffer_size)
 
     def __len__(self) -> int:
-        return max(len(self.exp), len(self.states))
+        return len(self.exp)
 
     def add(self, **kwargs):
         if self._states_mng:
-            state_idx = self._states.add(kwargs.pop("state"))
-            next_state_idx = self._states.add(kwargs.pop("next_state", "None"))
-            kwargs['state_idx'] = state_idx
-            kwargs['next_state_idx'] = next_state_idx
+            kwargs['state_idx'] = self._states.add(kwargs.pop("state"))
+            if "next_state" in kwargs:
+                kwargs['next_state_idx'] = self._states.add(kwargs.pop("next_state", "None"))
         self.exp.append(Experience(**kwargs))
 
     def sample_list(self, keys: Optional[Sequence[str]]=None) -> List[Experience]:
@@ -222,7 +218,12 @@ class PERBuffer(BufferBase):
     https://arxiv.org/pdf/1511.05952.pdf
     """
 
-    def __init__(self, batch_size, buffer_size: int=int(1e6), alpha=0.5, device=None):
+    def __init__(self, batch_size, buffer_size: int=int(1e6), alpha=0.5, device=None, **kwargs):
+        """
+        :param compress_state: bool (default: False)
+            Whether manage memory used by states. Useful when states are "large".
+            Improves memory usage but has a significant performance penalty.
+        """
         super(PERBuffer, self).__init__()
         self.batch_size = batch_size
         self.buffer_size = buffer_size
@@ -233,11 +234,18 @@ class PERBuffer(BufferBase):
 
         self.tiny_offset: float = 0.05
 
+        self._states_mng = kwargs.get("compress_state", False)
+        self._states = ReferenceBuffer(buffer_size + 20)
+
     def __len__(self) -> int:
         return len(self.tree)
 
     def add(self, *, priority: float=0, **kwargs):
         priority += self.tiny_offset
+        if self._states_mng:
+            kwargs['state_idx'] = self._states.add(kwargs.pop("state"))
+            if "next_state" in kwargs:
+                kwargs['next_state_idx'] = self._states.add(kwargs.pop("next_state"))
         self.tree.insert(kwargs, pow(priority, self.alpha))
 
     def sample_list(self, beta: float=1, **kwargs) -> List[Experience]:
@@ -256,13 +264,16 @@ class PERBuffer(BufferBase):
             priorities.append(priority)
             weights[k] = pow(weights[k]/priority, beta) if priority > 1e-16 else 0
             indices.append(index)
-            samples.append(data)
             self.priority_update([index], [0])  # To avoid duplicating
+            samples.append(data)
 
         self.priority_update(indices, priorities)  # Revert priorities
         weights = weights / max(weights)
         for k in range(self.batch_size):
             experience = Experience(**samples[k], index=indices[k], weight=weights[k])
+            if self._states_mng:
+                experience.state = self._states.get(experience.state_idx)
+                experience.next_state = self._states.get(experience.next_state_idx)
             experiences.append(experience)
 
         return experiences
@@ -274,8 +285,12 @@ class PERBuffer(BufferBase):
             return None
 
         for exp in sampled_exp:
-            for (key, val) in exp.__dict__.items():
-                all_experiences[key].append(val)
+            for key in exp.__dict__.keys():
+                if self._states_mng and (key == 'state' or key == 'next_state'):
+                    value = self._states.get(getattr(exp, key + '_idx'))
+                else:
+                    value = getattr(exp, key)
+                all_experiences[key].append(value)
         return all_experiences
 
     def sample_sars(self) -> Optional[Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]]:
@@ -286,10 +301,14 @@ class PERBuffer(BufferBase):
         experiences = raw_samples
         states, actions, rewards, next_states, dones = [], [], [], [], []
         for exp in experiences:
-            states.append(exp.state)
+            if self._states_mng:
+                states.append(self._states.get(exp.state_idx))
+                next_states.append(self._states.get(exp.next_state_idx))
+            else:
+                states.append(exp.state)
+                next_states.append(exp.next_state)
             actions.append(exp.action)
             rewards.append(exp.reward)
-            next_states.append(exp.next_state)
             dones.append(exp.done)
 
         states = self.convert_float(states)

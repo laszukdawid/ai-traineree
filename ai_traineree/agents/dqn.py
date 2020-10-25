@@ -6,7 +6,7 @@ from ai_traineree.networks.heads import DuelingNet
 from ai_traineree.types import AgentType
 from ai_traineree.utils import to_tensor
 
-import numpy as np
+import random
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
@@ -55,14 +55,14 @@ class DQNAgent(AgentType):
         self.tau = float(kwargs.get('tau', tau))
 
         self.update_freq = int(kwargs.get('update_freq', 1))
-        self.batch_size = int(kwargs.get('batch_size', 32))
-        self.buffer_size = kwargs.get('buffer_size', int(1e5))
+        self.batch_size = int(kwargs.pop('batch_size', 32))
+        self.buffer_size = int(kwargs.pop('buffer_size', 1e5))
         self.warm_up = int(kwargs.get('warm_up', 0))
         self.number_updates = int(kwargs.get('number_updates', 1))
         self.max_grad_norm = float(kwargs.get('max_grad_norm', 10))
 
         self.iteration: int = 0
-        self.buffer = PERBuffer(batch_size=self.batch_size, buffer_size=self.buffer_size)
+        self.buffer = PERBuffer(batch_size=self.batch_size, buffer_size=self.buffer_size, **kwargs)
         self.using_double_q = bool(kwargs.get("using_double_q", True))
 
         self.n_steps = kwargs.get("n_steps", 1)
@@ -81,7 +81,7 @@ class DQNAgent(AgentType):
             self.net = DuelingNet(self.state_size[0], self.action_size, hidden_layers=hidden_layers, device=self.device)
             self.target_net = DuelingNet(self.state_size[0], self.action_size, hidden_layers=hidden_layers, device=self.device)
         self.optimizer = optim.SGD(self.net.parameters(), lr=self.lr)
-        self.loss = -np.inf
+        self.loss = 0
 
     def step(self, state, action, reward, next_state, done) -> None:
         self.iteration += 1
@@ -112,13 +112,13 @@ class DQNAgent(AgentType):
             eps (float): epsilon, for epsilon-greedy action selection
         """
         # Epsilon-greedy action selection
-        if np.random.random() < eps:
-            return np.random.randint(self.action_size)
+        if random.random() < eps:
+            return random.randint(0, self.action_size-1)
 
         state = to_tensor(self.state_transform(state)).float()
         state = state.unsqueeze(0).to(self.device)
         action_values = self.net.act(state)
-        return np.argmax(action_values.cpu().data.numpy())
+        return int(torch.argmax(action_values.cpu()))
 
     def learn(self, experiences) -> None:
         rewards = to_tensor(experiences['reward']).type(torch.float32).to(self.device)

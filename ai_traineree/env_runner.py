@@ -69,7 +69,9 @@ class EnvRunner:
         self.all_iterations = []
         self.scores_window = deque(maxlen=self.window_len)
 
-    def interact_episode(self, eps: float=0, max_iterations=None, render=False, render_gif=False, log_loss_every: Optional[int]=None) -> Tuple[RewardType, int]:
+    def interact_episode(
+        self, eps: float=0, max_iterations: Optional[int]=None, render: bool=False, render_gif: bool=False, log_loss_every: Optional[int]=None
+    ) -> Tuple[RewardType, int]:
         score = 0
         state = self.task.reset()
         iterations = 0
@@ -85,11 +87,10 @@ class EnvRunner:
             if render:
                 self.task.render("human")
                 time.sleep(1./FRAMES_PER_SEC)
+
             action = self.agent.act(state, eps)
-            if not self.task.is_discrete:
-                action = torch.tensor(action, dtype=torch.float32)
             next_state, reward, done, _ = self.task.step(action)
-            score += reward
+            score += float(reward)
             if render_gif:
                 # OpenAI gym still renders the image to the screen even though it shouldn't. Eh.
                 img = self.task.render(mode='rgb_array')

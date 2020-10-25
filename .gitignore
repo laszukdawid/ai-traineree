@@ -1,6 +1,7 @@
 build/
 dist/
 /gifs
+/run*
 /htmlcov
 /.vscode
 
