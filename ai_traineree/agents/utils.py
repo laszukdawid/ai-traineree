@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+from torch import Tensor
 from typing import List
 
 
@@ -15,15 +16,15 @@ def hard_update(target: nn.Module, source: nn.Module):
         target_param.data.copy_(param.data)  # type: ignore
 
 
-def compute_gae(next_value, rewards, masks, values, gamma=0.99, tau=0.95):
-    values = values + [next_value]
-    gae = 0
-    returns = []
-    for step in reversed(range(len(rewards))):
-        delta = rewards[step] + gamma * values[step + 1] * masks[step] - values[step]
-        gae = delta + gamma * tau * masks[step] * gae
-        returns.insert(0, gae + values[step])
-    return returns
+def compute_gae(rewards: Tensor, dones: Tensor, values: Tensor, next_value: Tensor, gamma=0.99, lamb=0.9) -> Tensor:
+    """Uses General Advantage Estimator to compute... general advantage estiomation."""
+    _tmp_values = torch.cat((values, next_value[None, ...]))
+    masks = 1 - dones
+    gaes = torch.zeros_like(_tmp_values)
+    deltas = rewards + gamma * _tmp_values[1:] * masks - _tmp_values[:-1]
+    for idx in reversed(range(len(rewards))):
+        gaes[idx] = deltas[idx] + gamma * lamb * masks[idx] * gaes[idx + 1]
+    return gaes[:-1]
 
 
 def revert_norm_returns(rewards, dones, gamma=0.99, device=None) -> torch.Tensor:
@@ -34,5 +35,5 @@ def revert_norm_returns(rewards, dones, gamma=0.99, device=None) -> torch.Tensor
         returns.insert(0, discounted_reward)
 
     t_returns = torch.tensor(returns, device=device)
-    t_returns = (t_returns - t_returns.mean()) / (t_returns.std() + 1e-8)
+    t_returns = (t_returns - t_returns.mean()) / torch.clamp(t_returns.std(), 1e-8)
     return t_returns

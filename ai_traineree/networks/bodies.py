@@ -175,6 +175,7 @@ class CriticBody(NetworkType):
         self.reset_parameters()
 
         self.gate = gate if gate is not None else lambda x: x
+        self.gate_out = gate_out if gate_out is not None else lambda x: x
 
     def reset_parameters(self):
         for layer in self.layers:
@@ -186,7 +187,7 @@ class CriticBody(NetworkType):
                 x = self.gate(layer(torch.cat((x, actions.float()), dim=-1)))
             else:
                 x = self.gate(layer(x))
-        return self.layers[-1](x)
+        return self.gate_out(self.layers[-1](x))
 
 
 class NoisyLayer(nn.Module):
