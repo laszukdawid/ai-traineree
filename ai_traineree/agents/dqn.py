@@ -63,6 +63,7 @@ class DQNAgent(AgentType):
 
         self.iteration: int = 0
         self.buffer = PERBuffer(batch_size=self.batch_size, buffer_size=self.buffer_size, **kwargs)
+        # self.buffer = ReplayBuffer(batch_size=self.batch_size, buffer_size=self.buffer_size, **kwargs)
         self.using_double_q = bool(kwargs.get("using_double_q", True))
 
         self.n_steps = kwargs.get("n_steps", 1)
@@ -128,7 +129,7 @@ class DQNAgent(AgentType):
         actions = to_tensor(experiences['action']).type(torch.long).to(self.device)
 
         with torch.no_grad():
-            Q_targets_next = self.target_net(next_states).detach()
+            Q_targets_next = self.target_net.act(next_states).detach()
             if self.using_double_q:
                 _a = torch.argmax(self.net(next_states), dim=-1).unsqueeze(-1)
                 max_Q_targets_next = Q_targets_next.gather(1, _a)

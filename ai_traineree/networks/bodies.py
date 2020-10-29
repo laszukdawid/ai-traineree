@@ -36,13 +36,13 @@ class ScaleNet(NetworkType):
 class FlattenNet(NetworkType):
     def __init__(self):
         super(FlattenNet, self).__init__()
-    
+
     def forward(self, x):
         return x.view(x.size(0), -1)
 
 
 class ConvNet(NetworkType):
-    def __init__(self, input_dim: Sequence[int], output_dim: int=0, **kwargs):
+    def __init__(self, input_dim: Sequence[int], **kwargs):
         """
         Constructs a layered network over torch.nn.Conv2D. Number of layers is set based on `hidden_layers` argument.
         To update other arguments, e.g. kernel_size or bias, pass either a single value or a tuple of the same
@@ -50,7 +50,7 @@ class ConvNet(NetworkType):
 
         Quick reminder from the PyTorch doc (https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html):
         in_channels (int) – Number of channels in the input image
-        out_channels (int) – Number of channels produced by the convolution
+        hidden_layers (tuple of ints) - Number of channels in each hidden layer
         kernel_size (int or tuple) – Size of the convolving kernel
         stride (int or tuple, optional) – Stride of the convolution. Default: 1
         padding (int or tuple, optional) – Zero-padding added to both sides of the input. Default: 0
@@ -71,27 +71,29 @@ class ConvNet(NetworkType):
 
         # input_dim = (num_layers, x_img, y_img, channels)
         self.input_dim = input_dim
-        hidden_layers = kwargs.get("hidden_layers", (64, 64))
+        hidden_layers = kwargs.get("hidden_layers", (10, 10))
+        max_pool_size = kwargs.get("max_pool_size", 2)
         kernel_size: Union[int, Sequence[int]] = kwargs.get("kernel_size", 3)
-        num_layers = [input_dim[0]] + list(hidden_layers)  # + [output_dim]
-        layers = []
-        for (dim_in, dim_out) in zip(num_layers[:-1], num_layers[1:]):
-            layers.append(nn.Conv2d(dim_in, dim_out, kernel_size=kernel_size))
-            layers.append(nn.MaxPool2d(4, 4))
 
-        # layers = [nn.Conv2d(dim_in, dim_out, kernel_size=kernel_size) for dim_in, dim_out in zip(num_layers[:-1], num_layers[1:])]
+        num_layers = [input_dim[0]] + list(hidden_layers)  # + [output_dim]
+        max_pool_sizes = self._expand_to_seq(max_pool_size, len(num_layers))
+        kernel_sizes = self._expand_to_seq(kernel_size, len(num_layers))
+        layers = []
+        for layer_idx in range(len(num_layers)-1):
+            layers.append(nn.Conv2d(num_layers[layer_idx], num_layers[layer_idx+1], kernel_size=kernel_sizes[layer_idx]))
+            layers.append(nn.MaxPool2d(max_pool_sizes[layer_idx]))
+            layers.append(nn.LeakyReLU())
 
         self.layers = nn.ModuleList(layers)
         self.reset_parameters()
 
-        # self.gate = gate if gate is not None else lambda x: x
-        self.gate = kwargs.get("gate", lambda x: x)
-        self.gate_out = kwargs.get("gate_out", lambda x: x)
-        self.reset_parameters()
-
         self.device = kwargs.get("device")
         self.to(self.device)
-    
+
+    @staticmethod
+    def _expand_to_seq(o: Union[int, Sequence[int]], size) -> Sequence[int]:
+        return o if isinstance(o, Sequence) else (o,)*size
+
     @property
     def output_size(self):
         return reduce(lambda a, b: a*b, self._calculate_output_size(self.input_dim, self.layers))
@@ -106,9 +108,8 @@ class ConvNet(NetworkType):
         self.layers.apply(layer_init)
 
     def forward(self, x):
-        for layer in self.layers[:-1]:
-            x = self.gate(layer(x))
-        x = self.gate_out(self.layers[-1](x))
+        for layer in self.layers:
+            x = layer(x)
         return x
 
 

@@ -1,0 +1,72 @@
+import torch
+import numpy as np
+import pylab as plt
+from collections import deque
+from torch.utils.tensorboard import SummaryWriter
+
+from ai_traineree.agents.dqn import DQNAgent
+from ai_traineree.env_runner import EnvRunner
+from ai_traineree.networks.heads import NetChainer
+from ai_traineree.networks.bodies import ConvNet, FlattenNet, FcNet, ScaleNet
+from ai_traineree.tasks import GymTask
+
+
+# TODO: This needs internal handling. It's a common way to handle pixels as input, i.e. stack frames.
+#       In the form right here this is a nasty and ugly hack.
+prev_states = 2
+states = deque(np.array([]), maxlen=prev_states)
+
+
+def state_transform(img):
+    state = np.mean(img, axis=2)[None, ...]
+    states.append(state)
+    state = np.vstack(states)
+    return torch.from_numpy(state).float()
+
+
+def network_fn(state_dim, output_dim, device):
+    conv_net = ConvNet(state_dim, hidden_layers=(10, 10), device=device)
+    return NetChainer(net_classes=[
+        ScaleNet(scale=1./255),
+        conv_net,
+        FlattenNet(),
+        FcNet(conv_net.output_size, output_dim, hidden_layers=(100, 100, 50), device=device),
+    ])
+
+
+env_name = 'SpaceInvaders-v0'
+writer = SummaryWriter()
+task = GymTask(env_name, state_transform=state_transform)
+config = {
+    "network_fn": lambda: network_fn(task.actual_state_size, task.action_size, "cuda"),
+    "compress_state": True,
+    "gamma": 0.99,
+    "lr": 1e-3,
+    "update_freq": 150,
+    "batch_size": 400,
+    "buffer_size": int(5e3),
+    "device": "cuda",
+}
+
+for _ in range(prev_states):
+    task.reset()
+
+agent = DQNAgent(task.state_size, task.action_size, **config)
+env_runner = EnvRunner(task, agent, writer=writer)
+
+# env_runner.interact_episode(0, render=True)
+scores = env_runner.run(
+    reward_goal=1000, max_episodes=20000,
+    log_every=1, eps_start=0.9, gif_every_episodes=200,
+    force_new=True,
+)
+# env_runner.interact_episode(render=True)
+
+# plot scores
+fig = plt.figure()
+ax = fig.add_subplot(111)
+plt.plot(scores)
+plt.ylabel('Score')
+plt.xlabel('Episode #')
+plt.savefig(f'{env_name}.png', dpi=120)
+plt.show()

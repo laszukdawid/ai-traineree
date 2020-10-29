@@ -2,7 +2,6 @@ import json
 import logging
 import numpy as np
 import time
-import torch
 import os
 import sys
 from ai_traineree.types import AgentType, RewardType, TaskType
@@ -12,7 +11,12 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 FRAMES_PER_SEC = 25
-logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="")
+logging.basicConfig(
+    stream=sys.stdout,
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)-8s %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 
 
 def save_gif(path, images: List[np.ndarray]) -> None:
