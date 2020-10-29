@@ -25,14 +25,12 @@ class DDPGAgent(AgentType):
     def __init__(
         self, state_size: int, action_size: int, hidden_layers: Sequence[int]=(128, 128),
         actor_lr: float=2e-3, actor_lr_decay: float=0, critic_lr: float=2e-3, critic_lr_decay: float=0,
-        noise_scale: float=0.2, noise_sigma: float=0.1, clip: Tuple[int, int]=(-1, 1), config=None, device=None,
-        **kwargs
+        noise_scale: float=0.2, noise_sigma: float=0.1, clip: Tuple[int, int]=(-1, 1), **kwargs
     ):
-        config = config if config is not None else dict()
-        self.device = device if device is not None else DEVICE
+        self.device = device = kwargs.get("device", DEVICE)
 
         # Reason sequence initiation.
-        self.hidden_layers = config.get('hidden_layers', hidden_layers)
+        self.hidden_layers = kwargs.get('hidden_layers', hidden_layers)
         self.actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
         self.critic = CriticBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
         self.target_actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
@@ -48,19 +46,21 @@ class DDPGAgent(AgentType):
         # Optimization sequence initiation.
         self.actor_optimizer = Adam(self.actor.parameters(), lr=actor_lr, weight_decay=actor_lr_decay)
         self.critic_optimizer = Adam(self.critic.parameters(), lr=critic_lr, weight_decay=critic_lr_decay)
+        self.max_grad_norm_actor: float = float(kwargs.get("max_grad_norm_actor", 10.0))
+        self.max_grad_norm_critic: float = float(kwargs.get("max_grad_norm_critic", 10.0))
         self.action_min = clip[0]
         self.action_max = clip[1]
-        self.action_scale = config.get('action_scale', 1)
+        self.action_scale = kwargs.get('action_scale', 1)
 
-        self.gamma: float = float(config.get('gamma', 0.99))
-        self.tau: float = float(config.get('tau', 0.02))
-        self.batch_size: int = int(config.get('batch_size', 64))
-        self.buffer_size: int = int(config.get('buffer_size', int(1e6)))
+        self.gamma: float = float(kwargs.get('gamma', 0.99))
+        self.tau: float = float(kwargs.get('tau', 0.02))
+        self.batch_size: int = int(kwargs.get('batch_size', 64))
+        self.buffer_size: int = int(kwargs.get('buffer_size', int(1e6)))
         self.buffer = ReplayBuffer(self.batch_size, self.buffer_size)
 
-        self.warm_up: int = int(config.get('warm_up', 0))
-        self.update_freq: int = int(config.get('update_freq', 1))
-        self.number_updates: int = int(config.get('number_updates', 1))
+        self.warm_up: int = int(kwargs.get('warm_up', 0))
+        self.update_freq: int = int(kwargs.get('update_freq', 1))
+        self.number_updates: int = int(kwargs.get('number_updates', 1))
 
         # Breath, my child.
         self.reset_agent()
@@ -116,7 +116,7 @@ class DDPGAgent(AgentType):
         # Minimize the loss
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
-        # torch.nn.utils.clip_grad_norm_(self.critic.parameters(), self.gradient_clip)
+        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm_critic)
         self.critic_optimizer.step()
         self.critic_loss = critic_loss.item()
 
@@ -125,6 +125,7 @@ class DDPGAgent(AgentType):
         actor_loss = -self.critic(states, pred_actions).mean()
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm_critic)
         self.actor_optimizer.step()
         self.actor_loss = actor_loss.item()
 

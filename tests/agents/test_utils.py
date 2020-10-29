@@ -34,11 +34,11 @@ def test_revert_norm_returns_gamma():
 
 def test_compute_gae_no_terminal():
     # Assign
-    rewards = tensor([0, -1, -1, 1])
-    dones = tensor([0, 0, 0, 0])
+    rewards = tensor([0, -1, -1, 1]).unsqueeze(1)
+    dones = tensor([0, 0, 0, 0]).unsqueeze(1)
     gamma = 0.99
     tau = 0.9
-    values = tensor([0, -1.3, -1.9, -2.5])
+    values = tensor([0, -1.3, -1.9, -2.5]).reshape((4, 1))
     next_value = tensor([-4.])
 
     # Act
@@ -47,16 +47,16 @@ def test_compute_gae_no_terminal():
     # Assert
     assert len(advantages) == len(rewards)
     assert isinstance(advantages, torch.Tensor)
-    assert advantages.tolist() == pytest.approx([-4.27, -3.35, -1.98, -0.46], 0.01)
+    assert advantages.flatten().tolist() == pytest.approx([-4.27, -3.35, -1.98, -0.46], 0.1)
 
 
 def test_compute_gae_terminals():
     # Assign
-    rewards = tensor([0, -1, 10, 0 -1, -1])
-    dones = tensor([0, 0, 1, 0, 0])
+    rewards = tensor([0, -1, 10, 0, -1]).unsqueeze(1)
+    dones = tensor([0, 0, 1, 0, 0]).unsqueeze(1)
     gamma = 0.99
     tau = 0.9
-    values = tensor([0, -1.3, 3, -1.9, -2.5])
+    values = tensor([0, -1.3, 3, -1.9, -2.5]).unsqueeze(1)
     next_value = tensor([-4.])
 
     # Act
@@ -64,7 +64,7 @@ def test_compute_gae_terminals():
 
     # Assert
     assert len(advantages) == len(rewards)
-    assert advantages.tolist() == pytest.approx([7.18, 9.51, 7.00, -3.77, -2.46], 0.01)
+    assert advantages.flatten().tolist() == pytest.approx([7.18, 9.50, 7.00, -2.77, -2.46], 0.1)
 
 
 if __name__ == "__main__":

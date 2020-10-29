@@ -12,7 +12,7 @@ import torch
 from torch import optim
 from torch.nn.functional import mse_loss
 from torch.nn.utils import clip_grad_norm_
-from typing import Sequence, Tuple
+from typing import Sequence, Tuple, List
 
 
 class SACAgent(AgentType):
@@ -42,7 +42,7 @@ class SACAgent(AgentType):
         # Reason sequence initiation.
         hidden_layers = kwargs.get('hidden_layers', (128, 128))
         self.policy = GaussianPolicy(action_size).to(self.device)
-        self.actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
+        self.actor = ActorBody(state_size, self.policy.param_dim*action_size, hidden_layers=hidden_layers).to(self.device)
 
         self.double_critic = DoubleCritic(state_size, action_size, CriticBody, hidden_layers=hidden_layers).to(self.device)
         self.target_double_critic = DoubleCritic(state_size, action_size, CriticBody, hidden_layers=hidden_layers).to(self.device)
@@ -56,7 +56,7 @@ class SACAgent(AgentType):
         alpha_init = kwargs.get("alpha", alpha)
         self.log_alpha = torch.tensor(np.log(alpha_init), device=self.device, requires_grad=True)
 
-        self.actor_params = list(self.actor.parameters()) + [self.policy.std]
+        self.actor_params = list(self.actor.parameters()) 
         self.critic_params = list(self.double_critic.parameters())
         self.actor_optimizer = optim.Adam(self.actor_params, lr=actor_lr)
         self.critic_optimizer = optim.Adam(list(self.critic_params), lr=critic_lr)
@@ -102,21 +102,18 @@ class SACAgent(AgentType):
         """
         return (self.actor.state_dict(), self.double_critic.state_dict(), self.target_double_critic.state_dict())
 
-    def act(self, state, epsilon: float=0.0, deterministic=False):
+    def act(self, state, epsilon: float=0.0, deterministic=False) -> List[float]:
         if np.random.random() < epsilon:
             return np.clip(self.action_scale*np.random.random(size=self.action_size), self.action_min, self.action_max)
 
-        with torch.no_grad():
-            state = to_tensor(state).view(1, -1).float().to(self.device)
-            action_mu = self.actor.act(state.detach())
+        state = to_tensor(state).view(1, -1).float().to(self.device)
+        action = self.actor.act(state)
 
-            if deterministic:
-                action = action_mu
-            else:
-                action = self.policy(action_mu).sample()
+        if not deterministic:
+            action = self.policy(action).sample()
 
-            action = action.cpu().numpy().flatten()
-            return np.clip(action*self.action_scale, self.action_min, self.action_max)
+        action = torch.clamp(action*self.action_scale, self.action_min, self.action_max)
+        return action.flatten().tolist()
 
     def step(self, state, action, reward, next_state, done):
         self.iteration += 1
@@ -186,7 +183,7 @@ class SACAgent(AgentType):
         dones = to_tensor(samples['done']).int().to(self.device).unsqueeze(1)
         states = to_tensor(samples['state']).float().to(self.device)
         next_states = to_tensor(samples['next_state']).float().to(self.device)
-        actions = torch.stack(samples['action']).to(self.device)
+        actions = to_tensor(samples['action']).to(self.device)
 
         self._update_value_function(states, actions, rewards, next_states, dones)
         self._update_policy(states)
@@ -197,9 +194,6 @@ class SACAgent(AgentType):
         writer.add_scalar("loss/actor", self.actor_loss, episode)
         writer.add_scalar("loss/critic", self.critic_loss, episode)
         writer.add_scalar("loss/alpha", self.alpha, episode)
-
-        for idx, std in enumerate(self.policy.std):
-            writer.add_scalar(f"policy/std_{idx}", std, episode)
 
     def save_state(self, path: str):
         agent_state = dict(
