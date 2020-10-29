@@ -3,6 +3,7 @@ import numpy as np
 import random
 
 from collections import defaultdict, deque
+from copy import copy
 from typing import Any, Dict, Generator, List, Optional, Sequence, Tuple, Union
 from torch import from_numpy, Tensor
 from ai_traineree import to_list
@@ -90,11 +91,10 @@ class ReferenceBuffer(object):
     def __init__(self, buffer_size: int):
         self.buffer = dict()
         self.counter = defaultdict(int)
-        self.indices = []
         self.buffer_size = buffer_size
 
     def __len__(self) -> int:
-        return len(self.indices)
+        return len(self.buffer)
 
     @staticmethod
     def _hash_element(el) -> Union[int, str]:
@@ -108,20 +108,17 @@ class ReferenceBuffer(object):
     def add(self, el) -> Union[int, str]:
         idx = self._hash_element(el)
         self.counter[idx] += 1
-        self.indices.append(idx)
         if self.counter[idx] < 2:
             self.buffer[idx] = el
-
-        if len(self.indices) > self.buffer_size:
-            left_idx = self.indices.pop(0)
-
-            self.counter[left_idx] -= 1
-            if self.counter[left_idx] == 0:
-                self.buffer.pop(left_idx, None)
         return idx
 
-    def get(self, idx: str):
+    def get(self, idx: Union[int, str]):
         return self.buffer[idx]
+
+    def remove(self, idx: str):
+        self.counter[idx] -= 1
+        if self.counter[idx] < 1:
+            self.buffer.pop(idx, None)
 
 
 class ReplayBuffer(BufferBase):
@@ -139,8 +136,7 @@ class ReplayBuffer(BufferBase):
         self.buffer_size = buffer_size
         self.device = device
         self.indices = range(batch_size)
-
-        self.exp: deque = deque(maxlen=buffer_size)
+        self.exp: List = []
 
         self._states_mng = kwargs.get("compress_state", False)
         self._states = ReferenceBuffer(buffer_size + 20)
@@ -154,6 +150,12 @@ class ReplayBuffer(BufferBase):
             if "next_state" in kwargs:
                 kwargs['next_state_idx'] = self._states.add(kwargs.pop("next_state", "None"))
         self.exp.append(Experience(**kwargs))
+
+        if len(self.exp) > self.buffer_size:
+            drop_exp = self.exp.pop(0)
+            if self._states_mng:
+                self._states.remove(drop_exp.state_idx)
+                self._states.remove(drop_exp.next_state_idx)
 
     def sample_list(self, keys: Optional[Sequence[str]]=None) -> List[Experience]:
         sampled_exp = random.sample(self.exp, min(self.batch_size, len(self.exp)))
@@ -246,7 +248,11 @@ class PERBuffer(BufferBase):
             kwargs['state_idx'] = self._states.add(kwargs.pop("state"))
             if "next_state" in kwargs:
                 kwargs['next_state_idx'] = self._states.add(kwargs.pop("next_state"))
-        self.tree.insert(kwargs, pow(priority, self.alpha))
+        old_data = self.tree.insert(kwargs, pow(priority, self.alpha))
+
+        if len(self.tree) >= self.buffer_size and self._states_mng and old_data is not None:
+            self._states.remove(old_data['state_idx'])
+            self._states.remove(old_data['next_state_idx'])
 
     def sample_list(self, beta: float=1, **kwargs) -> List[Experience]:
         """The method return samples randomly without duplicates"""
@@ -363,13 +369,16 @@ class SumTree(object):
             return self.tree[self.leaf_offset:][index]
         return self.tree[self.leaf_offset + index]
 
-    def insert(self, data, weight):
+    def insert(self, data, weight) -> Any:
+        """Returns `data` of element that was removed"""
         index = self.cursor
         self.cursor = (self.cursor+1) % self.leafs_num
         self.size = min(self.size+1, self.leafs_num)
 
+        old_data = copy(self.data[index])
         self.data[index] = data
         self.weight_update(index, weight)
+        return old_data
 
     def weight_update(self, index, weight):
         tree_index = self.leaf_offset + index

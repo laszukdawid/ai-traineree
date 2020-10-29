@@ -99,7 +99,7 @@ class DQNAgent(AgentType):
         if self.iteration < self.warm_up:
             return
 
-        if len(self.buffer) > self.batch_size and (self.iteration % self.update_freq) == 0:
+        if len(self.buffer) >= self.batch_size and (self.iteration % self.update_freq) == 0:
             for _ in range(self.number_updates):
                 self.learn(self.buffer.sample())
 
