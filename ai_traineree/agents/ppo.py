@@ -2,7 +2,7 @@ from ai_traineree.utils import to_tensor
 from ai_traineree import DEVICE
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.types import AgentType
-from ai_traineree.policies import BetaPolicy, GaussianPolicy, PolicyType
+from ai_traineree.policies import DirichletPolicy, MultivariateGaussianPolicy
 import random
 import torch
 import torch.nn as nn
@@ -65,8 +65,10 @@ class PPOAgent(AgentType):
         self.max_grad_norm_critic: float = float(kwargs.get("max_grad_norm_critic", 10.0))
 
         self.hidden_layers = kwargs.get('hidden_layers', hidden_layers)
-        self.policy: PolicyType = GaussianPolicy(action_size).to(self.device)
-        self.actor = ActorBody(state_size, self.policy.param_dim*action_size, self.hidden_layers).to(self.device)
+        # self.policy = DirichletPolicy()  # TODO: Apparently Beta dist is better than Normal in PPO. Leaving for validation.
+        # self.actor = ActorBody(state_size, self.policy.param_dim*action_size, self.hidden_layers, gate=F.relu, gate_out=None).to(self.device)
+        self.policy = MultivariateGaussianPolicy(action_size, self.batch_size, device=self.device)
+        self.actor = ActorBody(state_size, self.policy.param_dim*action_size, self.hidden_layers, gate=torch.tanh, gate_out=None).to(self.device)
         self.critic = CriticBody(state_size, action_size, self.hidden_layers).to(self.device)
 
         self.actor_params = list(self.actor.parameters())
@@ -92,7 +94,7 @@ class PPOAgent(AgentType):
             dist = self.policy(actor_est)
             action = dist.sample()
             self.local_memory_buffer['value'] = self.critic.act(state, action)
-            self.local_memory_buffer['logprob'] = dist.log_prob(action)
+            self.local_memory_buffer['logprob'] = self.policy.log_prob(dist, action)
 
             if self.is_discrete:
                 # *Technically* it's the max of Softmax but that's monotonical.
@@ -155,9 +157,9 @@ class PPOAgent(AgentType):
             value = (value - value.mean()) / max(value.std(), 1e-8)
 
         entropy = dist.entropy()
-        new_log_probs = dist.log_prob(actions.detach())
+        new_log_probs = self.policy.log_prob(dist, actions.detach())
 
-        advantages = advantages.unsqueeze(1)
+        # advantages = advantages.unsqueeze(1)
         r_theta = (new_log_probs - old_log_probs).exp().unsqueeze(-1)
         r_theta_clip = torch.clamp(r_theta, 1.0 - self.ppo_ratio_clip, 1.0 + self.ppo_ratio_clip)
 

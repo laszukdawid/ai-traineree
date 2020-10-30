@@ -3,7 +3,7 @@ from ai_traineree.agents.utils import hard_update, soft_update
 from ai_traineree.buffers import ReplayBuffer as Buffer
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import DoubleCritic
-from ai_traineree.policies import GaussianPolicy
+from ai_traineree.policies import MultivariateGaussianPolicy
 from ai_traineree.types import AgentType
 from ai_traineree.utils import to_tensor
 
@@ -38,10 +38,19 @@ class SACAgent(AgentType):
         """
         self.device = device if device is not None else DEVICE
         self.action_size = action_size
+        self.gamma: float = float(kwargs.get('gamma', 0.99))
+        self.tau: float = float(kwargs.get('tau', 0.02))
+        self.batch_size: int = int(kwargs.get('batch_size', 64))
+        self.buffer_size: int = int(kwargs.get('buffer_size', int(1e6)))
+        self.memory = Buffer(self.batch_size, self.buffer_size)
+
+        self.warm_up: int = int(kwargs.get('warm_up', 0))
+        self.update_freq: int = int(kwargs.get('update_freq', 1))
+        self.number_updates: int = int(kwargs.get('number_updates', 1))
 
         # Reason sequence initiation.
         hidden_layers = kwargs.get('hidden_layers', (128, 128))
-        self.policy = GaussianPolicy(action_size).to(self.device)
+        self.policy = MultivariateGaussianPolicy(action_size, self.batch_size, device=self.device)
         self.actor = ActorBody(state_size, self.policy.param_dim*action_size, hidden_layers=hidden_layers).to(self.device)
 
         self.double_critic = DoubleCritic(state_size, action_size, CriticBody, hidden_layers=hidden_layers).to(self.device)
@@ -68,16 +77,6 @@ class SACAgent(AgentType):
         self.max_grad_norm_alpha: float = float(kwargs.get("max_grad_norm_alpha", 1.0))
         self.max_grad_norm_actor: float = float(kwargs.get("max_grad_norm_actor", 20.0))
         self.max_grad_norm_critic: float = float(kwargs.get("max_grad_norm_critic", 20.0))
-
-        self.gamma: float = float(kwargs.get('gamma', 0.99))
-        self.tau: float = float(kwargs.get('tau', 0.02))
-        self.batch_size: int = int(kwargs.get('batch_size', 64))
-        self.buffer_size: int = int(kwargs.get('buffer_size', int(1e6)))
-        self.memory = Buffer(self.batch_size, self.buffer_size)
-
-        self.warm_up: int = int(kwargs.get('warm_up', 0))
-        self.update_freq: int = int(kwargs.get('update_freq', 1))
-        self.number_updates: int = int(kwargs.get('number_updates', 1))
 
         # Breath, my child.
         self.reset_agent()
@@ -133,8 +132,7 @@ class SACAgent(AgentType):
         action_mu = self.actor(next_states)
         dist = self.policy(action_mu)
         next_actions = dist.rsample()
-        # log_prob = dist.log_prob(next_actions).sum(-1, keepdim=True)
-        log_prob = dist.log_prob(next_actions).unsqueeze(1)
+        log_prob = self.policy.log_prob(dist, next_actions).unsqueeze(1)
 
         with torch.no_grad():
             Q_target_next, Q2_target_next = self.double_critic.act(next_states, next_actions)
@@ -157,7 +155,7 @@ class SACAgent(AgentType):
         actions_mu = self.actor(states)
         dist = self.policy(actions_mu)
         pred_actions = dist.rsample()
-        log_prob = dist.log_prob(pred_actions).unsqueeze(1)
+        log_prob = self.policy.log_prob(dist, pred_actions).unsqueeze(1)
 
         Q_actor = torch.min(*self.double_critic(states, pred_actions))
         actor_loss = (self.alpha * log_prob - Q_actor).mean()

@@ -149,8 +149,6 @@ class FcNet(NetworkType):
         # x = x.view(x.size(0), -1)
         for layer in self.layers[:-1]:
             x = self.gate(layer(x))
-        if self.gate_out is None:
-            return self.layers[-1](x)
         return self.gate_out(self.layers[-1](x))
 
 
