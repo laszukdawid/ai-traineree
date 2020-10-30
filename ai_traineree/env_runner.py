@@ -145,7 +145,7 @@ class EnvRunner:
             self.epsilon = max(eps_end, eps_decay * self.epsilon)
 
             if self.episode % log_every == 0:
-                if 'critic_loss' in self.agent.__dict__:
+                if 'critic_loss' in self.agent.__dict__ and self.agent.critic_loss is not None:
                     loss = {'actor_loss': self.agent.actor_loss, 'critic_loss': self.agent.critic_loss}
                 else:
                     loss = {'loss': self.agent.loss}

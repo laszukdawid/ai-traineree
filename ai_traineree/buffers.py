@@ -325,7 +325,7 @@ class PERBuffer(BufferBase):
 
         return states, actions, rewards, next_states, dones
 
-    def priority_update(self, indices: Sequence[int], priorities: Sequence[float]) -> None:
+    def priority_update(self, indices: Sequence[int], priorities: Tensor) -> None:
         """Updates prioprities for elements on provided indices."""
         for i, p in zip(indices, priorities):
             self.tree.weight_update(i, math.pow(p, self.alpha))

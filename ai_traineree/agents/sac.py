@@ -1,6 +1,6 @@
 from ai_traineree import DEVICE
 from ai_traineree.agents.utils import hard_update, soft_update
-from ai_traineree.buffers import ReplayBuffer as Buffer
+from ai_traineree.buffers import PERBuffer
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import DoubleCritic
 from ai_traineree.policies import MultivariateGaussianPolicy
@@ -9,8 +9,7 @@ from ai_traineree.utils import to_tensor
 
 import numpy as np
 import torch
-from torch import optim
-from torch.nn.functional import mse_loss
+from torch import optim, Tensor
 from torch.nn.utils import clip_grad_norm_
 from typing import Sequence, Tuple, List
 
@@ -30,19 +29,20 @@ class SACAgent(AgentType):
 
     def __init__(
         self, state_size: int, action_size: int,
-        actor_lr: float=2e-3, critic_lr: float=2e-3, clip: Tuple[int, int]=(-1, 1),
-        alpha: float=0.2, device=None, **kwargs
+        actor_lr: float=2e-3, critic_lr: float=2e-3, action_clip: Tuple[int, int]=(-1, 1),
+        alpha: float=0.2, **kwargs
     ):
         """
         :param hidden_layers: default (128, 128)
+        :param device: default CUDA (if possible)
         """
-        self.device = device if device is not None else DEVICE
+        self.device = kwargs.get("device", DEVICE)
         self.action_size = action_size
         self.gamma: float = float(kwargs.get('gamma', 0.99))
         self.tau: float = float(kwargs.get('tau', 0.02))
         self.batch_size: int = int(kwargs.get('batch_size', 64))
         self.buffer_size: int = int(kwargs.get('buffer_size', int(1e6)))
-        self.memory = Buffer(self.batch_size, self.buffer_size)
+        self.memory = PERBuffer(self.batch_size, self.buffer_size)
 
         self.warm_up: int = int(kwargs.get('warm_up', 0))
         self.update_freq: int = int(kwargs.get('update_freq', 1))
@@ -71,8 +71,8 @@ class SACAgent(AgentType):
         self.critic_optimizer = optim.Adam(list(self.critic_params), lr=critic_lr)
         if self.alpha_lr is not None:
             self.alpha_optimizer = optim.Adam([self.log_alpha], lr=self.alpha_lr)
-        self.action_min = clip[0]
-        self.action_max = clip[1]
+        self.action_min = action_clip[0]
+        self.action_max = action_clip[1]
         self.action_scale = kwargs.get('action_scale', 1)
         self.max_grad_norm_alpha: float = float(kwargs.get("max_grad_norm_alpha", 1.0))
         self.max_grad_norm_actor: float = float(kwargs.get("max_grad_norm_actor", 20.0))
@@ -127,7 +127,7 @@ class SACAgent(AgentType):
             for _ in range(self.number_updates):
                 self.learn(self.memory.sample())
 
-    def _update_value_function(self, states, actions, rewards, next_states, dones):
+    def _update_value_function(self, states, actions, rewards, next_states, dones) -> Tensor:
         # critic loss
         action_mu = self.actor(next_states)
         dist = self.policy(action_mu)
@@ -141,7 +141,16 @@ class SACAgent(AgentType):
             Q_target = Q_target.type(torch.float32)
 
         Q_expected, Q2_expected = self.double_critic(states, actions)
-        critic_loss = mse_loss(Q_expected, Q_target) + mse_loss(Q2_expected, Q_target)
+        Q1_diff = Q_expected - Q_target
+        error_1 = Q1_diff*Q1_diff
+        mse_loss_1 = error_1.mean()
+
+        Q2_diff = Q2_expected - Q_target
+        error_2 = Q2_diff*Q1_diff
+        mse_loss_2 = error_2.mean()
+
+        error = error_1 + error_2
+        critic_loss = mse_loss_1 + mse_loss_2
 
         # Minimize the loss
         self.critic_optimizer.zero_grad()
@@ -149,6 +158,7 @@ class SACAgent(AgentType):
         clip_grad_norm_(self.critic_params, self.max_grad_norm_critic)
         self.critic_optimizer.step()
         self.critic_loss = critic_loss.item()
+        return error
 
     def _update_policy(self, states):
         # Compute actor loss
@@ -183,8 +193,12 @@ class SACAgent(AgentType):
         next_states = to_tensor(samples['next_state']).float().to(self.device)
         actions = to_tensor(samples['action']).to(self.device)
 
-        self._update_value_function(states, actions, rewards, next_states, dones)
+        error = self._update_value_function(states, actions, rewards, next_states, dones)
         self._update_policy(states)
+
+        if hasattr(self.memory, 'priority_update'):
+            assert any(~torch.isnan(error))
+            self.memory.priority_update(samples['index'], error.abs())
 
         soft_update(self.target_double_critic, self.double_critic, self.tau)
 
