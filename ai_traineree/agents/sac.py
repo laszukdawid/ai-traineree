@@ -146,7 +146,7 @@ class SACAgent(AgentType):
         mse_loss_1 = error_1.mean()
 
         Q2_diff = Q2_expected - Q_target
-        error_2 = Q2_diff*Q1_diff
+        error_2 = Q2_diff*Q2_diff
         mse_loss_2 = error_2.mean()
 
         error = error_1 + error_2

@@ -4,21 +4,23 @@ from ai_traineree.agents.utils import hard_update, soft_update
 from ai_traineree.buffers import ReplayBuffer
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import DoubleCritic
-from ai_traineree.noise import GaussianNoise
+from ai_traineree.noise import OUProcess
 from ai_traineree.types import AgentType
 
 import numpy as np
+import random
 import torch
-from torch.optim import SGD
+from torch.optim import AdamW
 from torch.nn.functional import mse_loss
-from typing import Any, Sequence, Tuple
+from typing import Any, List, Sequence, Tuple
 
 
 class TD3Agent(AgentType):
     """
     Twin Delayed Deep Deterministic (TD3) Policy Gradient.
 
-    Instead of popular Ornstein-Uhlenbeck (OU) process for noise this agent uses Gaussian noise.
+    In short, it's a slightly modified/improved version of the DDPG. Compared to the DDPG in this package,
+    which uses Guassian noise, this TD3 uses Ornstein–Uhlenbeck process as the noise.
     """
 
     name = "TD3"
@@ -26,47 +28,53 @@ class TD3Agent(AgentType):
     def __init__(
         self, state_size: int, action_size: int, hidden_layers: Sequence[int]=(128, 128),
         actor_lr: float=1e-3, critic_lr: float=1e-3,
-        noise_scale: float=0.2, noise_sigma: float=0.1, clip: Tuple[int, int]=(-1, 1), config=None, device=None,
-        **kwargs
+        noise_scale: float=0.2, noise_sigma: float=0.1,
+        device=None, **kwargs
     ):
-        config = config if config is not None else dict()
         self.device = device if device is not None else DEVICE
 
         # Reason sequence initiation.
-        self.hidden_layers = config.get('hidden_layers', hidden_layers)
+        self.action_size = action_size
+        self.hidden_layers = kwargs.get('hidden_layers', hidden_layers)
         self.actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
         self.critic = DoubleCritic(state_size, action_size, CriticBody, hidden_layers=hidden_layers).to(self.device)
         self.target_actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
         self.target_critic = DoubleCritic(state_size, action_size, CriticBody, hidden_layers=hidden_layers).to(self.device)
 
         # Noise sequence initiation
-        self.noise = GaussianNoise(shape=(action_size,), mu=1e-8, sigma=noise_sigma, scale=noise_scale, device=device)
+        # self.noise = GaussianNoise(shape=(action_size,), mu=1e-8, sigma=noise_sigma, scale=noise_scale, device=device)
+        self.noise = OUProcess(shape=action_size, scale=noise_scale, sigma=noise_sigma, device=self.device)
 
         # Target sequence initiation
         hard_update(self.target_actor, self.actor)
         hard_update(self.target_critic, self.critic)
 
         # Optimization sequence initiation.
-        self.actor_optimizer = SGD(self.actor.parameters(), lr=actor_lr)
-        self.critic_optimizer = SGD(self.critic.parameters(), lr=critic_lr)
-        self.action_min = clip[0]
-        self.action_max = clip[1]
-        self.action_scale = config.get('action_scale', 1)
+        self.actor_optimizer = AdamW(self.actor.parameters(), lr=actor_lr)
+        self.critic_optimizer = AdamW(self.critic.parameters(), lr=critic_lr)
+        self.max_grad_norm_actor: float = float(kwargs.get("max_grad_norm_actor", 10.0))
+        self.max_grad_norm_critic: float = float(kwargs.get("max_grad_norm_critic", 10.0))
+        self.action_min = kwargs.get('action_min', -1.)
+        self.action_max = kwargs.get('action_max', 1.)
+        self.action_scale = kwargs.get('action_scale', 1.)
 
-        self.gamma: float = float(config.get('gamma', 0.99))
-        self.tau: float = float(config.get('tau', 0.02))
-        self.batch_size: int = int(config.get('batch_size', 64))
-        self.buffer_size: int = int(config.get('buffer_size', int(1e6)))
+        self.gamma: float = float(kwargs.get('gamma', 0.99))
+        self.tau: float = float(kwargs.get('tau', 0.02))
+        self.batch_size: int = int(kwargs.get('batch_size', 64))
+        self.buffer_size: int = int(kwargs.get('buffer_size', int(1e5)))
         self.buffer = ReplayBuffer(self.batch_size, self.buffer_size)
 
-        self.warm_up: int = int(config.get('warm_up', 0))
-        self.update_freq: int = int(config.get('update_freq', 1))
-        self.update_policy_freq: int = int(config.get('update_policy_freq', 1))
-        self.number_updates: int = int(config.get('number_updates', 1))
+        self.warm_up = int(kwargs.get('warm_up', 0))
+        self.update_freq = int(kwargs.get('update_freq', 1))
+        self.update_policy_freq = int(kwargs.get('update_policy_freq', 1))
+        self.number_updates = int(kwargs.get('number_updates', 1))
+        self.noise_reset_freq = int(kwargs.get('noise_reset_freq', 10000))
 
         # Breath, my child.
         self.reset_agent()
         self.iteration = 0
+        self.actor_loss: float = 0.
+        self.critic_loss: float = 0.
 
     def reset_agent(self) -> None:
         self.actor.reset_parameters()
@@ -74,43 +82,59 @@ class TD3Agent(AgentType):
         self.target_actor.reset_parameters()
         self.target_critic.reset_parameters()
 
-    def act(self, obs, noise: float=0.0):
-        with torch.no_grad():
-            obs = to_tensor(obs).float().to(self.device)
-            action = self.actor(obs)
-            action += noise*self.noise.sample()
-            return self.action_scale*torch.clamp(action, self.action_min, self.action_max).cpu().numpy().astype(np.float32)
+    def act(self, state, epsilon: float=0.0, training_mode=True) -> List[float]:
+        """
+        Agent acting on observations.
 
-    def target_act(self, obs, noise: float=0.0):
+        When the training_mode is True (default) a noise is added to each action. 
+        """
+        # Epsilon greedy
+        if epsilon > 0 and random.random() < epsilon:
+            rnd_actions = torch.rand(self.action_size)*(self.action_max - self.action_min) - self.action_min
+            return rnd_actions.tolist()
+
         with torch.no_grad():
-            obs = to_tensor(obs).float().to(self.device)
-            action = self.target_actor(obs) + noise*self.noise.sample()
+            state = to_tensor(state).float().to(self.device)
+            action = self.actor(state)
+            if training_mode:
+                action += self.noise.sample()
+            return (self.action_scale*torch.clamp(action, self.action_min, self.action_max)).tolist()
+
+    def target_act(self, staten, noise: float=0.0):
+        with torch.no_grad():
+            staten = to_tensor(staten).float().to(self.device)
+            action = self.target_actor(staten) + noise*self.noise.sample()
             return torch.clamp(action, self.action_min, self.action_max).cpu().numpy().astype(np.float32)
 
     def step(self, state, action, reward, next_state, done):
         self.iteration += 1
         self.buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
 
+        if (self.iteration % self.noise_reset_freq) == 0:
+            self.noise.reset_states()
+
         if self.iteration < self.warm_up:
             return
 
-        if len(self.buffer) > self.batch_size and (self.iteration % self.update_freq) == 0:
+        if len(self.buffer) <= self.batch_size:
+            return
+
+        if not (self.iteration % self.update_freq) or not (self.iteration % self.update_policy_freq):
             for _ in range(self.number_updates):
                 # Note: Inside this there's a delayed policy update.
                 #       Every `update_policy_freq` it will learn `number_updates` times.
-                self.learn(self.buffer.sample_sars())
+                self.learn(self.buffer.sample())
 
-    def learn(self, samples):
-        """update the critics and actors of all the agents """
+    def learn(self, experiences):
+        """Update critics and actors"""
+        rewards = to_tensor(experiences['reward']).float().to(self.device).unsqueeze(1)
+        dones = to_tensor(experiences['done']).type(torch.int).to(self.device).unsqueeze(1)
+        states = to_tensor(experiences['state']).float().to(self.device)
+        actions = to_tensor(experiences['action']).to(self.device)
+        next_states = to_tensor(experiences['next_state']).float().to(self.device)
 
-        states, actions, rewards, next_states, dones = samples
-        rewards = rewards.to(self.device)
-        dones = dones.type(torch.int).to(self.device)
-        states = states.to(self.device)
-        next_states = next_states.to(self.device)
-        actions = actions.to(self.device)
-
-        self._update_value_function(states, actions, rewards, next_states, dones)
+        if (self.iteration % self.update_freq) == 0:
+            self._update_value_function(states, actions, rewards, next_states, dones)
 
         if (self.iteration % self.update_policy_freq) == 0:
             self._update_policy(states)
@@ -129,7 +153,7 @@ class TD3Agent(AgentType):
         # Minimize the loss
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
-        # torch.nn.utils.clip_grad_norm_(self.critic.parameters(), self.gradient_clip)
+        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm_critic)
         self.critic_optimizer.step()
         self.critic_loss = critic_loss.item()
 
@@ -139,6 +163,7 @@ class TD3Agent(AgentType):
         actor_loss = -self.critic(states, pred_actions)[0].mean()
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm_actor)
         self.actor_optimizer.step()
         self.actor_loss = actor_loss.item()
 
