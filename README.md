@@ -60,7 +60,7 @@ This is just a beginning and there will be more work on these interactions.
 | PPO | [Implemented](ai_traineree/agents/ppo.py) | [arXiv](https://arxiv.org/abs/1707.06347) | Proximal Policy Optimization |
 | SAC | [Implemented](ai_traineree/agents/sac.py) | [arXiv](https://arxiv.org/abs/1801.01290) | Soft Actor Critic |
 | TRPO | | [arXiv](https://arxiv.org/abs/1502.05477) | Trust Region Policy Optimization |
-| RAINBOW | [Implemented (but doesn't work?)](ai_traineree/agents/rainbow.py) | [arXiv](https://arxiv.org/abs/1710.02298) | DQN with a few improvements |
+| RAINBOW | [Implemented](ai_traineree/agents/rainbow.py) | [arXiv](https://arxiv.org/abs/1710.02298) | DQN with a few improvements |
 | MADDPG | [Implemented](ai_traineree/multi_agents/maddpg.py) | [arXiv](https://arxiv.org/abs/1706.02275) | Multi agent DDPG |
 
 ### Environments
