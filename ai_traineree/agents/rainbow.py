@@ -1,6 +1,6 @@
 from ai_traineree.agents.dqn import DQNAgent
 from ai_traineree.agents.utils import soft_update
-from ai_traineree.buffers import NStepBuffer, PERBuffer, ReplayBuffer
+from ai_traineree.buffers import NStepBuffer, PERBuffer
 from ai_traineree.networks.heads import RainbowNet
 from ai_traineree.utils import to_tensor
 
@@ -12,8 +12,6 @@ from torch.nn.utils import clip_grad_norm_
 
 class RainbowAgent(DQNAgent):
     """Rainbow agent as described in [1].
-
-    **This does not work. No idea why. All seems alright(?). Help.**
 
     Rainbow is a DQN agent with some improvments that were suggested before 2017.
     As mentioned by the authors it's not exhaustive improvment but all changes are in
@@ -42,11 +40,7 @@ class RainbowAgent(DQNAgent):
         :param float tau: soft-copy factor (default: 0.002) 
 
         """
-        hidden_layers = kwargs.get("hidden_layers", (300, 300))
         super(RainbowAgent, self).__init__(*args, **kwargs)
-
-        # self.buffer = ReplayBuffer(batch_size=self.batch_size, buffer_size=self.buffer_size)
-        self.buffer = PERBuffer(batch_size=self.batch_size, buffer_size=self.buffer_size)
 
         self.using_double_q = bool(kwargs.get("using_double_q", True))
         self.v_min = float(kwargs.get("v_min", -10))
@@ -54,7 +48,8 @@ class RainbowAgent(DQNAgent):
         self.n_atoms = int(kwargs.get("n_atoms", 21))
         self.z_atoms = torch.linspace(self.v_min, self.v_max, self.n_atoms, device=self.device)
         self.z_delta = self.z_atoms[1] - self.z_atoms[0]
-        
+
+        self.buffer = PERBuffer(batch_size=self.batch_size, buffer_size=self.buffer_size)
         self.batch_indices = torch.arange(self.batch_size, device=self.device)
         self.offset = torch.linspace(0, ((self.batch_size - 1) * self.n_atoms), self.batch_size, device=self.device)
         self.offset = self.offset.unsqueeze(1).expand(self.batch_size, self.n_atoms)
@@ -62,10 +57,12 @@ class RainbowAgent(DQNAgent):
         self.n_steps = kwargs.get("n_steps", 3)
         self.n_buffer = NStepBuffer(n_steps=self.n_steps, gamma=self.gamma)
 
+        hidden_layers = kwargs.get("hidden_layers", (300, 300))
         self.net = RainbowNet(self.state_size[0], self.action_size, num_atoms=self.n_atoms, hidden_layers=hidden_layers, device=self.device)
         self.target_net = RainbowNet(self.state_size[0], self.action_size, num_atoms=self.n_atoms, hidden_layers=hidden_layers, device=self.device)
 
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
+        self.dist_probs = None
 
     def act(self, state, eps: float = 0.) -> int:
         """Returns actions for given state as per current policy.
@@ -79,12 +76,10 @@ class RainbowAgent(DQNAgent):
         if np.random.random() < eps:
             return np.random.randint(self.action_size)
 
-        state = to_tensor(self.state_transform(state)).float()
-        state = state.unsqueeze(0).to(self.device)
-        prob = self.net.act(state)
-        q = (prob * self.z_atoms).sum(-1)
-        action_values = q.argmax(-1)
-        return np.argmax(action_values.cpu().data.numpy())
+        state = to_tensor(self.state_transform(state)).float().unsqueeze(0).to(self.device)
+        self.dist_probs = self.net.act(state)
+        q_values = (self.dist_probs * self.z_atoms).sum(-1)
+        return int(q_values.argmax(-1))  # Action maximizes state-action value Q(s, a)
 
     def learn(self, experiences) -> None:
         rewards = to_tensor(experiences['reward']).float().to(self.device)
@@ -149,3 +144,18 @@ class RainbowAgent(DQNAgent):
 
         # Update networks - sync local & target
         soft_update(self.target_net, self.net, self.tau)
+
+    def log_writer(self, writer, iteration):
+        writer.add_scalar("loss/agent", self.loss, iteration)
+
+        if self.dist_probs is not None:
+            for action_idx in range(self.action_size):
+                writer.add_scalar(f'dist/expected_{action_idx}', (self.dist_probs[0, action_idx]*self.z_atoms).sum(), iteration)
+
+        # This method, `log_writer`, isn't executed on every iteration but just in case we delay plotting weights.
+        # It simply might be quite costly. Thread wisely.
+        if not (iteration % 100):
+            for idx, layer in enumerate(self.net.fc_value.parameters()):
+                writer.add_histogram(f"value_net/layer_{idx}", layer, iteration)
+            for idx, layer in enumerate(self.net.fc_advantage.parameters()):
+                writer.add_histogram(f"advantage_net/layer_{idx}", layer, iteration)

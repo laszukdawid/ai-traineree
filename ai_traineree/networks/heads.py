@@ -17,7 +17,7 @@ class NetChainer(NetworkType):
         for net in self.nets:
             if hasattr(net, "reset_parameters"):
                 net.reset_parameters()
-    
+
     def reset_noise(self):
         for net in self.nets:
             if hasattr(net, "reset_noise"):
