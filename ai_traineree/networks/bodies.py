@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from functools import reduce
-from typing import Optional, Sequence, Tuple, Union
+from typing import Any, Optional, Sequence, Tuple, Union
 
 from ai_traineree.networks import NetworkType
 
@@ -53,37 +53,54 @@ class ConvNet(NetworkType):
 
         Example 1:
         >>> config = {"hidden_layers": (300, 200, 100), "kernel_size": 6, "gate": F.relu}
-        >>> net = ConvNet(input_dim=(10, 10, 3), output_dim=(3, 1), **config)
+        >>> net = ConvNet(input_dim=(10, 10, 3), **config)
 
         Example 2:
         >>> config = {"hidden_layers": (64, 32, 64), "kernel_size": (3, 4, 3), padding: 2, "gate": F.relu}
-        >>> net = ConvNet(input_dim=(20, 10, 1), output_dim=(3, 1), **config)
+        >>> net = ConvNet(input_dim=(20, 10, 1), **config)
         """
         super(ConvNet, self).__init__()
 
         # input_dim = (num_layers, x_img, y_img, channels)
-        self.input_dim = input_dim
-        hidden_layers = kwargs.get("hidden_layers", (10, 10))
-        max_pool_size = kwargs.get("max_pool_size", 2)
-        kernel_size: Union[int, Sequence[int]] = kwargs.get("kernel_size", 3)
+        hidden_layers = kwargs.get("hidden_layers", (20, 20))
+        num_layers = [input_dim[0]] + list(hidden_layers)
 
-        num_layers = [input_dim[0]] + list(hidden_layers)  # + [output_dim]
-        max_pool_sizes = self._expand_to_seq(max_pool_size, len(num_layers))
-        kernel_sizes = self._expand_to_seq(kernel_size, len(num_layers))
+        gate = kwargs.get("gate", nn.ReLU)
+        max_pool_sizes = self._expand_to_seq(kwargs.get("max_pool_size", 2), len(num_layers))
+        kernel_sizes = self._expand_to_seq(kwargs.get("kernel_size", 3), len(num_layers))
+        strides = self._expand_to_seq(kwargs.get("stride", 1), len(num_layers))
+        paddings = self._expand_to_seq(kwargs.get("padding", 0), len(num_layers))
+        dilations = self._expand_to_seq(kwargs.get("dilation", 1), len(num_layers))
+        biases = self._expand_to_seq(kwargs.get('bias', True), len(num_layers))
+
         layers = []
         for layer_idx in range(len(num_layers)-1):
-            layers.append(nn.Conv2d(num_layers[layer_idx], num_layers[layer_idx+1], kernel_size=kernel_sizes[layer_idx]))
-            layers.append(nn.MaxPool2d(max_pool_sizes[layer_idx]))
-            layers.append(nn.LeakyReLU())
+            layers.append(
+                nn.Conv2d(
+                    num_layers[layer_idx], num_layers[layer_idx+1],
+                    kernel_size=kernel_sizes[layer_idx],
+                    stride=strides[layer_idx],
+                    padding=paddings[layer_idx],
+                    dilation=dilations[layer_idx],
+                    bias=biases[layer_idx],
+                )
+            )
+
+            if max_pool_sizes[layer_idx] > 1:
+                layers.append(nn.MaxPool2d(max_pool_sizes[layer_idx]))
+
+            if gate is not None:
+                layers.append(gate())
 
         self.layers = nn.ModuleList(layers)
         self.reset_parameters()
 
+        self.input_dim = input_dim
         self.device = kwargs.get("device")
         self.to(self.device)
 
     @staticmethod
-    def _expand_to_seq(o: Union[int, Sequence[int]], size) -> Sequence[int]:
+    def _expand_to_seq(o: Union[Any, Sequence[Any]], size) -> Sequence[Any]:
         return o if isinstance(o, Sequence) else (o,)*size
 
     @property
@@ -93,7 +110,7 @@ class ConvNet(NetworkType):
     def _calculate_output_size(self, input_dim: Sequence[int], layers) -> Sequence[int]:
         test_tensor = torch.zeros((1,) + tuple(input_dim)).to(self.device)
         with torch.no_grad():
-            out = reduce(lambda x, layer: layer(x), layers, test_tensor)
+            out = self.forward(test_tensor)
         return out.shape
 
     def reset_parameters(self):
