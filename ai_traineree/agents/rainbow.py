@@ -1,3 +1,4 @@
+from ai_traineree import DEVICE
 from ai_traineree.agents.dqn import DQNAgent
 from ai_traineree.agents.utils import soft_update
 from ai_traineree.buffers import NStepBuffer, PERBuffer
@@ -8,6 +9,7 @@ import numpy as np
 import torch
 import torch.optim as optim
 from torch.nn.utils import clip_grad_norm_
+from typing import Union, Sequence
 
 
 class RainbowAgent(DQNAgent):
@@ -27,21 +29,31 @@ class RainbowAgent(DQNAgent):
 
     [1] "Rainbow: Combining Improvements in Deep Reinforcement Learning" by Hessel et al. (DeepMind team)
     https://arxiv.org/abs/1710.02298
-
     """
 
     name = "Rainbow"
 
     def __init__(self, *args, **kwargs):
         """
-        Accepted parameters:
-        :param float lr: learning rate (default: 1e-3)
-        :param float gamma: discount factor (default: 0.99)
-        :param float tau: soft-copy factor (default: 0.002) 
+        A wrapper over the DQN thus majority of the logic is in the DqnAgent.
+        Special treatment is required because the Rainbow agent uses categorical nets
+        which aren't return probability distributions for each action.
 
+        Parameters
+        ----------
+            input_shape : tuple of input shape, e.g. (10,)
+                Most likely that's your *state* shape.
+            output_shape : tuple of output shape, e.g. (2,).
+                Most likely that's you *action* shape.
+            pre_network_fn : function with input_features as arg, e.g. f(in_features= ) -> network
+                Used to preprocess state before it is used in the value- and advantage-function in the dueling nets.
+            lr : learning rate (default: 1e-3)
+            gamma : discount factor (default: 0.99)
+            tau : soft-copy factor (default: 0.002)
         """
         super(RainbowAgent, self).__init__(*args, **kwargs)
 
+        self.device = kwargs.get("device", DEVICE)
         self.using_double_q = bool(kwargs.get("using_double_q", True))
         self.v_min = float(kwargs.get("v_min", -10))
         self.v_max = float(kwargs.get("v_max", 10))
@@ -50,16 +62,17 @@ class RainbowAgent(DQNAgent):
         self.z_delta = self.z_atoms[1] - self.z_atoms[0]
 
         self.buffer = PERBuffer(batch_size=self.batch_size, buffer_size=self.buffer_size)
-        self.batch_indices = torch.arange(self.batch_size, device=self.device)
+        self.__batch_indices = torch.arange(self.batch_size, device=self.device)
         self.offset = torch.linspace(0, ((self.batch_size - 1) * self.n_atoms), self.batch_size, device=self.device)
         self.offset = self.offset.unsqueeze(1).expand(self.batch_size, self.n_atoms)
 
         self.n_steps = kwargs.get("n_steps", 3)
         self.n_buffer = NStepBuffer(n_steps=self.n_steps, gamma=self.gamma)
 
-        hidden_layers = kwargs.get("hidden_layers", (300, 300))
-        self.net = RainbowNet(self.state_size[0], self.action_size, num_atoms=self.n_atoms, hidden_layers=hidden_layers, device=self.device)
-        self.target_net = RainbowNet(self.state_size[0], self.action_size, num_atoms=self.n_atoms, hidden_layers=hidden_layers, device=self.device)
+        # Note that in case a pre_network is provided, e.g. a shared net that extracts pixels values,
+        # it should be explicitly passed in kwargs under 
+        self.net = RainbowNet(self.input_shape, self.output_shape, num_atoms=self.n_atoms, **kwargs)
+        self.target_net = RainbowNet(self.input_shape, self.output_shape, num_atoms=self.n_atoms, **kwargs)
 
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
         self.dist_probs = None
@@ -67,14 +80,14 @@ class RainbowAgent(DQNAgent):
     def act(self, state, eps: float = 0.) -> int:
         """Returns actions for given state as per current policy.
 
-        Params
-        ======
+        Parameters
+        ----------
             state (array_like): current state
             eps (float): epsilon, for epsilon-greedy action selection
         """
         # Epsilon-greedy action selection
         if np.random.random() < eps:
-            return np.random.randint(self.action_size)
+            return np.random.randint(self.out_features)
 
         state = to_tensor(self.state_transform(state)).float().unsqueeze(0).to(self.device)
         self.dist_probs = self.net.act(state)
@@ -82,6 +95,14 @@ class RainbowAgent(DQNAgent):
         return int(q_values.argmax(-1))  # Action maximizes state-action value Q(s, a)
 
     def learn(self, experiences) -> None:
+        """
+        Parameters
+        ----------
+            experiences : dict
+                Contains all experiences for the agent. Typically sampled from the memory buffer.
+                Five keys are expected, i.e. `state`, `action`, `reward`, `next_state`, `done`.
+                Each key contains a array and all arrays have to have the same length.
+        """
         rewards = to_tensor(experiences['reward']).float().to(self.device)
         dones = to_tensor(experiences['done']).type(torch.int).to(self.device)
         states = to_tensor(experiences['state']).float().to(self.device)
@@ -97,7 +118,7 @@ class RainbowAgent(DQNAgent):
             else:
                 a_next = torch.argmax(q_next, dim=-1)
 
-            prob_next = prob_next[self.batch_indices, a_next, :]
+            prob_next = prob_next[self.__batch_indices, a_next, :]
 
             Tz = rewards + self.gamma ** self.n_steps * (1 - dones) * self.z_atoms.view(1, -1)
             Tz.clamp_(self.v_min, self.v_max)  # in place
@@ -109,7 +130,7 @@ class RainbowAgent(DQNAgent):
             # Fix disappearing probability mass when l = b = u (b is int)
             l_idx[(u_idx > 0) * (l_idx == u_idx)] -= 1
             u_idx[(l_idx < (self.n_atoms - 1)) * (l_idx == u_idx)] += 1
-            
+
             l_offset_idx = (l_idx + self.offset).type(torch.int64)
             u_offset_idx = (u_idx + self.offset).type(torch.int64)
 
@@ -125,7 +146,7 @@ class RainbowAgent(DQNAgent):
             m = m.view(self.batch_size, self.n_atoms)
 
         log_prob = self.net(states, log_prob=True)
-        log_prob = log_prob[self.batch_indices, actions.squeeze(), :]
+        log_prob = log_prob[self.__batch_indices, actions.squeeze(), :]
 
         # Cross-entropy loss error and the loss is batch mean
         error = -torch.sum(m * log_prob, 1)
@@ -149,13 +170,21 @@ class RainbowAgent(DQNAgent):
         writer.add_scalar("loss/agent", self.loss, iteration)
 
         if self.dist_probs is not None:
-            for action_idx in range(self.action_size):
-                writer.add_scalar(f'dist/expected_{action_idx}', (self.dist_probs[0, action_idx]*self.z_atoms).sum(), iteration)
+            for action_idx in range(self.out_features):
+                dist = self.dist_probs[0, action_idx]
+                writer.add_scalar(f'dist/expected_{action_idx}', (dist*self.z_atoms).sum(), iteration)
+                writer.add_histogram_raw(
+                    f'dist/Q_{action_idx}', min=self.z_atoms[0], max=self.z_atoms[-1], num=len(self.z_atoms),
+                    sum=dist.sum(), sum_squares=dist.pow(2).sum(), bucket_limits=self.z_atoms+self.z_delta,
+                    bucket_counts=dist, global_step=iteration
+                )
 
         # This method, `log_writer`, isn't executed on every iteration but just in case we delay plotting weights.
         # It simply might be quite costly. Thread wisely.
-        if not (iteration % 100):
-            for idx, layer in enumerate(self.net.fc_value.parameters()):
-                writer.add_histogram(f"value_net/layer_{idx}", layer, iteration)
-            for idx, layer in enumerate(self.net.fc_advantage.parameters()):
-                writer.add_histogram(f"advantage_net/layer_{idx}", layer, iteration)
+        if not (iteration % 20):
+            for idx, layer in enumerate(self.net.value_net.layers):
+                writer.add_histogram(f"value_net/layer_weights_{idx}", layer.weight, iteration)
+                writer.add_histogram(f"value_net/layer_bias_{idx}", layer.bias, iteration)
+            for idx, layer in enumerate(self.net.advantage_net.layers):
+                writer.add_histogram(f"advantage_net/layer_{idx}", layer.weight, iteration)
+                writer.add_histogram(f"advantage_net/layer_bias_{idx}", layer.bias, iteration)

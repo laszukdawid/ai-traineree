@@ -33,14 +33,6 @@ class ScaleNet(NetworkType):
         return x * self.scale
 
 
-class FlattenNet(NetworkType):
-    def __init__(self):
-        super(FlattenNet, self).__init__()
-
-    def forward(self, x):
-        return x.view(x.size(0), -1)
-
-
 class ConvNet(NetworkType):
     def __init__(self, input_dim: Sequence[int], **kwargs):
         """
@@ -114,28 +106,39 @@ class ConvNet(NetworkType):
 
 
 class FcNet(NetworkType):
-    def __init__(self, input_dim: int, output_dim: int, hidden_layers: Sequence[int]=(200, 100),
-                 gate=torch.tanh, gate_out=torch.tanh, last_layer_range=(-3e-3, 3e-3),
-                 device: Optional[torch.device]=None,
-                 **kwargs
-                 ):
-        """
-        For the activation layer we use tanh by default which was observed to be much better, e.g. compared to ReLU,
-        for policy networks [1]. The last gate, however, might be changed depending on the actual task.
+    """
+    For the activation layer we use tanh by default which was observed to be much better, e.g. compared to ReLU,
+    for policy networks [1]. The last gate, however, might be changed depending on the actual task.
 
-        [1] "What Matters In On-Policy Reinforcement Learning? A Large-Scale Empirical Study"
-            Link: https://arxiv.org/abs/2006.05990
+    [1] "What Matters In On-Policy Reinforcement Learning? A Large-Scale Empirical Study"
+        Link: https://arxiv.org/abs/2006.05990
+    """
+    def __init__(
+        self, in_features: Union[Sequence[int], int], out_features: Union[Sequence[int], int],
+        hidden_layers: Optional[Sequence[int]]=(200, 100),
+        gate=torch.tanh, gate_out=torch.tanh, last_layer_range=(-3e-3, 3e-3),
+        device: Optional[torch.device]=None,
+    ):
+        """
+        Parameters
+        ----------
+            in_features : Single int value tuple, e.g. (2,)
+                Shape of the input.
+            out_features : Single int value tuple, e.g. (2,)
+                Shape of the output.
         """
         super(FcNet, self).__init__()
 
-        num_layers = [input_dim] + list(hidden_layers) + [output_dim]
+        self.in_features = in_features if isinstance(in_features, int) else in_features[0]
+        self.out_features = out_features if isinstance(out_features, int) else out_features[0]
+        num_layers = list(hidden_layers) if hidden_layers is not None else []
+        num_layers = [self.in_features] + num_layers + [self.out_features]
         layers = [nn.Linear(dim_in, dim_out) for dim_in, dim_out in zip(num_layers[:-1], num_layers[1:])]
 
         self.last_layer_range = last_layer_range
         self.layers = nn.ModuleList(layers)
         self.reset_parameters()
 
-        # self.gate = gate if gate is not None else lambda x: x
         self.gate = gate if gate is not None else lambda x: x
         self.gate_out = gate_out if gate_out is not None else lambda x: x
         self.to(device=device)
@@ -146,7 +149,6 @@ class FcNet(NetworkType):
         layer_init(self.layers[-1], self.last_layer_range)
 
     def forward(self, x):
-        # x = x.view(x.size(0), -1)
         for layer in self.layers[:-1]:
             x = self.gate(layer(x))
         return self.gate_out(self.layers[-1](x))
@@ -160,16 +162,30 @@ ActorBody = FcNet
 
 
 class CriticBody(NetworkType):
-    def __init__(self, input_dim: int, action_size: int, hidden_layers: Sequence[int]=(200, 100),
-                 gate=torch.tanh, gate_out=None, **kwargs
-                 ):
+    """Extension of the FcNet which includes actions.
+
+    Mainly used to estimate the state-action value function in actor-critic agents.
+    Actions are included in the first hidden layer (changeable).
+    """
+    def __init__(
+            self, in_features: int, action_size: int, hidden_layers: Optional[Sequence[int]]=(200, 100),
+            actions_layer: int=1, gate=torch.tanh, gate_out=None, **kwargs
+    ):
         super(CriticBody, self).__init__()
 
-        num_layers = [input_dim] + list(hidden_layers) + [1]
-        layers = [nn.Linear(in_dim, out_dim) for in_dim, out_dim in zip(num_layers[:-1], num_layers[1:])]
+        self.in_features = in_features
+        self.out_features = 1
+        num_layers = list(hidden_layers) if hidden_layers is not None else []
+        num_layers = [self.in_features] + num_layers + [self.out_features]
+        assert 0 <= actions_layer < len(num_layers), "Action layer needs to be within the network"
 
-        # Injects `actions` into the second layer of the Critic
-        layers[1] = nn.Linear(num_layers[1]+action_size, num_layers[2])
+        layers = []
+        for in_idx in range(len(num_layers)-1):
+            in_dim, out_dim = num_layers[in_idx], num_layers[in_idx+1]
+            if in_idx == actions_layer:  # Injects `actions` into the second layer of the Critic
+                in_dim += action_size
+            layers.append(nn.Linear(in_dim, out_dim))
+
         self.layers = nn.ModuleList(layers)
         self.reset_parameters()
 
@@ -190,7 +206,7 @@ class CriticBody(NetworkType):
 
 
 class NoisyLayer(nn.Module):
-    def __init__(self, in_size: int, out_size: int, sigma: float=0.4, factorised: bool=True):
+    def __init__(self, in_features: int, out_features: int, sigma: float=0.4, factorised: bool=True):
         """
         A Linear layer with values being pertrubed by the noise while training.
 
@@ -205,25 +221,25 @@ class NoisyLayer(nn.Module):
         """
         super(NoisyLayer, self).__init__()
 
-        self.in_size = in_size
-        self.out_size = out_size
+        self.in_features = in_features
+        self.out_features = out_features
         self.sigma_0 = sigma
         self.factorised = factorised
 
-        self.weight_mu = nn.Parameter(torch.zeros((out_size, in_size)))
-        self.weight_sigma = nn.Parameter(torch.zeros((out_size, in_size)))
+        self.weight_mu = nn.Parameter(torch.zeros((out_features, in_features)))
+        self.weight_sigma = nn.Parameter(torch.zeros((out_features, in_features)))
 
-        self.bias_mu = nn.Parameter(torch.zeros(out_size))
-        self.bias_sigma = nn.Parameter(torch.zeros(out_size))
+        self.bias_mu = nn.Parameter(torch.zeros(out_features))
+        self.bias_sigma = nn.Parameter(torch.zeros(out_features))
 
-        self.register_buffer('weight_eps', torch.zeros((out_size, in_size)))
-        self.register_buffer('bias_eps', torch.zeros(out_size))
+        self.register_buffer('weight_eps', torch.zeros((out_features, in_features)))
+        self.register_buffer('bias_eps', torch.zeros(out_features))
 
-        self.bias_noise = torch.zeros(out_size)
+        self.bias_noise = torch.zeros(out_features)
         if factorised:
-            self.weight_noise = torch.zeros(in_size)
+            self.weight_noise = torch.zeros(in_features)
         else:
-            self.weight_noise = torch.zeros(out_size, in_size)
+            self.weight_noise = torch.zeros(out_features, in_features)
 
         self.reset_parameters()
         self.reset_noise()
@@ -239,10 +255,10 @@ class NoisyLayer(nn.Module):
 
     def reset_parameters(self):
         if self.factorised:
-            bound = sqrt(1./self.in_size)
+            bound = sqrt(1./self.in_features)
             sigma = self.sigma_0 * bound
         else:
-            bound = sqrt(3./self.in_size)
+            bound = sqrt(3./self.in_features)
             sigma = 0.017  # Yes, that's correct. [1]
 
         self.weight_mu.data.uniform_(-bound, bound)
@@ -268,7 +284,7 @@ class NoisyLayer(nn.Module):
 
 
 class NoisyNet(NetworkType):
-    def __init__(self, in_size: int, out_size: int, hidden_layers=(100, 100), sigma=0.4,
+    def __init__(self, in_features: int, out_features: int, hidden_layers: Optional[Sequence[int]]=(100, 100), sigma=0.4,
                  gate=None, gate_out=None, factorised=True, device: Optional[torch.device]=None):
         """
             :param factorised: bool
@@ -277,7 +293,10 @@ class NoisyNet(NetworkType):
         """
         super(NoisyNet, self).__init__()
 
-        num_layers = [in_size] + list(hidden_layers) + [out_size]
+        self.in_features = in_features
+        self.out_features = out_features
+        num_layers = list(hidden_layers) if hidden_layers is not None else []
+        num_layers = [self.in_features] + num_layers + [self.out_features]
         layers = [NoisyLayer(dim_in, dim_out, sigma=sigma, factorised=factorised) for dim_in, dim_out in zip(num_layers[:-1], num_layers[1:])]
         self.layers = nn.ModuleList(layers)
 

@@ -16,10 +16,10 @@ writer = SummaryWriter()
 env_name = 'CartPole-v1'
 task = GymTask(env_name)
 
-agent = Agent(task.state_size, task.action_size)
+agent = Agent(task.state_size, task.action_size, device='cpu')
 env_runner = EnvRunner(task, agent, writer=writer)
 
-scores = env_runner.run(reward_goal=100, max_episodes=500, force_new=True)
+scores = env_runner.run(reward_goal=100, max_episodes=500, eps_decay=0.9, force_new=True)
 env_runner.interact_episode(render=True)
 
 

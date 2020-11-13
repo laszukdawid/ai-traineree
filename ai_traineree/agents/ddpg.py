@@ -94,17 +94,15 @@ class DDPGAgent(AgentType):
 
         if len(self.buffer) > self.batch_size and (self.iteration % self.update_freq) == 0:
             for _ in range(self.number_updates):
-                self.learn(self.buffer.sample_sars())
+                self.learn(self.buffer.sample())
 
-    def learn(self, samples):
-        """update the critics and actors of all the agents """
-
-        states, actions, rewards, next_states, dones = samples
-        rewards = rewards.to(self.device)
-        dones = dones.type(torch.int).to(self.device)
-        states = states.to(self.device)
-        next_states = next_states.to(self.device)
-        actions = actions.to(self.device)
+    def learn(self, experiences):
+        """Update critics and actors"""
+        rewards = to_tensor(experiences['reward']).float().to(self.device).unsqueeze(1)
+        dones = to_tensor(experiences['done']).type(torch.int).to(self.device).unsqueeze(1)
+        states = to_tensor(experiences['state']).float().to(self.device)
+        actions = to_tensor(experiences['action']).to(self.device)
+        next_states = to_tensor(experiences['next_state']).float().to(self.device)
 
         # critic loss
         next_actions = self.target_actor(next_states)

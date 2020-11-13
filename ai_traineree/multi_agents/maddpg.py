@@ -8,6 +8,7 @@ from ai_traineree.agents.ddpg import DDPGAgent
 from ai_traineree.agents.utils import hard_update, soft_update
 from ai_traineree.networks.bodies import CriticBody
 from ai_traineree.types import AgentType
+from ai_traineree.utils import to_tensor
 
 from typing import Dict, Optional
 
@@ -16,18 +17,19 @@ class MADDPGAgent(AgentType):
 
     name = "MADDPG"
 
-    def __init__(self, env, state_size: int, action_size: int, agents_number: int, config: Dict, **kwargs):
+    def __init__(self, env, state_size: int, action_size: int, agents_number: int, **kwargs):
 
+        self.device = kwargs.get("device", DEVICE)
         self.env = env
-        self.state_size = state_size
+        self.state_size: int = state_size
         self.action_size = action_size
         self.agents_number = agents_number
 
-        hidden_layers = config.get('hidden_layers', (256, 128))
-        noise_scale = float(config.get('noise_scale', 0.2))
-        noise_sigma = float(config.get('noise_sigma', 0.1))
-        actor_lr = float(config.get('actor_lr', 1e-3))
-        critic_lr = float(config.get('critic_lr', 1e-3))
+        hidden_layers = kwargs.get('hidden_layers', (256, 128))
+        noise_scale = float(kwargs.get('noise_scale', 0.2))
+        noise_sigma = float(kwargs.get('noise_sigma', 0.1))
+        actor_lr = float(kwargs.get('actor_lr', 1e-3))
+        critic_lr = float(kwargs.get('critic_lr', 1e-3))
 
         self.maddpg_agent = [
             DDPGAgent(
@@ -37,20 +39,20 @@ class MADDPGAgent(AgentType):
             ) for _ in range(agents_number)
         ]
 
-        self.gamma: float = float(config.get('gamma', 0.99))
-        self.tau: float = float(config.get('tau', 0.002))
-        self.gradient_clip: Optional[float] = config.get('gradient_clip')
+        self.gamma: float = float(kwargs.get('gamma', 0.99))
+        self.tau: float = float(kwargs.get('tau', 0.002))
+        self.gradient_clip: Optional[float] = kwargs.get('gradient_clip')
 
-        self.batch_size: int = int(config.get('batch_size', 64))
-        self.buffer_size = int(config.get('buffer_size', int(1e6)))
+        self.batch_size: int = int(kwargs.get('batch_size', 64))
+        self.buffer_size = int(kwargs.get('buffer_size', int(1e6)))
         self.buffer = ReplayBuffer(self.batch_size, self.buffer_size)
 
-        self.warm_up: int = int(config.get('warm_up', 1e3))
-        self.update_freq: int = int(config.get('update_freq', 2))
-        self.number_updates: int = int(config.get('number_updates', 2))
+        self.warm_up: int = int(kwargs.get('warm_up', 1e3))
+        self.update_freq: int = int(kwargs.get('update_freq', 2))
+        self.number_updates: int = int(kwargs.get('number_updates', 2))
 
-        self.critic = CriticBody(agents_number*state_size, agents_number*action_size, hidden_layers=hidden_layers).to(DEVICE)
-        self.target_critic = CriticBody(agents_number*state_size, agents_number*action_size, hidden_layers=hidden_layers).to(DEVICE)
+        self.critic = CriticBody(agents_number*state_size, agents_number*action_size, hidden_layers=hidden_layers).to(self.device)
+        self.target_critic = CriticBody(agents_number*state_size, agents_number*action_size, hidden_layers=hidden_layers).to(self.device)
         self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=critic_lr)
         hard_update(self.target_critic, self.critic)
 
@@ -76,8 +78,7 @@ class MADDPGAgent(AgentType):
         if len(self.buffer) > self.batch_size and (self.iteration % self.update_freq) == 0:
             for _ in range(self.number_updates):
                 for agent_number in range(self.agents_number):
-                    batch = self.buffer.sample_sars()
-                    self.learn(batch, agent_number)
+                    self.learn(self.buffer.sample(), agent_number)
                     # self.update_targets()
 
     def act(self, states, noise=0.0):
@@ -95,18 +96,24 @@ class MADDPGAgent(AgentType):
     def __flatten_actions(self, actions):
         return actions.view(-1, self.agents_number*self.action_size)
 
-    def learn(self, samples, agent_number: int) -> None:
+    def learn(self, experiences, agent_number: int) -> None:
         """update the critics and actors of all the agents """
 
         action_offset = agent_number*self.action_size
 
         # No need to flip since there are no paralle agents
-        states, actions, rewards, next_states, dones = samples
+        # states, actions, rewards, next_states, dones = samples
+        # agent_rewards = rewards.select(1, agent_number).view(-1, 1).detach()
+        # agent_dones = dones.select(1, agent_number).view(-1, 1).detach()
+
+        agent_rewards = to_tensor(experiences['reward']).select(1, agent_number).float().to(self.device).unsqueeze(1).detach()
+        agent_dones = to_tensor(experiences['done']).select(1, agent_number).type(torch.int).to(self.device).unsqueeze(1)
+        states = to_tensor(experiences['state']).float().to(self.device)
+        actions = to_tensor(experiences['action']).to(self.device)
+        next_states = to_tensor(experiences['next_state']).float().to(self.device)
         flat_states = states.view(-1, self.agents_number*self.state_size)
         flat_next_states = next_states.view(-1, self.agents_number*self.state_size)
         flat_actions = actions.view(-1, self.agents_number*self.action_size)
-        agent_rewards = rewards.select(1, agent_number).view(-1, 1).detach()
-        agent_dones = dones.select(1, agent_number).view(-1, 1).detach()
 
         agent = self.maddpg_agent[agent_number]
 

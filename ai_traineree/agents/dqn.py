@@ -30,7 +30,7 @@ class DQNAgent(AgentType):
     name = "DQN"
 
     def __init__(
-        self, state_size: Union[Sequence[int], int], action_size: int,
+        self, input_shape: Union[Sequence[int], int], output_shape: Union[Sequence[int], int],
         lr: float = 3e-4, gamma: float = 0.99, tau: float = 0.002,
         network_fn: Callable[[], NetworkType]=None,
         network_class: Type[NetworkTypeClass]=None,
@@ -47,8 +47,10 @@ class DQNAgent(AgentType):
         """
 
         self.device = device if device is not None else DEVICE
-        self.state_size = state_size if not isinstance(state_size, int) else (state_size,)
-        self.action_size = action_size
+        self.input_shape: Sequence[int] = input_shape if not isinstance(input_shape, int) else (input_shape,)
+        self.in_features: int = self.input_shape[0]
+        self.output_shape: Sequence[int] = output_shape if not isinstance(output_shape, int) else (output_shape,)
+        self.out_features: int = self.output_shape[0]
 
         self.lr = float(kwargs.get('lr', lr))
         self.gamma = float(kwargs.get('gamma', gamma))
@@ -63,7 +65,6 @@ class DQNAgent(AgentType):
 
         self.iteration: int = 0
         self.buffer = PERBuffer(batch_size=self.batch_size, buffer_size=self.buffer_size, **kwargs)
-        # self.buffer = ReplayBuffer(batch_size=self.batch_size, buffer_size=self.buffer_size, **kwargs)
         self.using_double_q = bool(kwargs.get("using_double_q", True))
 
         self.n_steps = kwargs.get("n_steps", 1)
@@ -75,13 +76,13 @@ class DQNAgent(AgentType):
             self.net = network_fn()
             self.target_net = network_fn()
         elif network_class is not None:
-            self.net = network_class(self.state_size[0], self.action_size, hidden_layers=hidden_layers, device=self.device)
-            self.target_net = network_class(self.state_size[0], self.action_size, hidden_layers=hidden_layers, device=self.device)
+            self.net = network_class(self.input_shape, self.out_features, hidden_layers=hidden_layers, device=self.device)
+            self.target_net = network_class(self.input_shape, self.out_features, hidden_layers=hidden_layers, device=self.device)
         else:
             hidden_layers = kwargs.get('hidden_layers', hidden_layers)
-            self.net = DuelingNet(self.state_size[0], self.action_size, hidden_layers=hidden_layers, device=self.device)
-            self.target_net = DuelingNet(self.state_size[0], self.action_size, hidden_layers=hidden_layers, device=self.device)
-        self.optimizer = optim.SGD(self.net.parameters(), lr=self.lr)
+            self.net = DuelingNet(self.input_shape, self.output_shape, hidden_layers=hidden_layers, device=self.device)
+            self.target_net = DuelingNet(self.input_shape, self.output_shape, hidden_layers=hidden_layers, device=self.device)
+        self.optimizer = optim.AdamW(self.net.parameters(), lr=self.lr)
         self.loss = 0
 
     def step(self, state, action, reward, next_state, done) -> None:
@@ -104,7 +105,9 @@ class DQNAgent(AgentType):
             for _ in range(self.number_updates):
                 self.learn(self.buffer.sample())
 
-    def act(self, state, eps: float = 0.) -> int:
+            # Update networks only once - sync local & target
+            soft_update(self.target_net, self.net, self.tau)
+
         """Returns actions for given state as per current policy.
 
         Params
@@ -114,7 +117,7 @@ class DQNAgent(AgentType):
         """
         # Epsilon-greedy action selection
         if random.random() < eps:
-            return random.randint(0, self.action_size-1)
+            return random.randint(0, self.out_features-1)
 
         state = to_tensor(self.state_transform(state)).float()
         state = state.unsqueeze(0).to(self.device)
@@ -136,7 +139,7 @@ class DQNAgent(AgentType):
             else:
                 max_Q_targets_next = Q_targets_next.max(1)[0].unsqueeze(1)
         Q_targets = rewards + self.n_buffer.n_gammas[-1] * max_Q_targets_next * (1 - dones)
-        Q_expected = self.net(states).gather(1, actions)
+        Q_expected: torch.Tensor = self.net(states).gather(1, actions)
         loss = F.mse_loss(Q_expected, Q_targets)
 
         self.optimizer.zero_grad()
@@ -149,9 +152,6 @@ class DQNAgent(AgentType):
             error = Q_expected - Q_targets
             assert any(~torch.isnan(error))
             self.buffer.priority_update(experiences['index'], error.abs())
-
-        # Update networks - sync local & target
-        soft_update(self.target_net, self.net, self.tau)
 
     def describe_agent(self) -> Dict:
         """Returns agent's state dictionary."""
