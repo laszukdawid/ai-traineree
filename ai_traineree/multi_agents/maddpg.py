@@ -7,35 +7,35 @@ from ai_traineree.buffers import ReplayBuffer
 from ai_traineree.agents.ddpg import DDPGAgent
 from ai_traineree.agents.utils import hard_update, soft_update
 from ai_traineree.networks.bodies import CriticBody
-from ai_traineree.types import AgentType
+from ai_traineree.types import ActionType, MultiAgentType, StateType
 from ai_traineree.utils import to_tensor
 
-from typing import Dict, Optional
+from typing import List, Optional
 
 
-class MADDPGAgent(AgentType):
+class MADDPGAgent(MultiAgentType):
 
     name = "MADDPG"
 
-    def __init__(self, env, state_size: int, action_size: int, agents_number: int, **kwargs):
+    def __init__(self, state_size: int, action_size: int, agents_number: int, **kwargs):
 
         self.device = kwargs.get("device", DEVICE)
-        self.env = env
         self.state_size: int = state_size
         self.action_size = action_size
         self.agents_number = agents_number
 
         hidden_layers = kwargs.get('hidden_layers', (256, 128))
-        noise_scale = float(kwargs.get('noise_scale', 0.2))
-        noise_sigma = float(kwargs.get('noise_sigma', 0.1))
+        noise_scale = float(kwargs.get('noise_scale', 0.5))
+        noise_sigma = float(kwargs.get('noise_sigma', 1.0))
         actor_lr = float(kwargs.get('actor_lr', 1e-3))
         critic_lr = float(kwargs.get('critic_lr', 1e-3))
 
-        self.maddpg_agent = [
+        self.agents: List[DDPGAgent] = [
             DDPGAgent(
                 agents_number*state_size, action_size, hidden_layers=hidden_layers,
                 actor_lr=actor_lr, critic_lr=critic_lr,
-                noise_scale=noise_scale, noise_sigma=noise_sigma
+                noise_scale=noise_scale, noise_sigma=noise_sigma,
+                device=self.device,
             ) for _ in range(agents_number)
         ]
 
@@ -48,14 +48,16 @@ class MADDPGAgent(AgentType):
         self.buffer = ReplayBuffer(self.batch_size, self.buffer_size)
 
         self.warm_up: int = int(kwargs.get('warm_up', 1e3))
-        self.update_freq: int = int(kwargs.get('update_freq', 2))
-        self.number_updates: int = int(kwargs.get('number_updates', 2))
+        self.update_freq: int = int(kwargs.get('update_freq', 10))
+        self.number_updates: int = int(kwargs.get('number_updates', 1))
 
         self.critic = CriticBody(agents_number*state_size, agents_number*action_size, hidden_layers=hidden_layers).to(self.device)
         self.target_critic = CriticBody(agents_number*state_size, agents_number*action_size, hidden_layers=hidden_layers).to(self.device)
         self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=critic_lr)
         hard_update(self.target_critic, self.critic)
 
+        self.actor_loss = 0
+        self.critic_loss = 0
         self.reset()
 
     def reset(self):
@@ -63,14 +65,14 @@ class MADDPGAgent(AgentType):
         self.reset_agents()
 
     def reset_agents(self):
-        for agent in self.maddpg_agent:
+        for agent in self.agents:
             agent.reset_agent()
         self.critic.reset_parameters()
         self.target_critic.reset_parameters()
 
-    def step(self, state, action, reward, next_state, done) -> None:
+    def step(self, states: List[StateType], actions: List[ActionType], rewards, next_states, dones) -> None:
         self.iteration += 1
-        self.buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
+        self.buffer.add(state=states, action=actions, reward=rewards, next_state=next_states, done=dones)
 
         if self.iteration < self.warm_up:
             return
@@ -79,19 +81,32 @@ class MADDPGAgent(AgentType):
             for _ in range(self.number_updates):
                 for agent_number in range(self.agents_number):
                     self.learn(self.buffer.sample(), agent_number)
-                    # self.update_targets()
+            self.update_targets()
 
-    def act(self, states, noise=0.0):
-        """get actions from all agents in the MADDPG object"""
-        tensor_states = torch.tensor(states)
+    def act(self, states: List[StateType], noise: float=0.0) -> List[ActionType]:
+        """Get actions from all agents. Synchronized action.
+
+        Parameters
+        ----------
+        states : list of states
+            List of states per agent. Positions need to be consistent.
+        noise : float
+            Scale for the noise to include
+
+        Returns
+        -------
+        actions : List of actions that each agent wants to perform
+        """
+        tensor_states = torch.tensor(states).reshape(1, -1)
         with torch.no_grad():
             actions = []
-            for agent in self.maddpg_agent:
+            for agent in self.agents:
                 agent.actor.eval()
-                actions += agent.act(tensor_states, noise)
+                actions.append(agent.act(tensor_states, noise))
                 agent.actor.train()
 
-        return torch.stack(actions)
+        # return torch.stack(actions)
+        return actions
 
     def __flatten_actions(self, actions):
         return actions.view(-1, self.agents_number*self.action_size)
@@ -99,26 +114,21 @@ class MADDPGAgent(AgentType):
     def learn(self, experiences, agent_number: int) -> None:
         """update the critics and actors of all the agents """
 
-        action_offset = agent_number*self.action_size
-
-        # No need to flip since there are no paralle agents
-        # states, actions, rewards, next_states, dones = samples
-        # agent_rewards = rewards.select(1, agent_number).view(-1, 1).detach()
-        # agent_dones = dones.select(1, agent_number).view(-1, 1).detach()
-
+        # TODO: Just look at this mess.
         agent_rewards = to_tensor(experiences['reward']).select(1, agent_number).float().to(self.device).unsqueeze(1).detach()
         agent_dones = to_tensor(experiences['done']).select(1, agent_number).type(torch.int).to(self.device).unsqueeze(1)
-        states = to_tensor(experiences['state']).float().to(self.device)
-        actions = to_tensor(experiences['action']).to(self.device)
-        next_states = to_tensor(experiences['next_state']).float().to(self.device)
+        states = to_tensor(experiences['state']).float().to(self.device).squeeze(2)
+        actions = to_tensor(experiences['action']).to(self.device).squeeze(2)
+        next_states = to_tensor(experiences['next_state']).float().to(self.device).squeeze(2)
         flat_states = states.view(-1, self.agents_number*self.state_size)
         flat_next_states = next_states.view(-1, self.agents_number*self.state_size)
         flat_actions = actions.view(-1, self.agents_number*self.action_size)
 
-        agent = self.maddpg_agent[agent_number]
+        agent = self.agents[agent_number]
 
         next_actions = actions.detach().clone()
-        next_actions.data[:, action_offset:action_offset+self.action_size] = agent.target_actor(flat_next_states)
+        next_actions.data[:, agent_number] = agent.target_actor(flat_next_states)
+        # next_actions.data[:, action_offset:action_offset+self.action_size] = agent.target_actor(flat_next_states)
 
         # critic loss
         Q_target_next = self.target_critic(flat_next_states, self.__flatten_actions(next_actions))
@@ -136,7 +146,8 @@ class MADDPGAgent(AgentType):
 
         # Compute actor loss
         pred_actions = actions.detach().clone()
-        pred_actions.data[:, action_offset:action_offset+self.action_size] = agent.actor(flat_states)
+        pred_actions.data[:, agent_number] = agent.actor(flat_states)
+        # pred_actions.data[:, action_offset:action_offset+self.action_size] = agent.actor(flat_states)
 
         actor_loss = -self.critic(flat_states, self.__flatten_actions(pred_actions)).mean()
         agent.actor_optimizer.zero_grad()
@@ -144,15 +155,29 @@ class MADDPGAgent(AgentType):
         agent.actor_optimizer.step()
         self.actor_loss = actor_loss.mean().item()
 
-        soft_update(agent.target_actor, agent.actor, self.tau)
-        soft_update(self.target_critic, self.critic, self.tau)
-
     def update_targets(self):
         """soft update targets"""
-        for ddpg_agent in self.maddpg_agent:
+        for ddpg_agent in self.agents:
             soft_update(ddpg_agent.target_actor, ddpg_agent.actor, self.tau)
         soft_update(self.target_critic, self.critic, self.tau)
 
     def log_writer(self, writer, episode):
         writer.add_scalar("loss/actor", self.actor_loss, episode)
         writer.add_scalar("loss/critic", self.critic_loss, episode)
+
+    def save_state(self, path: str):
+        agents_state = {}
+        for agent_id, agent in enumerate(self.agents):
+            agents_state[f'actor_{agent_id}'] = agent.actor.state_dict()
+            agents_state[f'target_actor_{agent_id}'] = agent.target_actor.state_dict()
+            agents_state[f'critic_{agent_id}'] = agent.critic.state_dict()
+            agents_state[f'target_critic_{agent_id}'] = agent.target_critic.state_dict()
+        torch.save(agents_state, path)
+
+    def load_state(self, path: str):
+        agent_state = torch.load(path)
+        for agent_id, agent in enumerate(self.agents):
+            agent.actor.load_state_dict(agent_state[f'actor_{agent_id}'])
+            agent.critic.load_state_dict(agent_state[f'critic_{agent_id}'])
+            agent.target_actor.load_state_dict(agent_state[f'target_actor_{agent_id}'])
+            agent.target_critic.load_state_dict(agent_state[f'target_critic_{agent_id}'])

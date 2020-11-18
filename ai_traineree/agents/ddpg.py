@@ -1,10 +1,10 @@
-from ai_traineree.utils import to_tensor
 from ai_traineree import DEVICE
 from ai_traineree.agents.utils import hard_update, soft_update
 from ai_traineree.buffers import ReplayBuffer
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.noise import GaussianNoise
 from ai_traineree.types import AgentType
+from ai_traineree.utils import to_tensor
 
 import numpy as np
 import torch

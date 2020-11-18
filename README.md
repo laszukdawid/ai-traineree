@@ -65,13 +65,13 @@ This is just a beginning and there will be more work on these interactions.
 
 ### Environments
 
-| Name | Progress | Link |
-|-------|----------|------|
+| Name | Progress | Link | Doc |
+|------|----------|------|-----|
 | OpenAI Gym - Classic | Done |  |
-| OpenAI Gym - Atari | Implemeneted, Need more testing |  |
-| OpenAI Gym - MuJoCo | Not tested |  |
+| OpenAI Gym - Atari | Done |  |
+| OpenAI Gym - MuJoCo | Not interested. |  |
+| Unity ML | Somehow supported. | [Page](https://unity3d.com/machine-learning)
 | MAME Linux emulator | Interested. | [Official page](https://www.mamedev.org/)
-| Unity ML | Interested. | [Page](https://unity3d.com/machine-learning)
 
 ### Development
 

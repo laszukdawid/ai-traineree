@@ -1,1 +1,2 @@
 git+https://github.com/laszukdawid/Sneks.git
+mlagents

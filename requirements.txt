@@ -1,4 +1,4 @@
-numpy>=1.13.3
+numpy>=1.13.3,<1.19
 matplotlib
 torch>=1.5.0
 
