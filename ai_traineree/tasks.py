@@ -3,7 +3,7 @@ import logging
 import torch
 from ai_traineree.types import ActionType, MultiAgentTaskType, StateType, TaskType
 
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional, Sequence, Tuple
 
 # TODO: Make this optional
 import numpy as np
@@ -23,16 +23,23 @@ class TerminationMode:
 
 
 class GymTask(TaskType):
-    def __init__(self, *, env=None, env_name: Optional[str]=None, state_transform: Optional[Callable]=None, reward_transform: Optional[Callable]=None, can_render=True):
+
+    logger = logging.getLogger("GymTask")
+
+    def __init__(
+        self,
+        env: Union[str, gym.Env],
+        state_transform: Optional[Callable]=None,
+        reward_transform: Optional[Callable]=None,
+        can_render=True,
+    ):
         """
         Parameters
         ----------
-        env : gym-like env object (default: None)
+        env : gym-like env object or str (default: None)
             Something one might get via `env = gym.make('CartPole-v0')` where `gym` is OpenAI gym compatible.
-            *Note* that either `env` or `env_name` needs to be provided.
-        env_name : str (default: None)
-            If no `env` is provided then `env_name` is used to import registred gym.
-            *Note* that either `env` or `env_name` needs to be provided.
+            If `env` is passed as a string then it is assumed to be a registred Gym with OpenAI interface.
+            In such a case, we got you.
         state_transform : function (default: None)
             Function that transform state before it's returned to the observer(s).
         reward_transform : function (default: None)
@@ -40,17 +47,18 @@ class GymTask(TaskType):
             All arguments are expected to be named; supported names: state, action, reward, done, info.
             >>> def reward_transform(*, reward, state, done):
             ...     return reward + 100*done - state[0]*0.1
-            >>> 
-        :param reward_transform: Callable[[*, state, reward, action]] -> float
-            A reward shaping function. All of its arguments have to be named.
-            >>> reward_transform(state=state, reward=reward, action=action)
+        can_render : bool (default: True)
+            Whether the task can return task state (different than the step observation).
+            Most common case is to provide the game view as the user would have.
+            By default this flag is set to True since the most common use case is OpenAI gym, specifically
+            Atari games.
         """
-        if env is not None:
+        if isinstance(env, str):
+            self.name = env
+            self.env = gym.make(env)
+        else:
             self.name = "custom"
             self.env = env
-        else:
-            self.name = env_name
-            self.env = gym.make(env_name)
         self.can_render = can_render
         self.is_discrete = "Discrete" in str(type(self.env.action_space))
 
@@ -68,7 +76,7 @@ class GymTask(TaskType):
             return sum(action_space.shape)
 
     @property
-    def actual_state_size(self):
+    def actual_state_size(self) -> Sequence[int]:
         state = self.reset()
         return state.shape
 
@@ -82,7 +90,8 @@ class GymTask(TaskType):
             # In case of OpenAI, mode can be ['human', 'rgb_array']
             return self.env.render(mode=mode)
         else:
-            print("Can't render. Sorry.")  # Yes, this is for haha
+            self.logger.warning("Asked for rendering but it's not available in this environment")
+            return
 
     def step(self, actions: ActionType) -> Tuple:
         """
