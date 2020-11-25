@@ -179,31 +179,6 @@ class ReplayBuffer(BufferBase):
                 all_experiences[key].append(value)
         return all_experiences
 
-    def sample_sars(self) -> Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
-        states = []
-        actions = []
-        rewards = []
-        next_states = []
-        dones = []
-        for exp in random.sample(self.exp, self.batch_size):
-            if self._states_mng:
-                states.append(self._states.get(exp.state_idx))
-                next_states.append(self._states.get(exp.next_state_idx))
-            else:
-                states.append(exp.state)
-                next_states.append(exp.next_state)
-            actions.append(exp.action)
-            rewards.append(exp.reward)
-            dones.append(exp.done)
-
-        states = self.convert_float(states).to(self.device)
-        actions = self.convert_float(actions).to(self.device)
-        rewards = self.convert_float(rewards).to(self.device)
-        next_states = self.convert_float(next_states).to(self.device)
-        dones = self.convert_int(dones).to(self.device)
-
-        return (states, actions, rewards, next_states, dones)
-
     def dump_buffer(self, serialize: bool=False) -> Generator[Dict[str, List], None, None]:
         for exp in self.exp:
             yield exp.get_dict(serialize=serialize)
@@ -298,32 +273,6 @@ class PERBuffer(BufferBase):
                     value = getattr(exp, key)
                 all_experiences[key].append(value)
         return all_experiences
-
-    def sample_sars(self) -> Optional[Tuple[Tensor, Tensor, Tensor, Tensor, Tensor]]:
-        raw_samples = self.sample()
-        if raw_samples is None:
-            return None
-
-        experiences = raw_samples
-        states, actions, rewards, next_states, dones = [], [], [], [], []
-        for exp in experiences:
-            if self._states_mng:
-                states.append(self._states.get(exp.state_idx))
-                next_states.append(self._states.get(exp.next_state_idx))
-            else:
-                states.append(exp.state)
-                next_states.append(exp.next_state)
-            actions.append(exp.action)
-            rewards.append(exp.reward)
-            dones.append(exp.done)
-
-        states = self.convert_float(states)
-        actions = self.convert_float(actions)
-        rewards = self.convert_float(rewards)
-        next_states = self.convert_float(next_states)
-        dones = self.convert_int(dones)
-
-        return states, actions, rewards, next_states, dones
 
     def priority_update(self, indices: Sequence[int], priorities: Tensor) -> None:
         """Updates prioprities for elements on provided indices."""

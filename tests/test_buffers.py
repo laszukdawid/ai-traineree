@@ -79,12 +79,13 @@ def test_buffer_sample():
         buffer.add(state=state, action=actions, reward=reward, next_state=next_state, done=done)
 
     # Assert
-    (states, actions, rewards, next_states, dones) = buffer.sample_sars()
-    assert len(states) == batch_size
-    assert len(actions) == batch_size
-    assert len(rewards) == batch_size
-    assert len(next_states) == batch_size
-    assert len(dones) == batch_size
+    samples = buffer.sample()
+    # (states, actions, rewards, next_states, dones)
+    assert len(samples["state"]) == batch_size
+    assert len(samples["action"]) == batch_size
+    assert len(samples["reward"]) == batch_size
+    assert len(samples["next_state"]) == batch_size
+    assert len(samples["done"]) == batch_size
 
 
 def test_per_buffer_len():
