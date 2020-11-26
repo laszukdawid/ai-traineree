@@ -1,8 +1,10 @@
 import gym
 import logging
+import random
 import torch
-from ai_traineree.types import ActionType, MultiAgentTaskType, StateType, TaskType
 
+from ai_traineree.types import ActionType, MultiAgentTaskType, StateType, TaskType
+from collections import deque
 from typing import Callable, Optional, Sequence, Tuple
 
 # TODO: Make this optional
@@ -32,6 +34,8 @@ class GymTask(TaskType):
         state_transform: Optional[Callable]=None,
         reward_transform: Optional[Callable]=None,
         can_render=True,
+        stack_frames: int= 1,
+        skip_start_frames: int= 0,
     ):
         """
         Parameters
@@ -52,6 +56,13 @@ class GymTask(TaskType):
             Most common case is to provide the game view as the user would have.
             By default this flag is set to True since the most common use case is OpenAI gym, specifically
             Atari games.
+        stack_frames : int (default: 1)
+            Number of frames to return when performing a step.
+            By default it only returns current observation (MDP).
+            When greater than 1, the returned observation will incude previous observations.
+        skip_start_frames : int (default: 0)
+            Often referred as "noop frames". Indicates how many initial frames to skip.
+            Every `reset()` will skip a random number of frames in range`[0, skip_start_frames]`.
         """
         if isinstance(env, str):
             self.name = env
@@ -68,6 +79,9 @@ class GymTask(TaskType):
         self.state_transform = state_transform
         self.reward_transform = reward_transform
 
+        self.stacked_frames = deque(maxlen=stack_frames)
+        self.skip_start_frames = skip_start_frames
+
     @staticmethod
     def __determine_action_size(action_space):
         if "Discrete" in str(type(action_space)):
@@ -77,13 +91,28 @@ class GymTask(TaskType):
 
     @property
     def actual_state_size(self) -> Sequence[int]:
-        state = self.reset()
-        return state.shape
+        return self.reset().shape
 
     def reset(self) -> StateType:
+        state = self.env.reset()
+
+        for _ in range(random.randint(0, self.skip_start_frames)):
+            if self.state_transform is not None:
+                state = self.state_transform(state)
+            if self.stacked_frames.maxlen > 1:
+                self.stacked_frames.append(state)
+            state, _, _, _ = self.step(torch.zeros(self.action_size))  # TODO: 0 should be "noaction" but that isn't necessary
+
         if self.state_transform is not None:
-            return self.state_transform(self.env.reset())
-        return self.env.reset()
+            state = self.state_transform(state)
+
+        # If need stacked frames and not enough skipped
+        if self.stacked_frames.maxlen > 1:
+            while(len(self.stacked_frames) < self.stacked_frames.maxlen):
+                self.stacked_frames.append(state)
+                return torch.tensor(self.stacked_frames).squeeze(1)  # TODO: Maybe there's some stacking?
+
+        return state
 
     def render(self, mode="rgb_array"):
         if self.can_render:
@@ -99,11 +128,17 @@ class GymTask(TaskType):
         """
         if self.is_discrete:
             actions = int(actions)
+        if isinstance(actions, torch.Tensor):
+            actions = actions.cpu().numpy()
         state, reward, done, info = self.env.step(actions)
         if self.state_transform is not None:
             state = self.state_transform(state)
         if self.reward_transform is not None:
-            reward = self.reward_transform(reward)
+            reward = self.reward_transform(reward=reward)
+
+        if self.stacked_frames.maxlen > 1:
+            self.stacked_frames.append(state)
+            state = torch.tensor(self.stacked_frames).squeeze(1)  # TODO: Maybe there's some stacking?
         return (state, reward, done, info)
 
 
