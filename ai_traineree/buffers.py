@@ -2,7 +2,7 @@ import math
 import numpy as np
 import random
 
-from collections import defaultdict, deque
+from collections import defaultdict
 from copy import copy
 from typing import Any, Dict, Generator, List, Optional, Sequence, Tuple, Union
 from torch import from_numpy, Tensor
@@ -42,18 +42,6 @@ class BufferBase(object):
 
     def load_buffer(self, buffer: List[Dict]):
         raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
-
-    @staticmethod
-    def convert_float(x):
-        return from_numpy(np.vstack(x)).float()
-
-    @staticmethod
-    def convert_long(x):
-        return from_numpy(np.vstack(x)).long()
-
-    @staticmethod
-    def convert_int(x):
-        return from_numpy(np.vstack(x).astype(np.uint8)).float()
 
 
 class NStepBuffer(BufferBase):
@@ -119,6 +107,7 @@ class ReferenceBuffer(object):
         self.counter[idx] -= 1
         if self.counter[idx] < 1:
             self.buffer.pop(idx, None)
+            del self.counter[idx]
 
 
 class ReplayBuffer(BufferBase):
@@ -157,18 +146,10 @@ class ReplayBuffer(BufferBase):
                 self._states.remove(drop_exp.state_idx)
                 self._states.remove(drop_exp.next_state_idx)
 
-    def sample_list(self, keys: Optional[Sequence[str]]=None) -> List[Experience]:
-        sampled_exp = random.sample(self.exp, min(self.batch_size, len(self.exp)))
-        if self._states_mng:
-            for exp in sampled_exp:
-                exp.state = self._states.get(exp.state_idx)
-                exp.next_state = self._states.get(exp.next_state_idx)
-        return sampled_exp
-
     def sample(self, keys: Optional[Sequence[str]]=None) -> Dict[str, List]:
-        all_experiences = defaultdict(lambda: [])
         sampled_exp: List[Experience] = random.sample(self.exp, self.batch_size)
         keys = keys if keys is not None else list(self.exp[0].__dict__.keys())
+        all_experiences = {k: [] for k in keys}
         for exp in sampled_exp:
             for key in keys:
                 if self._states_mng and (key == 'state' or key == 'next_state'):
@@ -229,7 +210,7 @@ class PERBuffer(BufferBase):
             self._states.remove(old_data['state_idx'])
             self._states.remove(old_data['next_state_idx'])
 
-    def sample_list(self, beta: float=1, **kwargs) -> List[Experience]:
+    def _sample_list(self, beta: float=1, **kwargs) -> List[Experience]:
         """The method return samples randomly without duplicates"""
         if len(self.tree) < self.batch_size:
             return []
@@ -261,7 +242,7 @@ class PERBuffer(BufferBase):
 
     def sample(self, beta: float=0.5) -> Optional[Dict[str, List]]:
         all_experiences = defaultdict(lambda: [])
-        sampled_exp = self.sample_list(beta=beta)
+        sampled_exp = self._sample_list(beta=beta)
         if len(sampled_exp) == 0:
             return None
 

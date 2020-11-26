@@ -7,11 +7,11 @@ from ai_traineree.agents.rainbow import RainbowAgent
 def test_rainbow_init_fail_without_state_action_dim():
     # Missing both state and action
     with pytest.raises(TypeError):
-        agent = RainbowAgent()
+        RainbowAgent()
 
     # Missing action
     with pytest.raises(TypeError):
-        agent = RainbowAgent(3)
+        RainbowAgent(3)
 
 
 def test_rainbow_init_default():

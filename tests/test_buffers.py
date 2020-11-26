@@ -105,11 +105,12 @@ def test_per_buffer_too_few_samples():
     per_buffer = PERBuffer(batch_size, 10)
 
     # Act & Assert
-    for _ in range(batch_size):
-        assert len(per_buffer.sample_list()) == 0
+    for _ in range(batch_size - 1):
         per_buffer.add(priority=0.1, reward=0.1)
+        assert per_buffer.sample() is None
 
-    assert len(per_buffer.sample_list()) == 5
+    per_buffer.add(priority=0.1, reward=0.1)
+    assert len(per_buffer.sample()['reward']) == 5
 
 
 def test_per_buffer_add_one_sample_one():
@@ -120,12 +121,11 @@ def test_per_buffer_add_one_sample_one():
     per_buffer.add(priority=0.5, state=range(5))
 
     # Assert
-    raw_samples = per_buffer.sample_list()
-    assert raw_samples is not None
-    experience = raw_samples[0]
-    assert experience.state == range(5)
-    assert experience.weight == 1.  # max scale
-    assert experience.index == 0
+    samples = per_buffer.sample()
+    assert samples is not None
+    assert samples['state'] == [range(5)]
+    assert samples['weight'] == [1.]  # max scale
+    assert samples['index'] == [0]
 
 
 def test_per_buffer_add_two_sample_two_beta():
@@ -137,15 +137,14 @@ def test_per_buffer_add_two_sample_two_beta():
     per_buffer.add(state=range(3, 8), priority=0.1)
 
     # Assert
-    experiences = per_buffer.sample_list(beta=0.6)
+    experiences = per_buffer.sample(beta=0.6)
     assert experiences is not None
-    for experience in experiences:
-        if experience.index == 0:
-            assert experience.state == range(5)
-            assert 0.642 < experience.weight < 0.643
+    for (state, weight) in zip(experiences['state'], experiences['weight']):
+        if weight == 1:
+            assert state == range(3, 8)
         else:
-            assert experience.state == range(3, 8)
-            assert experience.weight == 1.
+            assert 0.6421 < weight < 0.6422
+            assert state == range(5)
 
 
 def test_per_buffer_sample():
@@ -159,14 +158,15 @@ def test_per_buffer_sample():
         per_buffer.add(priority=priority+0.01, state=state)
 
     # Assert
-    experiences = per_buffer.sample_list()
+    experiences = per_buffer.sample()
     assert experiences is not None
-    assert len(experiences) == buffer_size
-    zipped_exp = [(exp.state, exp.reward, exp.weight, exp.index) for exp in experiences]
-    states, rewards, weights, indices = zip(*zipped_exp)
-    assert len(weights) == len(indices) == buffer_size
-    assert all([s is not None for s in states])
-    assert all([r is None for r in rewards])
+    state = experiences['state']
+    reward = experiences['reward']
+    weight = experiences['weight']
+    index = experiences['index']
+    assert len(state) == len(reward) == len(weight) == len(index) == buffer_size
+    assert all([s is not None for s in state])
+    assert all([r is None for r in reward])
 
 
 def test_per_buffer_priority_update():
@@ -180,16 +180,18 @@ def test_per_buffer_priority_update():
     per_buffer.add(priority=100, state=np.random.random(10))  # Make sure there's one highest
 
     # Act & Assert
-    experiences = per_buffer.sample_list(beta=0.5)
+    experiences = per_buffer.sample(beta=0.5)
     assert experiences is not None
-    assert sum([exp.weight for exp in experiences]) < batch_size
+    assert sum(experiences['weight']) < batch_size
+    # assert sum([weight for exp in experiences]) < batch_size
 
     per_buffer.priority_update(indices=range(buffer_size), priorities=np.ones(buffer_size))
-    experiences = per_buffer.sample_list(beta=0.9)
+    experiences = per_buffer.sample(beta=0.9)
     assert experiences is not None
-    weights = [exp.weight for exp in experiences]
-    assert sum(weights) == batch_size
-    assert all([w == 1 for w in weights])
+    # weights = [exp.weight for exp in experiences]
+
+    assert sum(experiences['weight']) == batch_size
+    assert all([w == 1 for w in experiences['weight']])
 
 
 def test_per_buffer_reset_alpha():
@@ -199,18 +201,19 @@ def test_per_buffer_reset_alpha():
         per_buffer.add(reward=np.random.randint(0, 1e5), priority=np.random.random())
 
     # Act
-    old_experiences = per_buffer.sample_list()
+    old_experiences = per_buffer.sample()
     per_buffer.reset_alpha(0.5)
-    new_experiences = per_buffer.sample_list()
+    new_experiences = per_buffer.sample()
 
     # Assert
     assert old_experiences is not None and new_experiences is not None
-    sorted_new_experiences = sorted(new_experiences, key=lambda k: k.index)
-    sorted_old_experiences = sorted(old_experiences, key=lambda k: k.index)
-    for (new_sample, old_sample) in zip(sorted_new_experiences, sorted_old_experiences):
-        assert new_sample.index == old_sample.index
-        assert new_sample.weight != old_sample.weight
-        assert new_sample.reward == old_sample.reward
+    old_index, new_index = np.array(old_experiences['index']), np.array(new_experiences['index'])
+    old_weight, new_weight = np.array(old_experiences['weight']), np.array(new_experiences['weight'])
+    old_reward, new_reward = np.array(old_experiences['reward']), np.array(new_experiences['reward'])
+    old_sort, new_sort = np.argsort(old_index), np.argsort(new_index)
+    assert all([i1 == i2 for (i1, i2) in zip(old_index[old_sort], new_index[new_sort])])
+    assert all([w1 != w2 for (w1, w2) in zip(old_weight[old_sort], new_weight[new_sort])])
+    assert all([r1 == r2 for (r1, r2) in zip(old_reward[old_sort], new_reward[new_sort])])
 
 
 def test_replay_buffer_dump():
@@ -266,7 +269,7 @@ def test_replay_buffer_load_json_dump():
     buffer.load_buffer(ser_buffer)
 
     # Assert
-    samples = buffer.sample_list()
+    samples = buffer.exp
     assert len(buffer) == 10
     assert len(samples) == 10
     for sample in samples:
@@ -308,7 +311,7 @@ def test_priority_buffer_load_json_dump():
     buffer.load_buffer(ser_buffer)
 
     # Assert
-    samples = buffer.sample_list()
+    samples = buffer._sample_list()
     assert len(buffer) == 10
     assert len(samples) == 10
     for sample in samples:
