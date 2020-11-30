@@ -6,13 +6,11 @@ import torch
 
 from ai_traineree.types import ActionType, MultiAgentTaskType, StateType, TaskType
 from collections import deque
-from typing import Callable, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
-# TODO: Make this optional
 try:
-    from typing import Any, Dict, List, Union
     from gym import spaces
-    from gym_unity.envs import UnityGymException, ActionFlattener
+    from gym_unity.envs import ActionFlattener
     from mlagents_envs.base_env import BaseEnv, DecisionSteps, TerminalSteps
 except (ImportError, ModuleNotFoundError):
     BaseEnv = gym.Env
@@ -217,9 +215,7 @@ class MultiAgentUnityTask(MultiAgentTaskType):
         self.group_spec = self._env.behavior_specs[agent_name]
 
         if self._get_n_vis_obs() == 0 and self._get_vec_obs_size() == 0:
-            raise UnityGymException(
-                "There are no observations provided by the environment."
-            )
+            raise ValueError("There are no observations provided by the environment.")
 
         if not self._get_n_vis_obs() >= 1 and uint8_visual:
             self.logger.warning(
@@ -332,7 +328,8 @@ class MultiAgentUnityTask(MultiAgentTaskType):
         else:
             return self._single_step(decision_step)
 
-    def detect_game_over(self, termianl_steps: List[TerminalSteps]) -> bool:
+    # def detect_game_over(self, termianl_steps: List[TerminalSteps]) -> bool:
+    def detect_game_over(self, termianl_steps: List) -> bool:
         """Determine whether the episode has finished.
 
         Expects the `terminal_steps` to contain only steps that terminated. Note that other steps
@@ -348,7 +345,8 @@ class MultiAgentUnityTask(MultiAgentTaskType):
         else:
             return False
 
-    def _single_step(self, info: Union[DecisionSteps, TerminalSteps]) -> GymStepResult:
+    # def _single_step(self, info: Union[DecisionSteps, TerminalSteps]) -> GymStepResult:
+    def _single_step(self, info) -> GymStepResult:
         if self._allow_multiple_obs:
             visual_obs = self._get_vis_obs_list(info)
             visual_obs_list = []
@@ -393,18 +391,17 @@ class MultiAgentUnityTask(MultiAgentTaskType):
         return result
 
     @staticmethod
-    def _get_vis_obs_list(
-        step_result: Union[DecisionSteps, TerminalSteps]
-    ) -> List[np.ndarray]:
+    # def _get_vis_obs_list(step_result: Union[DecisionSteps, TerminalSteps]) -> List[np.ndarray]:
+    def _get_vis_obs_list(step_result) -> List[np.ndarray]:
         result: List[np.ndarray] = []
         for obs in step_result.obs:
             if len(obs.shape) == 4:
                 result.append(obs)
         return result
 
-    def _get_vector_obs(
-        self, step_result: Union[DecisionSteps, TerminalSteps]
-    ) -> np.ndarray:
+    @staticmethod
+    # def _get_vector_obs(step_result: Union[DecisionSteps, TerminalSteps]) -> np.ndarray:
+    def _get_vector_obs(step_result) -> np.ndarray:
         result: List[np.ndarray] = []
         for obs in step_result.obs:
             if len(obs.shape) == 2:
