@@ -1,5 +1,6 @@
 import gym
 import logging
+import numpy as np
 import random
 import torch
 
@@ -8,11 +9,13 @@ from collections import deque
 from typing import Callable, Optional, Sequence, Tuple
 
 # TODO: Make this optional
-import numpy as np
-from typing import Any, Dict, List, Union
-from gym import spaces
-from gym_unity.envs import UnityGymException, ActionFlattener
-from mlagents_envs.base_env import BaseEnv, DecisionSteps, TerminalSteps
+try:
+    from typing import Any, Dict, List, Union
+    from gym import spaces
+    from gym_unity.envs import UnityGymException, ActionFlattener
+    from mlagents_envs.base_env import BaseEnv, DecisionSteps, TerminalSteps
+except (ImportError, ModuleNotFoundError):
+    BaseEnv = gym.Env
 
 
 GymStepResult = Tuple[np.ndarray, float, bool, Dict]
