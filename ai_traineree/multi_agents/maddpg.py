@@ -18,6 +18,31 @@ class MADDPGAgent(MultiAgentType):
     name = "MADDPG"
 
     def __init__(self, state_size: int, action_size: int, agents_number: int, **kwargs):
+        """Initiation of the Multi Agent DDPG.
+
+        All keywords are also passed to DDPG agents.
+
+        Parameters:
+            state_size (int): Dimensionality of the state.
+            action_size (int): Dimensionality of the action.
+            agents_number (int): Number of agents.
+        
+        Keyword parameters:
+            hidden_layers (tuple of ints): Shape for fully connected hidden layers.
+            noise_scale (float): Default: 1.0. Noise amplitude.
+            noise_sigma (float): Default: 0.5. Noise variance.
+            actor_lr (float): Default: 0.001. Learning rate for actor network.
+            critic_lr (float): Default: 0.001. Learning rate for critic network.
+            gamma (float): Default: 0.99. Discount value
+            tau (float): Default: 0.02. Soft copy value.
+            gradient_clip (optional float): Max norm for learning gradient. If None then no clip.
+            batch_size (int): Number of samples per learning.
+            buffer_size (int): Number of previous samples to remember.
+            warm_up (int): Number of samples to see before start learning.
+            update_freq (int): How many samples between learning sessions.
+            number_updates (int): How many learning cycles per learning session.
+
+        """
 
         self.device = kwargs.get("device", DEVICE)
         self.state_size: int = state_size
@@ -36,6 +61,7 @@ class MADDPGAgent(MultiAgentType):
                 actor_lr=actor_lr, critic_lr=critic_lr,
                 noise_scale=noise_scale, noise_sigma=noise_sigma,
                 device=self.device,
+                **kwargs,
             ) for _ in range(agents_number)
         ]
 
@@ -47,8 +73,8 @@ class MADDPGAgent(MultiAgentType):
         self.buffer_size = int(kwargs.get('buffer_size', int(1e6)))
         self.buffer = ReplayBuffer(self.batch_size, self.buffer_size)
 
-        self.warm_up: int = int(kwargs.get('warm_up', 1e3))
-        self.update_freq: int = int(kwargs.get('update_freq', 10))
+        self.warm_up: int = int(kwargs.get('warm_up', 0))
+        self.update_freq: int = int(kwargs.get('update_freq', 1))
         self.number_updates: int = int(kwargs.get('number_updates', 1))
 
         self.critic = CriticBody(agents_number*state_size, agents_number*action_size, hidden_layers=hidden_layers).to(self.device)
@@ -86,16 +112,13 @@ class MADDPGAgent(MultiAgentType):
     def act(self, states: List[StateType], noise: float=0.0) -> List[ActionType]:
         """Get actions from all agents. Synchronized action.
 
-        Parameters
-        ----------
-        states : list of states
-            List of states per agent. Positions need to be consistent.
-        noise : float
-            Scale for the noise to include
+        Parameters:
+            states: List of states per agent. Positions need to be consistent.
+            noise: Scale for the noise to include
 
-        Returns
-        -------
-        actions : List of actions that each agent wants to perform
+        Returns:
+            actions: List of actions that each agent wants to perform
+
         """
         tensor_states = torch.tensor(states).reshape(1, -1)
         with torch.no_grad():
@@ -128,7 +151,6 @@ class MADDPGAgent(MultiAgentType):
 
         next_actions = actions.detach().clone()
         next_actions.data[:, agent_number] = agent.target_actor(flat_next_states)
-        # next_actions.data[:, action_offset:action_offset+self.action_size] = agent.target_actor(flat_next_states)
 
         # critic loss
         Q_target_next = self.target_critic(flat_next_states, self.__flatten_actions(next_actions))
@@ -147,7 +169,6 @@ class MADDPGAgent(MultiAgentType):
         # Compute actor loss
         pred_actions = actions.detach().clone()
         pred_actions.data[:, agent_number] = agent.actor(flat_states)
-        # pred_actions.data[:, action_offset:action_offset+self.action_size] = agent.actor(flat_states)
 
         actor_loss = -self.critic(flat_states, self.__flatten_actions(pred_actions)).mean()
         agent.actor_optimizer.zero_grad()

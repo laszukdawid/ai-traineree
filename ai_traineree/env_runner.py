@@ -9,7 +9,6 @@ from ai_traineree.types import MultiAgentTaskType
 
 
 from collections import deque
-from functools import reduce
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -279,18 +278,25 @@ class MultiAgentEnvRunner:
     >>> ma_env_runner = MultiAgentEnvRunner(task, agent)
     >>> ma_env_runner.run()
 
-    Example
-    -------
-    Check [examples/multi_agents](/examples/multi_agents) directory.
+    Example:
+        Check [examples/multi_agents](/examples/multi_agents) directory.
 
     """
 
     def __init__(self, task: MultiAgentTaskType, multi_agent: MultiAgentType, mode: str ='coop', max_iterations: int=int(1e5), **kwargs):
-        """
-        Expects the environment to come as the TaskType and the agent as the AgentType.
-        Additional args:
+        """Expects the environment to come as the TaskType and the agent as the AgentType.
 
-        writer: Tensorboard writer.
+        Parameters:
+            task: An OpenAI gym API compatible task.
+            multi_agent: An instance which handles interations between multiple agents.
+            mode: Type of interaction between agents.
+                Currently supported only `coop` which means that the reward is cummulative for all agents.
+            max_iterations: How many iterations can one episode have.
+
+        Keyword Arguments:
+            window_len (int): Length of the averaging window for average reward.
+            writer: Tensorboard writer.
+
         """
         self.logger = logging.getLogger("MAEnvRunner")
         self.task = task

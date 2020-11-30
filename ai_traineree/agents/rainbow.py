@@ -1,15 +1,15 @@
+import numpy as np
+import torch
+import torch.optim as optim
+from torch.nn.utils import clip_grad_norm_
+
 from ai_traineree import DEVICE
 from ai_traineree.agents.dqn import DQNAgent
 from ai_traineree.agents.utils import soft_update
 from ai_traineree.buffers import NStepBuffer, PERBuffer
 from ai_traineree.networks.heads import RainbowNet
 from ai_traineree.utils import to_tensor
-
-import numpy as np
-import torch
-import torch.optim as optim
-from torch.nn.utils import clip_grad_norm_
-from typing import Union, Sequence
+from typing import Dict, List
 
 
 class RainbowAgent(DQNAgent):
@@ -39,17 +39,15 @@ class RainbowAgent(DQNAgent):
         Special treatment is required because the Rainbow agent uses categorical nets
         which aren't return probability distributions for each action.
 
-        Parameters
-        ----------
-            input_shape : tuple of input shape, e.g. (10,)
-                Most likely that's your *state* shape.
-            output_shape : tuple of output shape, e.g. (2,).
-                Most likely that's you *action* shape.
-            pre_network_fn : function with input_features as arg, e.g. f(in_features= ) -> network
+        Parameters:
+            input_shape (tuple of ints): Most likely that's your *state* shape.
+            output_shape (tuple of ints): Most likely that's you *action* shape.
+            pre_network_fn (function that takes input_shape and returns network):
                 Used to preprocess state before it is used in the value- and advantage-function in the dueling nets.
-            lr : learning rate (default: 1e-3)
-            gamma : discount factor (default: 0.99)
-            tau : soft-copy factor (default: 0.002)
+            lr (default: 1e-3): Learning rate value.
+            gamma (default: 0.99): Discount factor.
+            tau (default: 0.002): Soft-copy factor.
+
         """
         super(RainbowAgent, self).__init__(*args, **kwargs)
 
@@ -70,7 +68,7 @@ class RainbowAgent(DQNAgent):
         self.n_buffer = NStepBuffer(n_steps=self.n_steps, gamma=self.gamma)
 
         # Note that in case a pre_network is provided, e.g. a shared net that extracts pixels values,
-        # it should be explicitly passed in kwargs under 
+        # it should be explicitly passed in kwargs
         self.net = RainbowNet(self.input_shape, self.output_shape, num_atoms=self.n_atoms, **kwargs)
         self.target_net = RainbowNet(self.input_shape, self.output_shape, num_atoms=self.n_atoms, **kwargs)
 
@@ -80,8 +78,7 @@ class RainbowAgent(DQNAgent):
     def act(self, state, eps: float = 0.) -> int:
         """Returns actions for given state as per current policy.
 
-        Parameters
-        ----------
+        Parameters:
             state (array_like): current state
             eps (float): epsilon, for epsilon-greedy action selection
         """
@@ -90,18 +87,18 @@ class RainbowAgent(DQNAgent):
             return np.random.randint(self.out_features)
 
         state = to_tensor(self.state_transform(state)).float().unsqueeze(0).to(self.device)
+        # state = to_tensor(self.state_transform(state)).float().to(self.device)
         self.dist_probs = self.net.act(state)
         q_values = (self.dist_probs * self.z_atoms).sum(-1)
         return int(q_values.argmax(-1))  # Action maximizes state-action value Q(s, a)
 
-    def learn(self, experiences) -> None:
+    def learn(self, experiences: Dict[str, List]) -> None:
         """
-        Parameters
-        ----------
-            experiences : dict
-                Contains all experiences for the agent. Typically sampled from the memory buffer.
+        Parameters:
+            experiences: Contains all experiences for the agent. Typically sampled from the memory buffer.
                 Five keys are expected, i.e. `state`, `action`, `reward`, `next_state`, `done`.
                 Each key contains a array and all arrays have to have the same length.
+
         """
         rewards = to_tensor(experiences['reward']).float().to(self.device)
         dones = to_tensor(experiences['done']).type(torch.int).to(self.device)

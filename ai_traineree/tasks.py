@@ -38,31 +38,34 @@ class GymTask(TaskType):
         skip_start_frames: int= 0,
     ):
         """
-        Parameters
-        ----------
-        env : gym-like env object or str (default: None)
-            Something one might get via `env = gym.make('CartPole-v0')` where `gym` is OpenAI gym compatible.
-            If `env` is passed as a string then it is assumed to be a registred Gym with OpenAI interface.
-            In such a case, we got you.
-        state_transform : function (default: None)
-            Function that transform state before it's returned to the observer(s).
-        reward_transform : function (default: None)
-            Function that shapes reward before it's returned to the observer(s).
-            All arguments are expected to be named; supported names: state, action, reward, done, info.
+        Parameters:
+            env (gym-like env instance or str):
+                Something one might get via `env = gym.make('CartPole-v0')` where `gym` is OpenAI gym compatible.
+                If `env` is passed as a string then it is assumed to be a registred Gym with OpenAI interface.
+                In such a case, we got you.
+            state_transform (function): Default: `None`.
+                Function that transform state before it's returned to the observer(s).
+            reward_transform (function): Default: `None`.
+                Function that shapes reward before it's returned to the observer(s).
+                All arguments are expected to be named; supported names: state, action, reward, done, info.
+            can_render (bool): Default: `True`.
+                Whether the task can return task state (different than the step observation).
+                Most common case is to provide the game view as the user would have.
+                By default this flag is set to True since the most common use case is OpenAI gym, specifically
+                Atari games.
+            stack_frames (int): Default: 1.
+                Number of frames to return when performing a step.
+                By default it only returns current observation (MDP).
+                When greater than 1, the returned observation will incude previous observations.
+            skip_start_frames (int): Default: 0.
+                Often referred as "noop frames". Indicates how many initial frames to skip.
+                Every `reset()` will skip a random number of frames in range`[0, skip_start_frames]`.
+
+        Example:
             >>> def reward_transform(*, reward, state, done):
             ...     return reward + 100*done - state[0]*0.1
-        can_render : bool (default: True)
-            Whether the task can return task state (different than the step observation).
-            Most common case is to provide the game view as the user would have.
-            By default this flag is set to True since the most common use case is OpenAI gym, specifically
-            Atari games.
-        stack_frames : int (default: 1)
-            Number of frames to return when performing a step.
-            By default it only returns current observation (MDP).
-            When greater than 1, the returned observation will incude previous observations.
-        skip_start_frames : int (default: 0)
-            Often referred as "noop frames". Indicates how many initial frames to skip.
-            Every `reset()` will skip a random number of frames in range`[0, skip_start_frames]`.
+            >>> task = GymTask(env='CartPole-v1', reward_transform=reward_transform)
+
         """
         if isinstance(env, str):
             self.name = env
@@ -122,15 +125,24 @@ class GymTask(TaskType):
             self.logger.warning("Asked for rendering but it's not available in this environment")
             return
 
-    def step(self, actions: ActionType) -> Tuple:
-        """
-        Each action results in a new state, reward, done flag, and info about env.
+    def step(self, action: ActionType) -> Tuple:
+        """Each action results in a new state, reward, done flag, and info about env.
+
+        Parameters:
+            action: An action that the agent is taking in current environment step.
+
+        Returns:
+            step_tuple (Tuple[torch.Tensor, float, bool, Any]):
+                The return consists of a next state, a reward in that state,
+                a flag whether the next state is terminal and additional information provided
+                by the environment regarding that state.
+
         """
         if self.is_discrete:
-            actions = int(actions)
-        if isinstance(actions, torch.Tensor):
-            actions = actions.cpu().numpy()
-        state, reward, done, info = self.env.step(actions)
+            action = int(action)
+        if isinstance(action, torch.Tensor):
+            action = action.cpu().numpy()
+        state, reward, done, info = self.env.step(action)
         if self.state_transform is not None:
             state = self.state_transform(state)
         if self.reward_transform is not None:
@@ -166,22 +178,16 @@ class MultiAgentUnityTask(MultiAgentTaskType):
     ):
         """
 
-        Parameters
-        ----------
-            unity_gym_env : GymTask instantiated with UnityEnvironment
-        """
-        """
-        Environment initialization
-        :param unity_env: The Unity BaseEnv to be wrapped in the gym. Will be closed when the UnityToGymWrapper closes.
-        :param uint8_visual: Return visual observations as uint8 (0-255) matrices instead of float (0.0-1.0).
-        :param flatten_branched: If True, turn branched discrete action spaces into a Discrete space rather than
-            MultiDiscrete.
-        :param allow_multiple_obs: If True, return a list of np.ndarrays as observations with the first elements
-            containing the visual observations and the last element containing the array of vector observations.
-            If False, returns a single np.ndarray containing either only a single visual observation or the array of
-            vector observations.
-        :param termination_mode: A string (enum) suggesting when to end an episode. Supports "any", "majority" and "all"
-            which are atributes on `TerminationMode`.
+        Parameters:
+            unity_env: The Unity BaseEnv to be wrapped in the gym. Will be closed when the UnityToGymWrapper closes.
+            uint8_visual : Return visual observations as uint8 (0-255) matrices instead of float (0.0-1.0).
+                If True, turn branched discrete action spaces into a Discrete space rather than MultiDiscrete.
+            allow_multiple_obs: If True, return a list of np.ndarrays as observations with the first elements
+                containing the visual observations and the last element containing the array of vector observations.
+                If False, returns a single np.ndarray containing either only a single visual observation or the array of
+                vector observations.
+            termination_mode: A string (enum) suggesting when to end an episode. Supports "any", "majority" and "all"
+                which are atributes on `TerminationMode`.
         """
         self._env = unity_env
 
@@ -297,8 +303,10 @@ class MultiAgentUnityTask(MultiAgentTaskType):
         episode is reached, you are responsible for calling `reset()`
         to reset this environment's state.
         Accepts an action and returns a tuple (observation, reward, done, info).
-        Args:
+
+        Parameters:
             action (object/list): an action provided by the environment
+
         Returns:
             observation (object/list): agent's observation of the current environment
             reward (float/list) : amount of reward returned after previous action
@@ -381,8 +389,9 @@ class MultiAgentUnityTask(MultiAgentTaskType):
                 result.append(shape)
         return result
 
+    @staticmethod
     def _get_vis_obs_list(
-        self, step_result: Union[DecisionSteps, TerminalSteps]
+        step_result: Union[DecisionSteps, TerminalSteps]
     ) -> List[np.ndarray]:
         result: List[np.ndarray] = []
         for obs in step_result.obs:
@@ -407,6 +416,18 @@ class MultiAgentUnityTask(MultiAgentTaskType):
         return result
 
     def render(self, mode="rgb_array"):
+        """Depending on the mode it will render the scene and either return it, or display.
+
+        Parameters:
+            mode: Currently only `rgb_array` (default) is supported.
+
+        Returns:
+            A tensor containing rendered scene. If asked mode is not supported, None is returned.
+
+        """
+        if mode != "rgb_array":
+            self.logger.warning("Mode provide is '%s' but only `rgb_array` mode is supported.", mode)
+            return
         return self.visual_obs
 
     def close(self) -> None:

@@ -58,11 +58,11 @@ class NetChainer(NetworkType):
 
 
 class DoubleCritic(NetworkType):
-    def __init__(self, in_features: Sequence[int], action_size: Sequence[int], body_cls: NetworkTypeClass, **kwargs):
+    def __init__(self, in_features: Sequence[int], action_size: int, body_cls: NetworkTypeClass, **kwargs):
         super(DoubleCritic, self).__init__()
         hidden_layers = kwargs.get("hidden_layers", (200, 200))
-        self.critic_1 = body_cls(in_features=in_features, action_size=action_size, hidden_layers=hidden_layers)
-        self.critic_2 = body_cls(in_features=in_features, action_size=action_size, hidden_layers=hidden_layers)
+        self.critic_1 = body_cls(in_features=in_features, action_size=action_size, hidden_layers=hidden_layers, **kwargs)
+        self.critic_2 = body_cls(in_features=in_features, action_size=action_size, hidden_layers=hidden_layers, **kwargs)
 
     def reset_parameters(self):
         self.critic_1.reset_parameters()
@@ -82,11 +82,10 @@ class DuelingNet(NetworkType):
                  **kwargs
     ):
         """
-        Parameters
-        ----------
-            input_shape : Tuple of ints
+        Parameters:
+            input_shape (Tuple of ints):
                 Shape of the input. Even in case when input is 1D, a single item tuple is expected, e.g. (4,).
-            output_shape : Tuple of ints
+            output_shape (Tuple of ints):
                 Shape of the output. Same as with the `input_shape`.
         """
         super(DuelingNet, self).__init__()
@@ -153,9 +152,10 @@ class CategoricalNet(NetworkType):
 
     def forward(self, x, log_prob=False) -> torch.Tensor:
         """
-        :param log_prob: bool
-            Whether to return log(prob) which uses pytorch's function. According to doc it's quicker and more stable
-            than taking prob.log().
+        Parameters:
+            log_prob (bool):
+                Whether to return log(prob) which uses pytorch's function. According to doc it's quicker and more stable
+                than taking prob.log().
         """
         return self.net(x).view((-1, self.action_size, self.num_atoms))
 
@@ -167,9 +167,8 @@ class RainbowNet(NetworkType, nn.Module):
     def __init__(self, input_shape: Sequence[int], output_shape: Sequence[int], num_atoms: int, hidden_layers=(200, 200), noisy=False, device=None, **kwargs):
         """
         Parameters
-        ----------
-        pre_network_fn : func
-            A shared network that is used before *value* and *advantage* networks.
+            pre_network_fn (func):
+                A shared network that is used before *value* and *advantage* networks.
         """
         super(RainbowNet, self).__init__()
 
@@ -177,13 +176,13 @@ class RainbowNet(NetworkType, nn.Module):
         in_features = input_shape[0]
         out_features = output_shape[0]
         if 'pre_network_fn' in kwargs:
-            self.pre_network = kwargs.get("pre_network_fn")(in_features=in_features)
+            self.pre_network = kwargs.get("pre_network_fn")(in_features=input_shape)
             self.pre_netowrk_params = self.pre_network.parameters()  # Registers pre_network's parameters to this module
             in_features = self.pre_network.out_features
 
         if noisy:
             self.value_net = NoisyNet(in_features, num_atoms, hidden_layers=hidden_layers, device=device)
-            self.advantage_net = NoisyNet(in_features, (out_features*num_atoms,), hidden_layers=hidden_layers, device=device)
+            self.advantage_net = NoisyNet(in_features, out_features*num_atoms, hidden_layers=hidden_layers, device=device)
         else:
             self.value_net = FcNet(in_features, num_atoms, hidden_layers=hidden_layers, gate_out=None, device=device)
             self.advantage_net = FcNet((in_features,), (out_features*num_atoms,), hidden_layers=hidden_layers, gate_out=None, device=device)
@@ -201,9 +200,10 @@ class RainbowNet(NetworkType, nn.Module):
 
     def act(self, x, log_prob=False):
         """
-        :param log_prob: bool
-            Whether to return log(prob) which uses pytorch's function. According to doc it's quicker and more stable
-            than taking prob.log().
+        Parameters:
+            log_prob (bool):
+                Whether to return log(prob) which uses pytorch's function. According to doc it's quicker and more stable
+                than taking prob.log().
         """
         with torch.no_grad():
             self.eval()
@@ -219,9 +219,10 @@ class RainbowNet(NetworkType, nn.Module):
 
     def forward(self, x, log_prob=False):
         """
-        :param log_prob: bool
-            Whether to return log(prob) which uses pytorch's function. According to doc it's quicker and more stable
-            than taking prob.log().
+        Parameters:
+            log_prob (bool):
+                Whether to return log(prob) which uses pytorch's function. According to doc it's quicker and more stable
+                than taking prob.log().
         """
         if self.pre_network is not None:
             x = self.pre_network(x)

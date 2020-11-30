@@ -7,6 +7,7 @@ from functools import reduce
 from typing import Any, Optional, Sequence, Tuple, Union
 
 from ai_traineree.networks import NetworkType
+from ai_traineree.types import FeatureType
 
 
 def hidden_init(layer: nn.Module):
@@ -35,29 +36,31 @@ class ScaleNet(NetworkType):
 
 class ConvNet(NetworkType):
     def __init__(self, input_dim: Sequence[int], **kwargs):
-        """
+        """Convolution Network.
+
         Constructs a layered network over torch.nn.Conv2D. Number of layers is set based on `hidden_layers` argument.
         To update other arguments, e.g. kernel_size or bias, pass either a single value or a tuple of the same
         length as `hidden_layers`.
 
-        Quick reminder from the PyTorch doc (https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html):
-        in_channels (int) – Number of channels in the input image
-        hidden_layers (tuple of ints) - Number of channels in each hidden layer
-        kernel_size (int or tuple) – Size of the convolving kernel
-        stride (int or tuple, optional) – Stride of the convolution. Default: 1
-        padding (int or tuple, optional) – Zero-padding added to both sides of the input. Default: 0
-        padding_mode (string, optional) – 'zeros', 'reflect', 'replicate' or 'circular'. Default: 'zeros'
-        dilation (int or tuple, optional) – Spacing between kernel elements. Default: 1
-        groups (int, optional) – Number of blocked connections from input channels to output channels. Default: 1
-        bias (bool, optional) – If True, adds a learnable bias to the output. Default: True
+        Quick reminder from the PyTorch doc (https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html).
 
-        Example 1:
-        >>> config = {"hidden_layers": (300, 200, 100), "kernel_size": 6, "gate": F.relu}
-        >>> net = ConvNet(input_dim=(10, 10, 3), **config)
+        Keyword parameters:
+            in_channels (int): Number of channels in the input image
+            hidden_layers (tuple of ints): Number of channels in each hidden layer
+            kernel_size (int or tuple): Size of the convolving kernel
+            stride (int or tuple, optional): Stride of the convolution. Default: 1
+            padding (int or tuple, optional): Zero-padding added to both sides of the input. Default: 0
+            padding_mode (string, optional): 'zeros', 'reflect', 'replicate' or 'circular'. Default: 'zeros'
+            dilation (int or tuple, optional): Spacing between kernel elements. Default: 1
+            groups (int, optional): Number of blocked connections from input channels to output channels. Default: 1
+            bias (bool, optional): If True, adds a learnable bias to the output. Default: True
 
-        Example 2:
-        >>> config = {"hidden_layers": (64, 32, 64), "kernel_size": (3, 4, 3), padding: 2, "gate": F.relu}
-        >>> net = ConvNet(input_dim=(20, 10, 1), **config)
+        Examples:
+            >>> config = {"hidden_layers": (300, 200, 100), "kernel_size": 6, "gate": F.relu}
+            >>> net = ConvNet(input_dim=(10, 10, 3), **config)
+            >>> config = {"hidden_layers": (64, 32, 64), "kernel_size": (3, 4, 3), padding: 2, "gate": F.relu}
+            >>> net = ConvNet(input_dim=(20, 10, 1), **config)
+
         """
         super(ConvNet, self).__init__()
 
@@ -66,15 +69,15 @@ class ConvNet(NetworkType):
         num_layers = [input_dim[0]] + list(hidden_layers)
 
         gate = kwargs.get("gate", nn.ReLU)
-        max_pool_sizes = self._expand_to_seq(kwargs.get("max_pool_size", 2), len(num_layers))
-        kernel_sizes = self._expand_to_seq(kwargs.get("kernel_size", 3), len(num_layers))
-        strides = self._expand_to_seq(kwargs.get("stride", 1), len(num_layers))
-        paddings = self._expand_to_seq(kwargs.get("padding", 0), len(num_layers))
-        dilations = self._expand_to_seq(kwargs.get("dilation", 1), len(num_layers))
-        biases = self._expand_to_seq(kwargs.get('bias', True), len(num_layers))
+        max_pool_sizes = self._expand_to_seq(kwargs.get("max_pool_size", 2), len(hidden_layers))
+        kernel_sizes = self._expand_to_seq(kwargs.get("kernel_size", 3), len(hidden_layers))
+        strides = self._expand_to_seq(kwargs.get("stride", 1), len(hidden_layers))
+        paddings = self._expand_to_seq(kwargs.get("padding", 0), len(hidden_layers))
+        dilations = self._expand_to_seq(kwargs.get("dilation", 1), len(hidden_layers))
+        biases = self._expand_to_seq(kwargs.get('bias', True), len(hidden_layers))
 
         layers = []
-        for layer_idx in range(len(num_layers)-1):
+        for layer_idx in range(len(hidden_layers)):
             layers.append(
                 nn.Conv2d(
                     num_layers[layer_idx], num_layers[layer_idx+1],
@@ -132,17 +135,21 @@ class FcNet(NetworkType):
     """
     def __init__(
         self, in_features: Union[Sequence[int], int], out_features: Union[Sequence[int], int],
-        hidden_layers: Optional[Sequence[int]]=(200, 100),
-        gate=torch.tanh, gate_out=torch.tanh, last_layer_range=(-3e-3, 3e-3),
+        hidden_layers: Optional[Sequence[int]]=(200, 100), last_layer_range=(-3e-3, 3e-3),
+        gate=torch.tanh, gate_out=torch.tanh,
         device: Optional[torch.device]=None,
     ):
-        """
-        Parameters
-        ----------
-            in_features : Single int value tuple, e.g. (2,)
-                Shape of the input.
-            out_features : Single int value tuple, e.g. (2,)
-                Shape of the output.
+        """Fully Connected network that with default APIs.
+
+        Parameters:
+            in_features (int or tuple of ints): Shape of the input.
+            out_features (int or tuple of ints): Shape of the output.
+            hidden_layers: Shape of the hidden layers. If None, then the output is directly computed from the input.
+            last_layer_range: The range for the uniform distribution that initiates the last layer.
+            gate: Activation function after each layer, except the last.
+            gate_out: Activation function after the last layer.
+            device: Where the data is processed.
+
         """
         super(FcNet, self).__init__()
 
@@ -185,12 +192,12 @@ class CriticBody(NetworkType):
     Actions are included in the first hidden layer (changeable).
     """
     def __init__(
-            self, in_features: int, action_size: int, hidden_layers: Optional[Sequence[int]]=(200, 100),
+            self, in_features: FeatureType, action_size: int, hidden_layers: Optional[Sequence[int]]=(200, 100),
             actions_layer: int=1, gate=torch.tanh, gate_out=None, **kwargs
     ):
         super(CriticBody, self).__init__()
 
-        self.in_features = in_features
+        self.in_features: int = in_features if isinstance(in_features, int) else in_features[0]
         self.out_features = 1
         num_layers = list(hidden_layers) if hidden_layers is not None else []
         num_layers = [self.in_features] + num_layers + [self.out_features]
@@ -208,6 +215,7 @@ class CriticBody(NetworkType):
 
         self.gate = gate if gate is not None else lambda x: x
         self.gate_out = gate_out if gate_out is not None else lambda x: x
+        self.to(kwargs.get("device"))
 
     def reset_parameters(self):
         for layer in self.layers:
@@ -227,14 +235,13 @@ class NoisyLayer(nn.Module):
         """
         A Linear layer with values being pertrubed by the noise while training.
 
-        :param sigma: float
-            Used to intiated noise distribution.
-        :param factorised: bool
-            Whether to use independent Gaussian (False) or Factorised Gaussian (True) noise.
-            Suggested [1] for DQN and Duelling nets to use factorised as it's quicker.
+        Parameters:
+            sigma: Used to intiated noise distribution.
+            factorised: Whether to use independent Gaussian (False) or Factorised Gaussian (True) noise.
+                Suggested [1] for DQN and Duelling nets to use factorised as it's quicker.
 
-        Based on:
-        [1] "Noisy Networks for Exploration" by Fortunato et al. (ICLR 2018), https://arxiv.org/abs/1706.10295.
+        References:
+            [1] "Noisy Networks for Exploration" by Fortunato et al. (ICLR 2018), https://arxiv.org/abs/1706.10295.
         """
         super(NoisyLayer, self).__init__()
 
@@ -304,9 +311,13 @@ class NoisyNet(NetworkType):
     def __init__(self, in_features: int, out_features: int, hidden_layers: Optional[Sequence[int]]=(100, 100), sigma=0.4,
                  gate=None, gate_out=None, factorised=True, device: Optional[torch.device]=None):
         """
-            :param factorised: bool
-                Whether to use independent Gaussian (False) or Factorised Gaussian (True) noise.
+        Parameters:
+            factorised (bool): Whether to use independent Gaussian (False) or Factorised Gaussian (True) noise.
                 Suggested [1] for DQN and Duelling nets to use factorised as it's quicker.
+
+        References:
+            [1] "Noisy Networks for Exploration" by Fortunato et al. (ICLR 2018), https://arxiv.org/abs/1706.10295.
+
         """
         super(NoisyNet, self).__init__()
 
