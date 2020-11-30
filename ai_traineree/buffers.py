@@ -1,15 +1,19 @@
+import abc
 import math
 import numpy as np
 import random
+import torch
 
+from ai_traineree import to_list
 from collections import defaultdict
 from copy import copy
 from typing import Any, Dict, Generator, List, Optional, Sequence, Tuple, Union
-from torch import from_numpy, Tensor
-from ai_traineree import to_list
 
 
 class Experience(object):
+    """
+    Data type used to store experiences in experience buffers.
+    """
 
     __must_haves = ['state', 'action', 'reward', 'next_state', 'done', 'state_idx', 'next_state_idx']
     keys = __must_haves + ['advantage', 'logprob', 'value', 'priority', 'index', 'weight']
@@ -29,18 +33,23 @@ class Experience(object):
         return {k: v for (k, v) in self.__dict__.items() if k in self.keys}
 
 
-class BufferBase(object):
+class BufferBase(abc.ABC):
+    """Abstract class that defines buffer."""
 
     def add(self, **kwargs):
+        """Add samples to the buffer."""
         raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
 
     def sample(self, *args, **kwargs) -> Optional[List[Experience]]:
+        """Sample buffer for a set of experience."""
         raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
 
     def dump_buffer(self, serialize: bool=False) -> List[Dict]:
+        """Return the whole buffer, e.g. for storing."""
         raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
 
     def load_buffer(self, buffer: List[Dict]):
+        """Loads provided data into the buffer."""
         raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
 
 
@@ -88,7 +97,7 @@ class ReferenceBuffer(object):
     def _hash_element(el) -> Union[int, str]:
         if isinstance(el, np.ndarray):
             return hash(el.data.tobytes())
-        elif isinstance(el, Tensor):
+        elif isinstance(el, torch.Tensor):
             return hash(str(el))
         else:
             return str(el)
@@ -116,9 +125,10 @@ class ReplayBuffer(BufferBase):
 
     def __init__(self, batch_size: int, buffer_size=int(1e6), device=None, **kwargs):
         """
-        :param compress_state: bool (default: False)
-            Whether manage memory used by states. Useful when states are "large".
-            Improves memory usage but has a significant performance penalty.
+        Parameters:
+            compress_state: bool (default: False)
+                Whether manage memory used by states. Useful when states are "large".
+                Improves memory usage but has a significant performance penalty.
         """
         super().__init__()
         self.batch_size = batch_size
@@ -147,6 +157,14 @@ class ReplayBuffer(BufferBase):
                 self._states.remove(drop_exp.next_state_idx)
 
     def sample(self, keys: Optional[Sequence[str]]=None) -> Dict[str, List]:
+        """
+        Parameters:
+            keys: A list of keys which limit the return.
+                If nothing is provided, all keys are returned.
+
+        Returns:
+            Returns all values for asked keys.
+        """
         sampled_exp: List[Experience] = random.sample(self.exp, self.batch_size)
         keys = keys if keys is not None else list(self.exp[0].__dict__.keys())
         all_experiences = {k: [] for k in keys}
@@ -178,9 +196,10 @@ class PERBuffer(BufferBase):
 
     def __init__(self, batch_size, buffer_size: int=int(1e6), alpha=0.5, device=None, **kwargs):
         """
-        :param compress_state: bool (default: False)
-            Whether manage memory used by states. Useful when states are "large".
-            Improves memory usage but has a significant performance penalty.
+        Parameters:
+            compress_state: bool (default: False)
+                Whether manage memory used by states. Useful when states are "large".
+                Improves memory usage but has a significant performance penalty.
         """
         super(PERBuffer, self).__init__()
         self.batch_size = batch_size
@@ -255,7 +274,7 @@ class PERBuffer(BufferBase):
                 all_experiences[key].append(value)
         return all_experiences
 
-    def priority_update(self, indices: Sequence[int], priorities: Tensor) -> None:
+    def priority_update(self, indices: Sequence[int], priorities: torch.Tensor) -> None:
         """Updates prioprities for elements on provided indices."""
         for i, p in zip(indices, priorities):
             self.tree.weight_update(i, math.pow(p, self.alpha))

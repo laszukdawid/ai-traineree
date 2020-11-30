@@ -1,17 +1,16 @@
-from ai_traineree import DEVICE
-from ai_traineree.agents.utils import soft_update
-from ai_traineree.buffers import NStepBuffer, PERBuffer, ReplayBuffer
-from ai_traineree.networks import NetworkType, NetworkTypeClass
-from ai_traineree.networks.heads import DuelingNet
-from ai_traineree.types import AgentType
-from ai_traineree.utils import to_tensor
-
 import random
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.nn.utils import clip_grad_norm_
 
+from ai_traineree import DEVICE
+from ai_traineree.agents.utils import soft_update
+from ai_traineree.buffers import NStepBuffer, PERBuffer
+from ai_traineree.networks import NetworkType, NetworkTypeClass
+from ai_traineree.networks.heads import DuelingNet
+from ai_traineree.types import AgentType
+from ai_traineree.utils import to_tensor
+from torch.nn.utils import clip_grad_norm_
 from typing import Callable, Dict, Optional, Type, Sequence, Union
 
 
@@ -39,11 +38,21 @@ class DQNAgent(AgentType):
         reward_transform: Optional[Callable]=None,
         device=None, **kwargs
     ):
-        """
-        Accepted parameters:
-        :param float lr: learning rate (default: 1e-3)
-        :param float gamma: discount factor (default: 0.99)
-        :param float tau: soft-copy factor (default: 0.002)
+        """Initiates the DQN agent.
+        
+        Parameters:
+            lr: (default: 1e-3) learning rate
+            gamma: (default: 0.99) discount factor
+            tau: (default: 0.002) soft-copy factor
+            update_freq: (default: 1)
+            batch_size: (default: 32)
+            buffer_size: (default: 1e5)
+            warm_up: (default: 0)
+            number_updates: (default: 1)
+            max_grad_norm: (default: 10)
+            using_double_q: (default: True) Whether to use double Q value
+            n_steps: (int: 1) N steps reward lookahead
+
         """
 
         self.device = device if device is not None else DEVICE
@@ -67,7 +76,7 @@ class DQNAgent(AgentType):
         self.buffer = PERBuffer(batch_size=self.batch_size, buffer_size=self.buffer_size, **kwargs)
         self.using_double_q = bool(kwargs.get("using_double_q", True))
 
-        self.n_steps = kwargs.get("n_steps", 1)
+        self.n_steps = kwargs.get('n_steps', 1)
         self.n_buffer = NStepBuffer(n_steps=self.n_steps, gamma=self.gamma)
 
         self.state_transform = state_transform if state_transform is not None else lambda x: x
@@ -83,9 +92,22 @@ class DQNAgent(AgentType):
             self.net = DuelingNet(self.input_shape, self.output_shape, hidden_layers=hidden_layers, device=self.device)
             self.target_net = DuelingNet(self.input_shape, self.output_shape, hidden_layers=hidden_layers, device=self.device)
         self.optimizer = optim.AdamW(self.net.parameters(), lr=self.lr)
-        self.loss = 0
+        self.loss = float('inf')
 
     def step(self, state, action, reward, next_state, done) -> None:
+        """Letting the agent to take a step.
+
+        On some steps the agent will initiate learning step. This is dependent on
+        the `update_freq` value.
+
+        Parameters:
+            state: S(t)
+            action: A(t)
+            reward: R(t)
+            nexxt_state: S(t+1)
+            done: (bool) Whether the state is terminal. 
+
+        """
         self.iteration += 1
         state = to_tensor(self.state_transform(state)).float().to("cpu")
         next_state = to_tensor(self.state_transform(next_state)).float().to("cpu")
@@ -110,10 +132,13 @@ class DQNAgent(AgentType):
 
         """Returns actions for given state as per current policy.
 
-        Params
-        ======
+        Parameters:
             state (array_like): current state
             eps (float): epsilon, for epsilon-greedy action selection
+        
+        Returns:
+            Categorical value for the action.
+
         """
         # Epsilon-greedy action selection
         if random.random() < eps:
@@ -125,6 +150,13 @@ class DQNAgent(AgentType):
         return int(torch.argmax(action_values.cpu()))
 
     def learn(self, experiences) -> None:
+    def learn(self, experiences: Dict[str, list]) -> None:
+        """Updates agent's networks based on provided experience.
+
+        Parameters:
+            experiences: Samples experiences from the experience buffer.
+
+        """
         rewards = to_tensor(experiences['reward']).type(torch.float32).to(self.device)
         dones = to_tensor(experiences['done']).type(torch.int).to(self.device)
         states = to_tensor(experiences['state']).type(torch.float32).to(self.device)
@@ -154,28 +186,64 @@ class DQNAgent(AgentType):
             self.buffer.priority_update(experiences['index'], error.abs())
 
     def describe_agent(self) -> Dict:
-        """Returns agent's state dictionary."""
+        """Returns agent's state dictionary.
+        
+        Returns:
+            State dicrionary for internal networks.
+        
+        """
         return self.net.state_dict()
 
-    def log_writer(self, writer, episode):
-        writer.add_scalar("loss/agent", self.loss, episode)
+    def log_writer(self, writer, step_num: int):
+        """Uses provided (TensorBoard) writer to provide agent's metrics.
 
-    def save_state(self, path: str):
+        Parameters:
+            writer (TensorBoard): Instance of the SummaryView, e.g. torch.utils.tensorboard.SummaryWritter.
+            step_num (int): Ordering value, e.g. episode number.
+        """
+
+        writer.add_scalar("loss/agent", self.loss, step_num)
+
+    def save_state(self, path: str) -> None:
+        """Saves agent's state into a file.
+
+        Parameters:
+            path: String path where to write the state.
+
+        """
         agent_state = dict(net=self.net.state_dict(), target_net=self.target_net.state_dict())
         torch.save(agent_state, path)
 
-    def load_state(self, path: str):
+    def load_state(self, path: str) -> None:
+        """Loads state from a file under provided path.
+
+        Parameters:
+            path: String path indicating where the state is stored.
+
+        """
         agent_state = torch.load(path)
         self.net.load_state_dict(agent_state['net'])
         self.target_net.load_state_dict(agent_state['target_net'])
 
-    def save_buffer(self, path: str):
+    def save_buffer(self, path: str) -> None:
+        """Saves data from the buffer into a file under provided path.
+        
+        Parameters:
+            path: String path where to write the buffer.
+
+        """
         import json
         dump = self.buffer.dump_buffer(serialize=True)
         with open(path, 'w') as f:
             json.dump(dump, f)
 
-    def load_buffer(self, path: str):
+    def load_buffer(self, path: str) -> None:
+        """Loads data into the buffer from provided file path.
+        
+        Parameters:
+            path: String path indicating where the buffer is stored.
+        
+        """
         import json
         with open(path, 'r') as f:
             buffer_dump = json.load(f)

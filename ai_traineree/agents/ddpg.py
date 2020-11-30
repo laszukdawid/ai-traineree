@@ -1,3 +1,5 @@
+import torch
+
 from ai_traineree import DEVICE
 from ai_traineree.agents.utils import hard_update, soft_update
 from ai_traineree.buffers import ReplayBuffer
@@ -5,9 +7,7 @@ from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.noise import GaussianNoise
 from ai_traineree.types import AgentType
 from ai_traineree.utils import to_tensor
-
-import numpy as np
-import torch
+from numpy import float32 as _float32
 from torch.optim import Adam
 from torch.nn.functional import mse_loss
 from typing import Any, Sequence, Tuple
@@ -77,13 +77,13 @@ class DDPGAgent(AgentType):
             obs = to_tensor(obs).float().to(self.device)
             action = self.actor(obs)
             action += noise*self.noise.sample()
-            return self.action_scale*torch.clamp(action, self.action_min, self.action_max).cpu().numpy().astype(np.float32)
+            return self.action_scale*torch.clamp(action, self.action_min, self.action_max).cpu().numpy().astype(_float32)
 
     def target_act(self, obs, noise: float=0.0):
         with torch.no_grad():
             obs = to_tensor(obs).float().to(self.device)
             action = self.target_actor(obs) + noise*self.noise.sample()
-            return torch.clamp(action, self.action_min, self.action_max).cpu().numpy().astype(np.float32)
+            return torch.clamp(action, self.action_min, self.action_max).cpu().numpy().astype(_float32)
 
     def step(self, state, action, reward, next_state, done):
         self.iteration += 1

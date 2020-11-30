@@ -1,16 +1,15 @@
-from ai_traineree.utils import to_tensor
-from ai_traineree import DEVICE
-from ai_traineree.networks.bodies import ActorBody, CriticBody
-from ai_traineree.types import AgentType
-from ai_traineree.policies import DirichletPolicy, MultivariateGaussianPolicy
 import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
+from ai_traineree import DEVICE
 from ai_traineree.agents.utils import compute_gae, revert_norm_returns
 from ai_traineree.buffers import ReplayBuffer
+from ai_traineree.networks.bodies import ActorBody, CriticBody
+from ai_traineree.policies import DirichletPolicy, MultivariateGaussianPolicy
+from ai_traineree.types import AgentType
+from ai_traineree.utils import to_tensor
 
 from typing import Tuple
 
@@ -28,7 +27,42 @@ class PPOAgent(AgentType):
 
     name = "PPO"
 
-    def __init__(self, state_size: int, action_size: int, hidden_layers=(300, 200), device=None, **kwargs):
+    def __init__(self, state_size: int, action_size: int, hidden_layers=(200, 200), device=None, **kwargs):
+        """
+        Parameters:
+            is_discrete: (default: False)
+                Whether return discrete action.
+            shared_opt: (default: False)
+                Whether a single optimier for all updates. In case of share optimizer, actor_lr and actor_betas are used.
+            kl_div: (default: False)
+                Whether to use KL divergence in loss.
+            using_gae: (default: True)
+                Whether to use General Advantage Estimator.
+            gae_lambda: (default: 0.9)
+                Value of \lambda in GAE.
+            actor_lr: (default: 0.0003)
+                Learning rate for the actor (policy).
+            critic_lr: (default: 0.001)
+                Learning rate for the critic (value function).
+            actor_betas: (default: (0.9, 0.999)
+                Adam's betas for actor optimizer.
+            critic_betas: (default: (0.9, 0.999)
+                Adam's betas for critic optimizer.
+            gamma: (default: 0.99)
+                Discount value.
+            ppo_ratio_clip: (default: 0.02)
+                Policy ratio clipping value.
+            rollout_length: (default: 48)
+                Number of actions to take before update.
+            batch_size: (default: rollout_length)
+                Number of samples used in learning.
+            number_updates: (default: 1)
+                How many times to learn from a rollout.
+            entropy_weight: (default: 0.005)
+                Weight of the entropy term in the loss.
+            value_weight: (default: 0.005)
+                Weight of the entropy term in the loss.
+        """
         self.device = device if device is not None else DEVICE
 
         self.state_size = state_size
@@ -45,15 +79,15 @@ class PPOAgent(AgentType):
         self.actor_lr = float(kwargs.get('actor_lr', 3e-4))
         self.actor_betas: Tuple[float, float] = kwargs.get('actor_betas', (0.9, 0.999))
         self.critic_lr = float(kwargs.get('critic_lr', 1e-3))
-        self.critic_betas: Tuple[float, float] = kwargs.get('actor_betas', (0.9, 0.999))
+        self.critic_betas: Tuple[float, float] = kwargs.get('critic_betas', (0.9, 0.999))
         self.gamma: float = float(kwargs.get("gamma", 0.99))
         self.ppo_ratio_clip: float = float(kwargs.get("ppo_ratio_clip", 0.2))
 
         self.rollout_length: int = int(kwargs.get("rollout_length", 48))  # "Much less than the episode length"
-        self.batch_size: int = int(kwargs.get("batch_size", self.rollout_length // 2))
-        self.number_updates: int = int(kwargs.get("number_updates", 2))
+        self.batch_size: int = int(kwargs.get("batch_size", self.rollout_length))
+        self.number_updates: int = int(kwargs.get("number_updates", 1))
         self.entropy_weight: float = float(kwargs.get("entropy_weight", 0.0005))
-        self.value_loss_weight: float = float(kwargs.get("value_loss_weight", 1.0))
+        self.value_weight: float = float(kwargs.get("value_weight", 1.0))
 
         self.local_memory_buffer = {}
         self.memory = ReplayBuffer(batch_size=self.rollout_length, buffer_size=self.rollout_length)
@@ -175,7 +209,7 @@ class PPOAgent(AgentType):
         value_loss = 0.5 * F.mse_loss(returns, value)
 
         if self.shared_opt:
-            loss = policy_loss + self.value_loss_weight * value_loss + entropy_loss
+            loss = policy_loss + self.value_weight * value_loss + entropy_loss
             self.opt.zero_grad()
             loss.backward()
             nn.utils.clip_grad_norm_(self.opt_params, self.max_grad_norm_actor)
@@ -201,9 +235,11 @@ class PPOAgent(AgentType):
         writer.add_scalar("loss/critic", self.critic_loss, episode)
 
     def save_state(self, path: str):
-        agent_state = dict(policy=self.policy.state_dict())
+        agent_state = dict(policy=self.policy.state_dict(), actor=self.actor.state_dict(), critic=self.critic.state_dict())
         torch.save(agent_state, path)
 
     def load_state(self, path: str):
         agent_state = torch.load(path)
         self.policy.load_state_dict(agent_state['policy'])
+        self.actor.load_state_dict(agent_state['actor'])
+        self.critic.load_state_dict(agent_state['critic'])

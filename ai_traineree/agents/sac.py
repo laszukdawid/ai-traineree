@@ -1,17 +1,18 @@
+import numpy as np
+import random
+import torch
+
 from ai_traineree import DEVICE
 from ai_traineree.agents.utils import hard_update, soft_update
 from ai_traineree.buffers import PERBuffer
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import DoubleCritic
 from ai_traineree.policies import MultivariateGaussianPolicy
-from ai_traineree.types import AgentType
+from ai_traineree.types import AgentType, FeatureType
 from ai_traineree.utils import to_tensor
-
-import numpy as np
-import torch
 from torch import optim, Tensor
 from torch.nn.utils import clip_grad_norm_
-from typing import Sequence, Tuple, List
+from typing import List, Sequence, Tuple
 
 
 class SACAgent(AgentType):
@@ -28,16 +29,35 @@ class SACAgent(AgentType):
     name = "SAC"
 
     def __init__(
-        self, state_size: int, action_size: int,
-        actor_lr: float=2e-3, critic_lr: float=2e-3, action_clip: Tuple[int, int]=(-1, 1),
+        self, state_size: FeatureType, action_size: FeatureType,
+        actor_lr: float=2e-3, critic_lr: float=2e-3, action_clip: Tuple[float, float]=(-1, 1),
         alpha: float=0.2, **kwargs
     ):
-        """
-        :param hidden_layers: default (128, 128)
-        :param device: default CUDA (if possible)
+        """Initi.
+
+        Another.
+
+        Parameters:
+            hidden_layers: (default: (128, 128)) Shape of the hidden layers that are fully connected networks.
+            gamma: (default: 0.99) Discount value.
+            tau: (default: 0.02) Soft copy fraction.
+            batch_size: (default 64) Number of samples in a batch.
+            buffer_size: (default: 1e6) Size of the prioritized experience replay buffer.
+            warm_up: (default: 0) Number of samples that needs to be observed before starting to learn.
+            update_freq: (default: 1) Number of samples between policy updates.
+            number_updates: (default: 1) Number of times of batch sampling/training per `update_freq`.
+            alpha: (default: 0.2) Weight of log probs in value function.
+            alpha_lr: (default: None) If provided, it will add alpha as a training parameters and `alpha_lr` is its learning rate.
+            action_scale: (default: 1.) Scale for returned action values.
+            max_grad_norm_alpha: (default: 1.) Gradient clipping for the alpha.
+            max_grad_norm_actor: (default 20.) Gradient clipping for the actor.
+            max_grad_norm_critic: (default: 20.) Gradient clipping for the critic.
+            device: Defaults to CUDA if available.
+
         """
         self.device = kwargs.get("device", DEVICE)
-        self.action_size = action_size
+        self.state_size = (state_size,) if isinstance(state_size, int) else state_size
+        self.action_size = (action_size,) if isinstance(action_size, int) else action_size
         self.gamma: float = float(kwargs.get('gamma', 0.99))
         self.tau: float = float(kwargs.get('tau', 0.02))
         self.batch_size: int = int(kwargs.get('batch_size', 64))
@@ -50,19 +70,19 @@ class SACAgent(AgentType):
 
         # Reason sequence initiation.
         hidden_layers = kwargs.get('hidden_layers', (128, 128))
-        self.policy = MultivariateGaussianPolicy(action_size, self.batch_size, device=self.device)
-        self.actor = ActorBody(state_size, self.policy.param_dim*action_size, hidden_layers=hidden_layers).to(self.device)
+        self.policy = MultivariateGaussianPolicy(self.action_size[0], self.batch_size, device=self.device)
+        self.actor = ActorBody(self.state_size, self.policy.param_dim*self.action_size[0], hidden_layers=hidden_layers, device=self.device)
 
-        self.double_critic = DoubleCritic(state_size, action_size, CriticBody, hidden_layers=hidden_layers).to(self.device)
-        self.target_double_critic = DoubleCritic(state_size, action_size, CriticBody, hidden_layers=hidden_layers).to(self.device)
+        self.double_critic = DoubleCritic(self.state_size, self.action_size[0], CriticBody, hidden_layers=hidden_layers, device=self.device)
+        self.target_double_critic = DoubleCritic(self.state_size, self.action_size[0], CriticBody, hidden_layers=hidden_layers, device=self.device)
 
         # Target sequence initiation
         hard_update(self.target_double_critic, self.double_critic)
 
         # Optimization sequence initiation.
-        self.target_entropy = -action_size
+        self.target_entropy = -self.action_size[0]
         self.alpha_lr = kwargs.get("alpha_lr")
-        alpha_init = kwargs.get("alpha", alpha)
+        alpha_init = float(kwargs.get("alpha", alpha))
         self.log_alpha = torch.tensor(np.log(alpha_init), device=self.device, requires_grad=True)
 
         self.actor_params = list(self.actor.parameters()) 
@@ -82,8 +102,8 @@ class SACAgent(AgentType):
         self.reset_agent()
         self.iteration = 0
 
-        self.actor_loss = np.nan
-        self.critic_loss = np.nan
+        self.actor_loss = float('inf')
+        self.critic_loss = float('inf')
 
     @property
     def alpha(self):
@@ -102,7 +122,7 @@ class SACAgent(AgentType):
         return (self.actor.state_dict(), self.double_critic.state_dict(), self.target_double_critic.state_dict())
 
     def act(self, state, epsilon: float=0.0, deterministic=False) -> List[float]:
-        if np.random.random() < epsilon:
+        if random.random() < epsilon:
             return np.clip(self.action_scale*np.random.random(size=self.action_size), self.action_min, self.action_max)
 
         state = to_tensor(state).view(1, -1).float().to(self.device)
