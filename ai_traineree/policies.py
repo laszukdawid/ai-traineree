@@ -32,6 +32,9 @@ class MultivariateGaussianPolicy(PolicyType):
         x = x.view(-1, self.size, self.param_dim)
         mu = x[..., 0]
         std = torch.clamp(x[..., 1], self.std_min, self.std_max).unsqueeze(-1)
+        if self.size == 1:
+            return self.dist(mu.view(-1, 1), scale=std.view(-1, 1))
+
         if x.shape[0] == 1:
             idx = torch.arange(self.size, device=x.device).view(1, self.size, 1)
             std = torch.zeros((1, self.size, self.size), device=x.device).scatter(-1, idx, std)

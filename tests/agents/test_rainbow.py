@@ -27,7 +27,3 @@ def test_rainbow_init_default():
     assert agent.in_features == input_shape[0]
     assert agent.out_features == output_shape[0]
 
-
-if __name__ == "__main__":
-    # test_init_fail_without_state_action_dim()
-    test_init_default()

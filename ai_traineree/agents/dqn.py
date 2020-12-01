@@ -29,14 +29,18 @@ class DQNAgent(AgentType):
     name = "DQN"
 
     def __init__(
-        self, input_shape: Union[Sequence[int], int], output_shape: Union[Sequence[int], int],
-        lr: float = 3e-4, gamma: float = 0.99, tau: float = 0.002,
+        self,
+        input_shape: Union[Sequence[int], int],
+        output_shape: Union[Sequence[int], int],
+        lr: float = 3e-4,
+        gamma: float = 0.99,
+        tau: float = 0.002,
         network_fn: Callable[[], NetworkType]=None,
         network_class: Type[NetworkTypeClass]=None,
         hidden_layers: Sequence[int]=(64, 64),
         state_transform: Optional[Callable]=None,
         reward_transform: Optional[Callable]=None,
-        device=None, **kwargs
+        **kwargs
     ):
         """Initiates the DQN agent.
         
@@ -54,8 +58,7 @@ class DQNAgent(AgentType):
             n_steps: (int: 1) N steps reward lookahead
 
         """
-
-        self.device = device if device is not None else DEVICE
+        self.device = kwargs.get("device", DEVICE)
         self.input_shape: Sequence[int] = input_shape if not isinstance(input_shape, int) else (input_shape,)
         self.in_features: int = self.input_shape[0]
         self.output_shape: Sequence[int] = output_shape if not isinstance(output_shape, int) else (output_shape,)

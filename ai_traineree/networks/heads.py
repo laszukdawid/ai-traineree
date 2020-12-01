@@ -60,7 +60,7 @@ class NetChainer(NetworkType):
 class DoubleCritic(NetworkType):
     def __init__(self, in_features: Sequence[int], action_size: int, body_cls: NetworkTypeClass, **kwargs):
         super(DoubleCritic, self).__init__()
-        hidden_layers = kwargs.get("hidden_layers", (200, 200))
+        hidden_layers = kwargs.pop("hidden_layers", (200, 200))
         self.critic_1 = body_cls(in_features=in_features, action_size=action_size, hidden_layers=hidden_layers, **kwargs)
         self.critic_2 = body_cls(in_features=in_features, action_size=action_size, hidden_layers=hidden_layers, **kwargs)
 

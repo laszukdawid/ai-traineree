@@ -58,7 +58,7 @@ def test_gym_task_step(mock_gym, fix_env):
     action = 2.13
 
     # Act
-    out = task.step(actions=action)
+    out = task.step(action=action)
 
     # Assert
     assert fix_env.step.called_once_with(int(action))
@@ -77,7 +77,7 @@ def test_gym_task_step_discrete(mock_gym, fix_env_discrete):
     action = 2.
 
     # Act
-    out = task.step(actions=action)
+    out = task.step(action=action)
 
     # Assert
     assert fix_env_discrete.step.called_once_with(int(action))

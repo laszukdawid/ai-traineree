@@ -1,18 +1,18 @@
+from ai_traineree.types import AgentType
 import numpy as np
 import torch
 import torch.optim as optim
-from torch.nn.utils import clip_grad_norm_
 
 from ai_traineree import DEVICE
-from ai_traineree.agents.dqn import DQNAgent
 from ai_traineree.agents.utils import soft_update
 from ai_traineree.buffers import NStepBuffer, PERBuffer
 from ai_traineree.networks.heads import RainbowNet
 from ai_traineree.utils import to_tensor
-from typing import Dict, List
+from torch.nn.utils import clip_grad_norm_
+from typing import Callable, Dict, List, Optional, Sequence, Union
 
 
-class RainbowAgent(DQNAgent):
+class RainbowAgent(AgentType):
     """Rainbow agent as described in [1].
 
     Rainbow is a DQN agent with some improvments that were suggested before 2017.
@@ -33,11 +33,22 @@ class RainbowAgent(DQNAgent):
 
     name = "Rainbow"
 
-    def __init__(self, *args, **kwargs):
+    def __init__(
+        self,
+        input_shape: Union[Sequence[int], int],
+        output_shape: Union[Sequence[int], int],
+        lr: float = 3e-4,
+        gamma: float = 0.99,
+        tau: float = 0.002,
+        state_transform: Optional[Callable]=None,
+        reward_transform: Optional[Callable]=None,
+        **kwargs
+    ):
         """
-        A wrapper over the DQN thus majority of the logic is in the DqnAgent.
+        A wrapper over the DQN thus majority of the logic is in the DQNAgent.
         Special treatment is required because the Rainbow agent uses categorical nets
-        which aren't return probability distributions for each action.
+        which operate on probability distributions. Each action is taken as the estimate
+        from such distributions.
 
         Parameters:
             input_shape (tuple of ints): Most likely that's your *state* shape.
@@ -49,10 +60,29 @@ class RainbowAgent(DQNAgent):
             tau (default: 0.002): Soft-copy factor.
 
         """
-        super(RainbowAgent, self).__init__(*args, **kwargs)
-
         self.device = kwargs.get("device", DEVICE)
+        self.input_shape: Sequence[int] = input_shape if not isinstance(input_shape, int) else (input_shape,)
+
+        self.in_features: int = self.input_shape[0]
+        self.output_shape: Sequence[int] = output_shape if not isinstance(output_shape, int) else (output_shape,)
+        self.out_features: int = self.output_shape[0]
+
+        self.lr = float(kwargs.get('lr', lr))
+        self.gamma = float(kwargs.get('gamma', gamma))
+        self.tau = float(kwargs.get('tau', tau))
+        self.update_freq = int(kwargs.get('update_freq', 1))
+        self.batch_size = int(kwargs.pop('batch_size', 32))
+        self.buffer_size = int(kwargs.pop('buffer_size', 1e5))
+        self.warm_up = int(kwargs.get('warm_up', 0))
+        self.number_updates = int(kwargs.get('number_updates', 1))
+        self.max_grad_norm = float(kwargs.get('max_grad_norm', 10))
+
+        self.iteration: int = 0
         self.using_double_q = bool(kwargs.get("using_double_q", True))
+
+        self.state_transform = state_transform if state_transform is not None else lambda x: x
+        self.reward_transform = reward_transform if reward_transform is not None else lambda x: x
+
         self.v_min = float(kwargs.get("v_min", -10))
         self.v_max = float(kwargs.get("v_max", 10))
         self.n_atoms = int(kwargs.get("n_atoms", 21))
@@ -74,6 +104,43 @@ class RainbowAgent(DQNAgent):
 
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
         self.dist_probs = None
+        self.loss = float('inf')
+
+    def step(self, state, action, reward, next_state, done) -> None:
+        """Letting the agent to take a step.
+
+        On some steps the agent will initiate learning step. This is dependent on
+        the `update_freq` value.
+
+        Parameters:
+            state: S(t)
+            action: A(t)
+            reward: R(t)
+            nexxt_state: S(t+1)
+            done: (bool) Whether the state is terminal. 
+
+        """
+        self.iteration += 1
+        state = to_tensor(self.state_transform(state)).float().to("cpu")
+        next_state = to_tensor(self.state_transform(next_state)).float().to("cpu")
+        reward = self.reward_transform(reward)
+
+        # Delay adding to buffer to account for n_steps (particularly the reward)
+        self.n_buffer.add(state=state.numpy(), action=[int(action)], reward=[reward], done=[done], next_state=next_state.numpy())
+        if not self.n_buffer.available:
+            return
+
+        self.buffer.add(**self.n_buffer.get().get_dict())
+
+        if self.iteration < self.warm_up:
+            return
+
+        if len(self.buffer) >= self.batch_size and (self.iteration % self.update_freq) == 0:
+            for _ in range(self.number_updates):
+                self.learn(self.buffer.sample())
+
+            # Update networks only once - sync local & target
+            soft_update(self.target_net, self.net, self.tau)
 
     def act(self, state, eps: float = 0.) -> int:
         """Returns actions for given state as per current policy.
@@ -163,10 +230,19 @@ class RainbowAgent(DQNAgent):
         # Update networks - sync local & target
         soft_update(self.target_net, self.net, self.tau)
 
-    def log_writer(self, writer, iteration):
+    def describe_agent(self) -> Dict:
+        """Returns agent's state dictionary.
+
+        Returns:
+            State dicrionary for internal networks.
+
+        """
+        return self.net.state_dict()
+
+    def log_writer(self, writer, iteration, full_mode=False):
         writer.add_scalar("loss/agent", self.loss, iteration)
 
-        if self.dist_probs is not None:
+        if full_mode and self.dist_probs is not None:
             for action_idx in range(self.out_features):
                 dist = self.dist_probs[0, action_idx]
                 writer.add_scalar(f'dist/expected_{action_idx}', (dist*self.z_atoms).sum(), iteration)
@@ -178,10 +254,59 @@ class RainbowAgent(DQNAgent):
 
         # This method, `log_writer`, isn't executed on every iteration but just in case we delay plotting weights.
         # It simply might be quite costly. Thread wisely.
-        if not (iteration % 20):
+        if full_mode:
             for idx, layer in enumerate(self.net.value_net.layers):
-                writer.add_histogram(f"value_net/layer_weights_{idx}", layer.weight, iteration)
-                writer.add_histogram(f"value_net/layer_bias_{idx}", layer.bias, iteration)
+                if hasattr(layer, "weight"):
+                    writer.add_histogram(f"value_net/layer_weights_{idx}", layer.weight, iteration)
+                if hasattr(layer, "bias"):
+                    writer.add_histogram(f"value_net/layer_bias_{idx}", layer.bias, iteration)
             for idx, layer in enumerate(self.net.advantage_net.layers):
-                writer.add_histogram(f"advantage_net/layer_{idx}", layer.weight, iteration)
-                writer.add_histogram(f"advantage_net/layer_bias_{idx}", layer.bias, iteration)
+                if hasattr(layer, "weight"):
+                    writer.add_histogram(f"advantage_net/layer_{idx}", layer.weight, iteration)
+                if hasattr(layer, "bias"):
+                    writer.add_histogram(f"advantage_net/layer_bias_{idx}", layer.bias, iteration)
+
+    def save_state(self, path: str) -> None:
+        """Saves agent's state into a file.
+
+        Parameters:
+            path: String path where to write the state.
+
+        """
+        agent_state = dict(net=self.net.state_dict(), target_net=self.target_net.state_dict())
+        torch.save(agent_state, path)
+
+    def load_state(self, path: str) -> None:
+        """Loads state from a file under provided path.
+
+        Parameters:
+            path: String path indicating where the state is stored.
+
+        """
+        agent_state = torch.load(path)
+        self.net.load_state_dict(agent_state['net'])
+        self.target_net.load_state_dict(agent_state['target_net'])
+
+    def save_buffer(self, path: str) -> None:
+        """Saves data from the buffer into a file under provided path.
+
+        Parameters:
+            path: String path where to write the buffer.
+
+        """
+        import json
+        dump = self.buffer.dump_buffer(serialize=True)
+        with open(path, 'w') as f:
+            json.dump(dump, f)
+
+    def load_buffer(self, path: str) -> None:
+        """Loads data into the buffer from provided file path.
+
+        Parameters:
+            path: String path indicating where the buffer is stored.
+
+        """
+        import json
+        with open(path, 'r') as f:
+            buffer_dump = json.load(f)
+        self.buffer.load_buffer(buffer_dump)
