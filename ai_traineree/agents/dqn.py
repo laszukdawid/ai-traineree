@@ -135,7 +135,7 @@ class DQNAgent(AgentType):
         Parameters:
             state (array_like): current state
             eps (float): epsilon, for epsilon-greedy action selection
-        
+
         Returns:
             Categorical value for the action.
 
@@ -149,7 +149,6 @@ class DQNAgent(AgentType):
         action_values = self.net.act(state)
         return int(torch.argmax(action_values.cpu()))
 
-    def learn(self, experiences) -> None:
     def learn(self, experiences: Dict[str, list]) -> None:
         """Updates agent's networks based on provided experience.
 
@@ -187,10 +186,10 @@ class DQNAgent(AgentType):
 
     def describe_agent(self) -> Dict:
         """Returns agent's state dictionary.
-        
+
         Returns:
             State dicrionary for internal networks.
-        
+
         """
         return self.net.state_dict()
 
@@ -227,7 +226,7 @@ class DQNAgent(AgentType):
 
     def save_buffer(self, path: str) -> None:
         """Saves data from the buffer into a file under provided path.
-        
+
         Parameters:
             path: String path where to write the buffer.
 
@@ -239,10 +238,10 @@ class DQNAgent(AgentType):
 
     def load_buffer(self, path: str) -> None:
         """Loads data into the buffer from provided file path.
-        
+
         Parameters:
             path: String path indicating where the buffer is stored.
-        
+
         """
         import json
         with open(path, 'r') as f:
