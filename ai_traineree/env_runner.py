@@ -10,7 +10,7 @@ from ai_traineree.types import MultiAgentTaskType
 
 from collections import deque
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Sequence, Tuple
 
 FRAMES_PER_SEC = 25
 logging.basicConfig(
@@ -41,14 +41,16 @@ class EnvRunner:
     >>> env_runner.run()
     """
 
+    logger = logging.getLogger("EnvRunner")
+
     def __init__(self, task: TaskType, agent: AgentType, max_iterations: int=int(1e5), **kwargs):
         """
         Expects the environment to come as the TaskType and the agent as the AgentType.
-        Additional args:
 
-        writer: Tensorboard writer.
+        Keyword parameters:
+            window_len (int): Length of the score averaging window.
+            writer: Tensorboard writer.
         """
-        self.logger = logging.getLogger("EnvRunner")
         self.task = task
         self.agent = agent
         self.max_iterations = max_iterations
@@ -60,10 +62,14 @@ class EnvRunner:
         self.all_scores = []
         self.all_iterations = []
         self.window_len = kwargs.get('window_len', 100)
+        self.scores_window = deque(maxlen=self.window_len)
         self.__images = []
 
         self.writer = kwargs.get("writer")
         self.logger.info("writer: %s", str(self.writer))
+        self._actions: List[Any] = []
+        self._rewards: List[Any] = []
+        self._dones: List[Any] = []
 
     def __str__(self) -> str:
         return f"EnvRunner<{self.task.name}, {self.agent.name}>"
@@ -76,7 +82,7 @@ class EnvRunner:
         self.scores_window = deque(maxlen=self.window_len)
 
     def interact_episode(
-        self, eps: float=0, max_iterations: Optional[int]=None, render: bool=False, render_gif: bool=False, log_loss_every: Optional[int]=None
+        self, eps: float=0, max_iterations: Optional[int]=None, render: bool=False, render_gif: bool=False, log_interaction_freq: Optional[int]=1
     ) -> Tuple[RewardType, int]:
         score = 0
         state = self.task.reset()
@@ -95,15 +101,20 @@ class EnvRunner:
                 time.sleep(1./FRAMES_PER_SEC)
 
             action = self.agent.act(state, eps)
+            self._actions.append((self.iteration, action))
+
             next_state, reward, done, _ = self.task.step(action)
+            self._rewards.append((self.iteration, reward))
+            self._dones.append((self.iteration, done))
+
             score += float(reward)
             if render_gif:
                 # OpenAI gym still renders the image to the screen even though it shouldn't. Eh.
                 img = self.task.render(mode='rgb_array')
                 self.__images.append(img)
             self.agent.step(state, action, reward, next_state, done)
-            if log_loss_every is not None and (iterations % log_loss_every) == 0:
-                self.log_loss()
+            if log_interaction_freq is not None and (iterations % log_interaction_freq) == 0:
+                self.log_interaction()
             state = next_state
             if done:
                 break
@@ -111,11 +122,16 @@ class EnvRunner:
 
     def run(
         self,
-        reward_goal: float=100.0, max_episodes: int=2000,
-        eps_start=1.0, eps_end=0.01, eps_decay=0.995,
-        log_every=10, gif_every_episodes: Optional[int]=None,
-        checkpoint_every=200, force_new=False,
-    ):
+        reward_goal: float=100.0,
+        max_episodes: int=2000,
+        eps_start: float=1.0,
+        eps_end: float=0.01,
+        eps_decay: float=0.995,
+        log_every: int=10,
+        gif_every_episodes: Optional[int]=None,
+        checkpoint_every=200,
+        force_new: bool=False,
+    ) -> List[float]:
         """
         Evaluates the agent in the environment.
         The evaluation will stop when the agent reaches the `reward_goal` in the averaged last `self.window_len`, or
@@ -127,6 +143,23 @@ class EnvRunner:
         Every `checkpoint_every` (default: 200) iterations the Runner will store current state of the runner and the agent.
         These states can be used to resume previous run. By default the runner checks whether there is ongoing run for
         the combination of the environment and the agent.
+
+        Parameters:
+            reward_goal: Goal to achieve on the average reward.
+            max_episode: After how many episodes to stop regardless of the score.
+            eps_start: Epsilon-greedy starting value.
+            eps_end: Epislon-greeedy lowest value.
+            eps_decay: Epislon-greedy decay value, eps[i+1] = eps[i] * eps_decay.
+            log_every: Number of episodes between state logging.
+            gif_every_episodes: Number of episodes between storing last episode as a gif.
+            checkpoint_every: Number of episodes between storing the whole state, so that
+                in case of failure it can be safely resumed from it.
+            force_new: Flag whether to resume from previously stored state (False), or to
+                start learning from a clean state (True).
+
+        Returns:
+            All obtained scores from all episodes.
+
         """
         self.epsilon = eps_start
         self.reset()
@@ -136,7 +169,7 @@ class EnvRunner:
         while (self.episode < max_episodes):
             self.episode += 1
             render_gif = gif_every_episodes is not None and (self.episode % gif_every_episodes) == 0
-            score, iterations = self.interact_episode(self.epsilon, render_gif=render_gif)
+            score, iterations = self.interact_episode(self.epsilon, render_gif=render_gif, log_interaction_freq=10)
 
             self.scores_window.append(score)
             self.all_iterations.append(iterations)
@@ -196,9 +229,31 @@ class EnvRunner:
         self.writer.add_scalar("score/score", kwargs['score'], self.episode)
         self.writer.add_scalar("score/avg_score", kwargs['mean_score'], self.episode)
         self.writer.add_scalar("epsilon", kwargs['epsilon'], self.iteration)
-        self.log_loss(**kwargs)
+        self.log_interaction(**kwargs)
 
-    def log_loss(self, **kwargs):
+    def log_interaction(self, **kwargs):
+        if hasattr(self.agent, 'log_writer'):
+            self.agent.log_writer(self.writer, self.iteration)
+        elif 'critic_loss' in self.agent.__dict__ and self.agent.critic_loss is not None:
+            self.writer.add_scalar("Actor loss", kwargs['actor_loss'], self.iteration)
+            self.writer.add_scalar("Critic loss", kwargs['critic_loss'], self.iteration)
+        else:
+            self.writer.add_scalar("loss", kwargs['loss'], self.iteration)
+
+        while(len(self._actions) > 0):
+            step, actions = self._actions.pop()
+            actions = actions if isinstance(actions, Sequence) else [actions]
+            self.writer.add_scalars("env/action", {str(i): a for i, a in enumerate(actions)}, step)
+
+        while(len(self._rewards) > 0):
+            step, rewards = self._rewards.pop()
+            rewards = rewards if isinstance(rewards, Sequence) else [rewards]
+            self.writer.add_scalars("env/reward", {str(i): r for i, r in enumerate(rewards)}, step)
+
+        while(len(self._dones) > 0):
+            step, dones = self._dones.pop()
+            dones = dones if isinstance(dones, Sequence) else [dones]
+            self.writer.add_scalars("env/done", {str(i): d for i, d in enumerate(dones)}, step)
         if hasattr(self.agent, 'log_writer'):
             self.agent.log_writer(self.writer, self.iteration)
         elif 'critic_loss' in self.agent.__dict__ and self.agent.critic_loss is not None:
@@ -312,6 +367,9 @@ class MultiAgentEnvRunner:
         self.all_iterations: List[int] = []
         self.window_len = kwargs.get('window_len', 100)
         self.__images = []
+        self._actions = []
+        self._rewards = []
+        self._dones = []
 
         self.writer = kwargs.get("writer")
         self.logger.info("writer: %s", str(self.writer))
@@ -328,7 +386,7 @@ class MultiAgentEnvRunner:
 
     def interact_episode(
         self, eps: float=0, max_iterations: Optional[int]=None,
-        render: bool=False, render_gif: bool=False, log_loss_every: Optional[int]=None
+        render: bool=False, render_gif: bool=False, log_interaction_freq: Optional[int]=None
     ) -> Tuple[List[RewardType], int]:
         score: List[RewardType] = [0.]*self.multi_agent.agents_number
         states: List[StateType] = self.task.reset()
@@ -347,13 +405,13 @@ class MultiAgentEnvRunner:
                 self.task.render("human")
                 time.sleep(1./FRAMES_PER_SEC)
 
-            all_actions: List[ActionType] = self.multi_agent.act(states, eps)
+            actions: List[ActionType] = self.multi_agent.act(states, eps)
             next_states: List[StateType] = []
             rewards: List[RewardType] = []
             dones: List[DoneType] = []
 
             for agent_id in range(self.multi_agent.agents_number):
-                next_state, reward, done, _ = self.task.step(all_actions[agent_id], agent_id=agent_id)
+                next_state, reward, done, _ = self.task.step(actions[agent_id], agent_id=agent_id)
                 next_states.append(next_state)
                 rewards.append(reward)
                 dones.append(done)
@@ -365,9 +423,13 @@ class MultiAgentEnvRunner:
                 img = self.task.render(mode='rgb_array')
                 self.__images.append(img)
 
-            self.multi_agent.step(states, all_actions, rewards, next_states, dones)
-            if log_loss_every is not None and (iterations % log_loss_every) == 0:
-                self.log_loss()
+            self._actions.append((self.iteration, actions))
+            self._dones.append((self.iteration, dones))
+            self._rewards.append((self.iteration, rewards))
+
+            self.multi_agent.step(states, actions, rewards, next_states, dones)
+            if log_interaction_freq is not None and (iterations % log_interaction_freq) == 0:
+                self.log_interaction()
             states = next_states
             if any(dones):
                 break
@@ -459,7 +521,7 @@ class MultiAgentEnvRunner:
         line = "\t".join(line_chunks)
         try:
             self.logger.info(line.format(**kwargs))
-        except:
+        except Exception:
             print("Line: ", line)
             print("kwargs: ", kwargs)
 
@@ -467,16 +529,31 @@ class MultiAgentEnvRunner:
         self.writer.add_scalar("score/score", kwargs['score'], self.episode)
         self.writer.add_scalar("score/avg_score", kwargs['mean_score'], self.episode)
         self.writer.add_scalar("epsilon", kwargs['epsilon'], self.iteration)
-        self.log_loss(**kwargs)
+        self.log_interaction(**kwargs)
 
-    def log_loss(self, **kwargs):
-        if hasattr(self.multi_agent, 'log_writer'):
-            self.multi_agent.log_writer(self.writer, self.iteration)
-        elif 'critic_loss' in self.multi_agent.__dict__ and self.multi_agent.critic_loss is not None:
+    def log_interaction(self, **kwargs):
+        if hasattr(self.agent, 'log_writer'):
+            self.agent.log_writer(self.writer, self.iteration)
+        elif 'critic_loss' in self.agent.__dict__ and self.agent.critic_loss is not None:
             self.writer.add_scalar("Actor loss", kwargs['actor_loss'], self.iteration)
             self.writer.add_scalar("Critic loss", kwargs['critic_loss'], self.iteration)
         else:
             self.writer.add_scalar("loss", kwargs['loss'], self.iteration)
+
+        while(len(self._actions) > 0):
+            step, actions = self._actions.pop()
+            actions = actions if isinstance(actions, Sequence) else [actions]
+            self.writer.add_scalars("env/action", {str(i): a for i, a in enumerate(actions)}, step)
+
+        while(len(self._rewards) > 0):
+            step, rewards = self._rewards.pop()
+            rewards = rewards if isinstance(rewards, Sequence) else [rewards]
+            self.writer.add_scalars("env/reward", {str(i): r for i, r in enumerate(rewards)}, step)
+
+        while(len(self._dones) > 0):
+            step, dones = self._dones.pop()
+            dones = dones if isinstance(dones, Sequence) else [dones]
+            self.writer.add_scalars("env/done", {str(i): d for i, d in enumerate(dones)}, step)
 
     def save_state(self, state_name: str):
         """Saves the current state of the runner and the multi_agent.
@@ -520,8 +597,6 @@ class MultiAgentEnvRunner:
         with open(f'{self.state_dir}/{state_name}.json', 'r') as f:
             state = json.load(f)
         self.episode = state.get('episode')
-        self.epsilon = state.get('epsilon')
-
         self.all_scores.append(state.get('score'))
         self.all_iterations = []
 

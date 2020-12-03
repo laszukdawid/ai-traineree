@@ -10,7 +10,6 @@ from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.policies import DirichletPolicy, MultivariateGaussianPolicy
 from ai_traineree.types import AgentType
 from ai_traineree.utils import to_tensor
-
 from typing import Tuple
 
 
@@ -30,38 +29,24 @@ class PPOAgent(AgentType):
     def __init__(self, state_size: int, action_size: int, hidden_layers=(200, 200), device=None, **kwargs):
         """
         Parameters:
-            is_discrete: (default: False)
-                Whether return discrete action.
-            shared_opt: (default: False)
-                Whether a single optimier for all updates. In case of share optimizer, actor_lr and actor_betas are used.
-            kl_div: (default: False)
-                Whether to use KL divergence in loss.
-            using_gae: (default: True)
-                Whether to use General Advantage Estimator.
-            gae_lambda: (default: 0.9)
-                Value of \lambda in GAE.
-            actor_lr: (default: 0.0003)
-                Learning rate for the actor (policy).
-            critic_lr: (default: 0.001)
-                Learning rate for the critic (value function).
-            actor_betas: (default: (0.9, 0.999)
-                Adam's betas for actor optimizer.
-            critic_betas: (default: (0.9, 0.999)
-                Adam's betas for critic optimizer.
-            gamma: (default: 0.99)
-                Discount value.
-            ppo_ratio_clip: (default: 0.02)
-                Policy ratio clipping value.
-            rollout_length: (default: 48)
-                Number of actions to take before update.
-            batch_size: (default: rollout_length)
-                Number of samples used in learning.
-            number_updates: (default: 1)
-                How many times to learn from a rollout.
-            entropy_weight: (default: 0.005)
-                Weight of the entropy term in the loss.
-            value_weight: (default: 0.005)
-                Weight of the entropy term in the loss.
+            is_discrete: (default: False) Whether return discrete action.
+            shared_opt: (default: False) Whether a single optimier for all updates.
+                In case of share optimizer, actor_lr and actor_betas are used.
+            kl_div: (default: False) Whether to use KL divergence in loss.
+            using_gae: (default: True) Whether to use General Advantage Estimator.
+            gae_lambda: (default: 0.9) Value of \lambda in GAE.
+            actor_lr: (default: 0.0003) Learning rate for the actor (policy).
+            critic_lr: (default: 0.001) Learning rate for the critic (value function).
+            actor_betas: (default: (0.9, 0.999) Adam's betas for actor optimizer.
+            critic_betas: (default: (0.9, 0.999) Adam's betas for critic optimizer.
+            gamma: (default: 0.99) Discount value.
+            ppo_ratio_clip: (default: 0.02) Policy ratio clipping value.
+            rollout_length: (default: 48) Number of actions to take before update.
+            batch_size: (default: rollout_length) Number of samples used in learning.
+            number_updates: (default: 1) How many times to learn from a rollout.
+            entropy_weight: (default: 0.005) Weight of the entropy term in the loss.
+            value_weight: (default: 0.005) Weight of the entropy term in the loss.
+
         """
         self.device = device if device is not None else DEVICE
 
