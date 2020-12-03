@@ -40,6 +40,11 @@ extensions = [
 # napoleon_numpy_docstring = False
 napoleon_include_init_with_doc = True
 
+# ReadTheDocs expects `contents.rst` as default entry but we're using `index.rst`.
+# Weirdly, although it throws an expection it still manages to display everything.
+# Solution comes from https://github.com/readthedocs/readthedocs.org/issues/2569.
+master_doc = 'index'
+
 sys.path.insert(0, "../")
 
 
