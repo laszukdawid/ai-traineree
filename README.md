@@ -1,4 +1,5 @@
 # ai-traineree
+[![DocStatus](https://readthedocs.org/projects/ai-traineree/badge/?version=latest)](https://ai-traineree.readthedocs.io/)
 
 The intention is to have a zoo of Deep Reinforcment Learning methods and showcasing their application on some environments.
 What will distinguish this repo from other DRL is the intention to have types and interfaces, for easier application and understanding, and having all components tested.

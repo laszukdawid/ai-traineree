@@ -16,11 +16,13 @@ def hidden_init(layer: nn.Module):
     return (-lim, lim)
 
 
-def layer_init(layer: nn.Module, range_value: Optional[Tuple[float, float]]=None):
+def layer_init(layer: nn.Module, range_value: Optional[Tuple[float, float]]=None, remove_mean=True):
     if not (isinstance(layer, nn.Conv2d) or isinstance(layer, nn.Linear)):
         return
     if range_value is not None:
         layer.weight.data.uniform_(*range_value)  # type: ignore
+    if remove_mean:
+        layer.weight.data -= layer.weight.data.mean()
 
     nn.init.xavier_uniform_(layer.weight)
 
@@ -170,7 +172,7 @@ class FcNet(NetworkType):
     def reset_parameters(self):
         for layer in self.layers[:-1]:
             layer_init(layer, hidden_init(layer))
-        layer_init(self.layers[-1], self.last_layer_range)
+        layer_init(self.layers[-1], self.last_layer_range, remove_mean=True)
 
     def forward(self, x):
         for layer in self.layers[:-1]:
@@ -189,19 +191,33 @@ class CriticBody(NetworkType):
     """Extension of the FcNet which includes actions.
 
     Mainly used to estimate the state-action value function in actor-critic agents.
-    Actions are included in the first hidden layer (changeable).
+    Actions are included (by default) in the first hidden layer (changeable).
+
+    Since the main purpose for this is value function estimation the output is a single value.
     """
     def __init__(
             self, in_features: FeatureType, action_size: int, hidden_layers: Optional[Sequence[int]]=(200, 100),
             actions_layer: int=1, gate=torch.tanh, gate_out=None, **kwargs
     ):
+        """
+        Parameters:
+            in_features: Dimension of the input features.
+            action_size: Dimension of the action vector that is inected into `action_layer`.
+            hidden_layers: Shape of the hidden layers.
+            action_layer: An index for the layer that will have `actions` injected as an additional input.
+                By default that's a first hidden layer, i.e. (state) -> (out + actions) -> (out) ... -> (output).
+            gate: Activation function for each layer, expect the last.
+            gate_out: Activation function after the last layer.
+        """
         super(CriticBody, self).__init__()
 
         self.in_features: int = in_features if isinstance(in_features, int) else in_features[0]
         self.out_features = 1
         num_layers = list(hidden_layers) if hidden_layers is not None else []
         num_layers = [self.in_features] + num_layers + [self.out_features]
-        assert 0 <= actions_layer < len(num_layers), "Action layer needs to be within the network"
+        self.actions_layer = actions_layer
+        if not (0 <= actions_layer < len(num_layers)):
+            raise ValueError("Action layer needs to be within the network")
 
         layers = []
         for in_idx in range(len(num_layers)-1):
@@ -222,12 +238,17 @@ class CriticBody(NetworkType):
             layer_init(layer, hidden_init(layer))
 
     def forward(self, x, actions):
-        for idx, layer in enumerate(self.layers[:-1]):
-            if idx == 1:
-                x = self.gate(layer(torch.cat((x, actions.float()), dim=-1)))
+        for idx, layer in enumerate(self.layers):
+            if idx == self.actions_layer:
+                x = layer(torch.cat((x, actions.float()), dim=-1))
             else:
-                x = self.gate(layer(x))
-        return self.gate_out(self.layers[-1](x))
+                x = layer(x)
+
+            if idx < len(self.layers) - 1:
+                x = self.gate(x)
+            else:
+                x = self.gate_out(x)
+        return x
 
 
 class NoisyLayer(nn.Module):
