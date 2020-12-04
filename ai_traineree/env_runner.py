@@ -226,9 +226,10 @@ class EnvRunner:
         self.logger.info(line.format(**kwargs))
 
     def log_writer(self, **kwargs):
-        self.writer.add_scalar("score/score", kwargs['score'], self.episode)
-        self.writer.add_scalar("score/avg_score", kwargs['mean_score'], self.episode)
-        self.writer.add_scalar("epsilon", kwargs['epsilon'], self.iteration)
+        self.writer.add_scalar("episode/score", kwargs['score'], self.episode)
+        self.writer.add_scalar("episode/avg_score", kwargs['mean_score'], self.episode)
+        self.writer.add_scalar("episode/epsilon", kwargs['epsilon'], self.episode)
+        self.writer.add_scalar("episode/iterations", kwargs['iterations'], self.episode)
         self.log_interaction(**kwargs)
 
     def log_interaction(self, **kwargs):
@@ -526,9 +527,10 @@ class MultiAgentEnvRunner:
             print("kwargs: ", kwargs)
 
     def log_writer(self, **kwargs):
-        self.writer.add_scalar("score/score", kwargs['score'], self.episode)
-        self.writer.add_scalar("score/avg_score", kwargs['mean_score'], self.episode)
-        self.writer.add_scalar("epsilon", kwargs['epsilon'], self.iteration)
+        self.writer.add_scalar("episode/score", kwargs['score'], self.episode)
+        self.writer.add_scalar("episode/avg_score", kwargs['mean_score'], self.episode)
+        self.writer.add_scalar("episode/epsilon", kwargs['epsilon'], self.episode)
+        self.writer.add_scalar("episode/iterations", kwargs['iterations'], self.episode)
         self.log_interaction(**kwargs)
 
     def log_interaction(self, **kwargs):
