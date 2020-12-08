@@ -47,7 +47,7 @@ class PPOAgent(AgentType):
             batch_size: (default: rollout_length) Number of samples used in learning.
             number_updates: (default: 1) How many times to learn from a rollout.
             entropy_weight: (default: 0.005) Weight of the entropy term in the loss.
-            value_weight: (default: 0.005) Weight of the entropy term in the loss.
+            value_loss_weight: (default: 0.005) Weight of the entropy term in the loss.
 
         """
         self.device = device if device is not None else DEVICE
@@ -67,14 +67,15 @@ class PPOAgent(AgentType):
         self.actor_betas: Tuple[float, float] = kwargs.get('actor_betas', (0.9, 0.999))
         self.critic_lr = float(kwargs.get('critic_lr', 1e-3))
         self.critic_betas: Tuple[float, float] = kwargs.get('critic_betas', (0.9, 0.999))
-        self.gamma: float = float(kwargs.get("gamma", 0.99))
-        self.ppo_ratio_clip: float = float(kwargs.get("ppo_ratio_clip", 0.25))
+        self.gamma = float(kwargs.get("gamma", 0.99))
+        self.ppo_ratio_clip = float(kwargs.get("ppo_ratio_clip", 0.25))
 
-        self.rollout_length: int = int(kwargs.get("rollout_length", 48))  # "Much less than the episode length"
-        self.batch_size: int = int(kwargs.get("batch_size", self.rollout_length))
-        self.number_updates: int = int(kwargs.get("number_updates", 1))
-        self.entropy_weight: float = float(kwargs.get("entropy_weight", 0.0005))
-        self.value_weight: float = float(kwargs.get("value_weight", 1.0))
+        self.executor_num = int(kwargs.get("executor_num", 1))  # TODO: Is this the right name?
+        self.rollout_length = int(kwargs.get("rollout_length", 48))  # "Much less than the episode length"
+        self.batch_size = int(kwargs.get("batch_size", self.rollout_length))
+        self.number_updates = int(kwargs.get("number_updates", 1))
+        self.entropy_weight = float(kwargs.get("entropy_weight", 0.0005))
+        self.value_loss_weight = float(kwargs.get("value_loss_weight", 1.0))
 
         self.local_memory_buffer = {}
         self.memory = ReplayBuffer(batch_size=self.rollout_length, buffer_size=self.rollout_length)
@@ -106,31 +107,45 @@ class PPOAgent(AgentType):
         self.memory = ReplayBuffer(batch_size=self.rollout_length, buffer_size=self.rollout_length)
 
     def act(self, state, epsilon: float=0.):
+        actions = []
+        logprobs = []
+        values = []
         with torch.no_grad():
-            state = to_tensor(state).view(1, -1).to(self.device)
-            actor_est = self.actor.act(state)
-            assert not torch.any(torch.isnan(actor_est))
+            state = to_tensor(state).view(self.executor_num, self.state_size).float().to(self.device)
+            for executor in range(self.executor_num):
+                actor_est = self.actor.act(state[executor].unsqueeze(0))
+                assert not torch.any(torch.isnan(actor_est))
 
-            dist = self.policy(actor_est)
-            action = dist.sample()
-            self.local_memory_buffer['value'] = self.critic.act(state, action)
-            self.local_memory_buffer['logprob'] = self.policy.log_prob(dist, action)
+                dist = self.policy(actor_est)
+                action = dist.sample()
+                value = self.critic.act(state[executor].unsqueeze(0), action)
+                logprob = self.policy.log_prob(dist, action)
+                values.append(value)
+                logprobs.append(logprob)
 
-            if self.is_discrete:
-                # *Technically* it's the max of Softmax but that's monotonical.
-                return int(torch.argmax(action))
+                if self.is_discrete:  # *Technically* it's the max of Softmax but that's monotonic.
+                    action = int(torch.argmax(action))
+                else:
+                    action = torch.clamp(action*self.action_scale, self.action_min, self.action_max).cpu()
+                actions.append(action)
 
             # TODO: This *makes sense* but seems that some environments work better without.
             #       Should we leave min/scale/max to the policy learning?
             # action = torch.clamp(action*self.action_scale, self.action_min, self.action_max)
-            return action.flatten().tolist()
+            self.local_memory_buffer['value'] = torch.cat(values)
+            self.local_memory_buffer['logprob'] = torch.cat(logprobs)
+            return actions
 
     def step(self, states, actions, rewards, next_state, done, **kwargs):
         self.iteration += 1
 
         self.memory.add(
-            state=states, action=actions, reward=rewards, done=done,
-            logprob=self.local_memory_buffer['logprob'], value=self.local_memory_buffer['value']
+            state=torch.tensor(states).reshape(self.executor_num, self.state_size).float(),
+            action=torch.tensor(actions).reshape(self.executor_num, self.action_size).float(),
+            reward=torch.tensor(rewards).reshape(self.executor_num, 1),
+            done=torch.tensor(done).reshape(self.executor_num, 1),
+            logprob=self.local_memory_buffer['logprob'].reshape(self.executor_num, 1),
+            value=self.local_memory_buffer['value'].reshape(self.executor_num, 1),
         )
 
         if self.iteration % self.rollout_length == 0:
@@ -142,29 +157,47 @@ class PPOAgent(AgentType):
         Main loop that initiates the training.
         """
         experiences = self.memory.sample()
-        rewards = to_tensor(experiences['reward']).to(self.device).unsqueeze(1)
-        dones = to_tensor(experiences['done']).type(torch.int).to(self.device).unsqueeze(1)
+        rewards = to_tensor(experiences['reward']).to(self.device)
+        dones = to_tensor(experiences['done']).type(torch.int).to(self.device)
         states = to_tensor(experiences['state']).to(self.device)
         actions = to_tensor(experiences['action']).to(self.device)
-        values = torch.cat(experiences['value']).to(self.device)
-        log_probs = torch.cat(experiences['logprob']).to(self.device)
+        values = to_tensor(experiences['value']).to(self.device)
+        logprobs = to_tensor(experiences['logprob']).to(self.device)
+        assert rewards.shape == dones.shape == values.shape == logprobs.shape
+        assert states.shape == (self.rollout_length, self.executor_num, self.state_size), f"Wrong state shape: {states.shape}"
+        assert actions.shape == (self.rollout_length, self.executor_num, self.action_size), f"Wrong action shape: {actions.shape}"
 
         with torch.no_grad():
             if self.using_gae:
                 next_val = self.critic.act(states[-1], actions[-1])
                 advantages = compute_gae(rewards, dones, values, next_val, self.gamma, self.gae_lambda)
                 returns = advantages + values
+                assert advantages.shape == returns.shape == values.shape
             else:
                 values = (values - values.mean()) / values.std()
                 returns = revert_norm_returns(rewards, dones, self.gamma, device=self.device).unsqueeze(1)
+                returns = returns.float()
                 advantages = returns - values
+                assert advantages.shape == returns.shape == values.shape
 
-        all_indices = range(self.rollout_length)
+        # Flatten all evaluation to pretend that they're independent samples
+        states = states.view(-1, self.state_size)
+        actions = actions.view(-1, self.action_size)
+        logprobs = logprobs.view(-1, 1)
+        returns = returns.view(-1, 1)
+        dones = dones.view(-1, 1)
+        advantages = advantages.view(-1, 1)
+
+        all_indices = range(self.rollout_length * self.executor_num)
         for _ in range(self.number_updates):
             rand_ids = random.sample(all_indices, self.batch_size)
-            samples = states[rand_ids].detach(), actions[rand_ids].detach(), log_probs[rand_ids].detach(),\
-                returns[rand_ids].detach(), advantages[rand_ids].detach()
-            self.learn(samples)
+            self.learn((
+                states[rand_ids].detach(),
+                actions[rand_ids].detach(),
+                logprobs[rand_ids].detach(),
+                returns[rand_ids].detach(),
+                advantages[rand_ids].detach()
+            ))
 
     def learn(self, samples):
         states, actions, old_log_probs, returns, advantages = samples
@@ -190,13 +223,12 @@ class PPOAgent(AgentType):
         else:
             policy_loss = -torch.min(r_theta * advantages, r_theta_clip * advantages).mean()
         entropy_loss = -self.entropy_weight * entropy.mean()
-        actor_loss = policy_loss + entropy_loss
 
         # Update value and critic loss
-        value_loss = 0.5 * F.mse_loss(returns, value)
+        value_loss = self.value_loss_weight * 0.5 * F.mse_loss(returns, value)
 
         if self.shared_opt:
-            loss = policy_loss + self.value_weight * value_loss + entropy_loss
+            loss = policy_loss + value_loss + entropy_loss
             self.opt.zero_grad()
             loss.backward()
             nn.utils.clip_grad_norm_(self.opt_params, self.max_grad_norm_actor)
@@ -204,6 +236,7 @@ class PPOAgent(AgentType):
             self.actor_loss = policy_loss.mean().item()
             self.critic_loss = value_loss.mean().item()
         else:
+            actor_loss = policy_loss + entropy_loss
             # Update policy and actor loss
             self.actor_opt.zero_grad()
             actor_loss.backward()

@@ -24,7 +24,7 @@ class MultivariateGaussianPolicySimple(PolicyType):
 
     param_dim = 1
 
-    def __init__(self, size: int, batch_size: int, std_init: float=2., std_min: float=0.1, std_max: float=3., device=None):
+    def __init__(self, size: int, batch_size: int, std_init: float=1.0, std_min: float=0.1, std_max: float=3., device=None):
         """
         Parameters:
             size: Size of the observation.
@@ -46,7 +46,7 @@ class MultivariateGaussianPolicySimple(PolicyType):
         self._empty_std = torch.zeros((batch_size, size, size), device=device)
         self.diag_idx = torch.stack((idx,)*batch_size)
 
-        self.std = nn.Parameter(torch.ones(self.size)*self.std_init)
+        self.std = nn.Parameter(torch.ones(self.size)*self.std_init).to(device=device)
 
     def forward(self, x) -> Distribution:
         """Returns distribution"""
@@ -82,7 +82,7 @@ class MultivariateGaussianPolicy(PolicyType):
 
     param_dim = 2
 
-    def __init__(self, size: int, batch_size: int, device=None):
+    def __init__(self, size: int, batch_size: int, std_init: float=1.0, std_min: float=0.1, std_max: float=3., device=None):
         """
         Parameters:
             size: Observation's dimensionality upon sampling.
@@ -92,9 +92,9 @@ class MultivariateGaussianPolicy(PolicyType):
         super(MultivariateGaussianPolicy, self).__init__()
         self.size = size
         self.dist = Normal if size == 1 else MultivariateNormal
-        self.std_init = 2
-        self.std_min = 0.001
-        self.std_max = 5
+        self.std_init = std_init
+        self.std_min = std_min
+        self.std_max = std_max
         self.batch_size = batch_size
         idx = torch.arange(size, device=device).unsqueeze(1)
         self._empty_std = torch.zeros((batch_size, size, size), device=device)

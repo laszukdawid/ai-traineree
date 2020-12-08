@@ -2,15 +2,16 @@ import json
 import logging
 import numpy as np
 import time
+import torch.multiprocessing as mp
 import os
 import sys
+
 from ai_traineree.types import ActionType, AgentType, DoneType, MultiAgentType, RewardType, StateType, TaskType
 from ai_traineree.types import MultiAgentTaskType
-
-
 from collections import deque
 from pathlib import Path
 from typing import Any, List, Optional, Sequence, Tuple
+
 
 FRAMES_PER_SEC = 25
 logging.basicConfig(
@@ -82,7 +83,12 @@ class EnvRunner:
         self.scores_window = deque(maxlen=self.window_len)
 
     def interact_episode(
-        self, eps: float=0, max_iterations: Optional[int]=None, render: bool=False, render_gif: bool=False, log_interaction_freq: Optional[int]=1
+        self,
+        eps: float=0,
+        max_iterations: Optional[int]=None,
+        render: bool=False,
+        render_gif: bool=False,
+        log_interaction_freq: Optional[int]=1,
     ) -> Tuple[RewardType, int]:
         score = 0
         state = self.task.reset()
@@ -112,7 +118,9 @@ class EnvRunner:
                 # OpenAI gym still renders the image to the screen even though it shouldn't. Eh.
                 img = self.task.render(mode='rgb_array')
                 self.__images.append(img)
+
             self.agent.step(state, action, reward, next_state, done)
+
             if log_interaction_freq is not None and (iterations % log_interaction_freq) == 0:
                 self.log_interaction()
             state = next_state
@@ -233,6 +241,9 @@ class EnvRunner:
         self.log_interaction(**kwargs)
 
     def log_interaction(self, **kwargs):
+        if self.writer is None:
+            return
+
         if hasattr(self.agent, 'log_writer'):
             self.agent.log_writer(self.writer, self.iteration)
         elif 'critic_loss' in self.agent.__dict__ and self.agent.critic_loss is not None:
@@ -255,13 +266,354 @@ class EnvRunner:
             step, dones = self._dones.pop()
             dones = dones if isinstance(dones, Sequence) else [dones]
             self.writer.add_scalars("env/done", {str(i): d for i, d in enumerate(dones)}, step)
-        if hasattr(self.agent, 'log_writer'):
-            self.agent.log_writer(self.writer, self.iteration)
-        elif 'critic_loss' in self.agent.__dict__ and self.agent.critic_loss is not None:
-            self.writer.add_scalar("Actor loss", kwargs['actor_loss'], self.iteration)
-            self.writer.add_scalar("Critic loss", kwargs['critic_loss'], self.iteration)
+
+    def save_state(self, state_name: str):
+        """Saves the current state of the runner and the agent.
+
+        Files are stored with appended episode number.
+        Agents are saved with their internal saving mechanism.
+        """
+        state = {
+            'tot_iterations': sum(self.all_iterations),
+            'episode': self.episode,
+            'epsilon': self.epsilon,
+            'score': self.all_scores[-1],
+            'average_score': sum(self.scores_window) / len(self.scores_window),
+        }
+        if hasattr(self.agent, "critic_loss") and self.agent.critic_loss is not None:
+            state['actor_loss'] = self.agent.actor_loss,
+            state['critic_loss'] = self.agent.critic_loss,
+        elif hasattr(self.agent, "loss"):
+            state['loss'] = self.agent.loss
         else:
-            self.writer.add_scalar("loss", kwargs['loss'], self.iteration)
+            pass
+
+        Path(self.state_dir).mkdir(parents=True, exist_ok=True)
+        self.agent.save_state(f'{self.state_dir}/{state_name}_e{self.episode}.agent')
+        with open(f'{self.state_dir}/{state_name}_e{self.episode}.json', 'w') as f:
+            json.dump(state, f)
+
+    def load_state(self, state_prefix: str):
+        """
+        Loads state with the highest episode value for given agent and environment.
+        """
+        try:
+            state_files = list(filter(lambda f: f.startswith(state_prefix) and f.endswith('json'), os.listdir(self.state_dir)))
+            e = max([int(f[f.index('_e')+2:f.index('.')]) for f in state_files])
+        except Exception:
+            self.logger.warning("Couldn't load state. Forcing restart.")
+            return
+
+        state_name = [n for n in state_files if n.endswith(f"_e{e}.json")][0][:-5]
+        self.logger.info("Loading saved state under: %s/%s.json", self.state_dir, state_name)
+        with open(f'{self.state_dir}/{state_name}.json', 'r') as f:
+            state = json.load(f)
+        self.episode = state.get('episode')
+        self.epsilon = state.get('epsilon')
+
+        self.all_scores.append(state.get('score'))
+        self.all_iterations = []
+
+        avg_score = state.get('average_score')
+        for _ in range(min(self.window_len, self.episode)):
+            self.scores_window.append(avg_score)
+
+        self.logger.info("Loading saved agent state: %s/%s.agent", self.state_dir, state_name)
+        self.agent.load_state(f'{self.state_dir}/{state_name}.agent')
+
+        if hasattr(self.agent, "actor_loss") and self.agent.actor_loss is not None:
+            self.agent.actor_loss = state.get('actor_loss', 0)
+            self.agent.critic_loss = state.get('critic_loss', 0)
+        else:
+            self.agent.loss = state.get('loss', 0)
+
+
+class MultiSyncEnvRunner:
+    """Execute multiple environments/tasks concurrently with sync steps.
+
+    All environments are distributed to separate processes. The MultiSyncEnvRunner
+    acts as a manager that sends data between processes.
+
+    Currently this class only supports training one agent at a time. The agent
+    is expected handle stepping multiple steps at a time.
+    """
+
+    logger = logging.getLogger("MultiSyncEnvRunner")
+
+    def __init__(self, tasks: List[TaskType], agent: AgentType, max_iterations: int=int(1e5), **kwargs):
+        """
+        Expects the environment to come as the TaskType and the agent as the AgentType.
+
+        Keyword parameters:
+            window_len (int): Length of the score averaging window.
+            writer: Tensorboard writer.
+        """
+        self.tasks = tasks
+        self.task_num = len(tasks)
+        self.num_processes = int(kwargs.get("processes", len(tasks)))
+        self.processes = []
+        self.parent_conns = []
+        self.child_conns = []
+        self.init_network()
+
+        self.agent = agent
+        self.max_iterations = max_iterations
+        self.model_path = f"{tasks[0].name}_{agent.name}"
+        self.state_dir = 'run_states'
+
+        self.episode = 0
+        self.iteration = 0
+        self.all_scores = []
+        self.all_iterations = []
+        self.window_len = kwargs.get('window_len', 100)
+        self.scores_window = deque(maxlen=self.window_len)
+
+        self.writer = kwargs.get("writer")
+        self.logger.info("writer: %s", str(self.writer))
+
+    def __str__(self) -> str:
+        return f"MultiSyncEnvRunner<{[t.name for t in self.tasks]}, {self.agent.name}>"
+
+    def __del__(self):
+        try:
+            self.close_all()
+        except Exception:
+            pass
+
+    def reset(self):
+        """Resets the EnvRunner. The task env and the agent are preserved."""
+        self.episode = 0
+        self.all_scores = []
+        self.all_iterations = []
+        self.scores_window = deque(maxlen=self.window_len)
+
+    @staticmethod
+    def step_task(conn, task):
+        iteration = 0
+        task.reset()
+        while True:
+            received = conn.recv()
+
+            if received == "STOP":
+                conn.close()
+                return
+
+            if received == "RESET":
+                conn.send(task.reset())
+                iteration = 0
+                continue
+
+            t_idx, state, action = received
+            iteration += 1
+            task_out = task.step(action)
+            next_state, reward, done, _ = task_out
+
+            conn.send({
+                "idx": t_idx,
+                "state": state,
+                "action": action,
+                "next_state": next_state,
+                "reward": reward,
+                "done": done,
+                "iteration": iteration,
+            })
+
+    def init_network(self):
+        for p_idx in range(self.num_processes):
+            parent_conn, child_conn = mp.Pipe()
+            self.parent_conns.append(parent_conn)
+            self.child_conns.append(child_conn)
+
+            process = mp.Process(target=self.step_task, args=(child_conn, self.tasks[p_idx]))
+            self.processes.append(process)
+
+    def run(
+        self,
+        reward_goal: float=100.0,
+        max_episodes: int=2000,
+        max_iterations: int=1000,
+        eps_start: float=1.0,
+        eps_end: float=0.01,
+        eps_decay: float=0.995,
+        log_every: int=10,
+        checkpoint_every=200,
+        force_new=False,
+    ):
+        """
+        Evaluates the agent in the environment.
+        The evaluation will stop when the agent reaches the `reward_goal` in the averaged last `self.window_len`, or
+        when the number of episodes reaches the `max_episodes`.
+
+        To help debugging one can set the `gif_every_episodes` to a positive integer which relates to how often a gif
+        of the episode evaluation is written to the disk.
+
+        Parameters:
+            reward_goal: Goal to achieve on the average reward.
+            max_episode: After how many episodes to stop regardless of the score.
+            eps_start: Epsilon-greedy starting value.
+            eps_end: Epislon-greeedy lowest value.
+            eps_decay: Epislon-greedy decay value, eps[i+1] = eps[i] * eps_decay.
+            log_every: Number of episodes between state logging.
+            checkpoint_every: Number of episodes between storing the whole state, so that
+                in case of failure it can be safely resumed from it.
+            force_new: Flag whether to resume from previously stored state (False), or to
+                start learning from a clean state (True).
+
+        Returns:
+            All obtained scores from all episodes.
+
+        """
+
+        # This method is mainly a wrapper around self._run to make it safer.
+        # Somehow better option might be to add decorators but given unsure existance
+        # of this class we'll refrain from doing so right now.
+        try:
+            # Initiate all processes and connections
+            self.init_network()
+
+            return self._run(
+                reward_goal, max_episodes, max_iterations,
+                eps_start, eps_end, eps_decay,
+                log_every, checkpoint_every, force_new,
+            )
+
+        finally:
+            # All connections and processes need to be closed regardless of any exception.
+            # Don't let get away. Who knows what zombie process are capable of?!
+            self.close_all()
+
+    def _run(
+        self,
+        reward_goal: float=100.0,
+        max_episodes: int=2000,
+        max_iterations: int=1000,
+        eps_start: float=1.0,
+        eps_end: float=0.01,
+        eps_decay: float=0.995,
+        log_every: int=10,
+        checkpoint_every=200,
+        force_new=False,
+    ):
+        self.epsilon = eps_start
+        self.reset()
+        if not force_new:
+            self.load_state(self.model_path)
+
+        scores = np.zeros(self.task_num)
+        iterations = np.zeros(self.task_num)
+
+        states = np.empty((self.num_processes, self.tasks[0].state_size), dtype=np.float32)
+        next_states = states.copy()
+        actions = np.empty((len(self.tasks), self.tasks[0].action_size), dtype=np.float32)
+        dones = np.empty(len(self.tasks))
+        rewards = np.empty(len(self.tasks))
+
+        for idx, conn in enumerate(self.parent_conns):
+            conn.send("RESET")
+            reset_state = conn.recv()
+            states[idx] = reset_state
+
+        mean_score = -float('inf')
+
+        while (self.episode < max_episodes):
+            self.iteration += self.task_num
+            iterations += 1
+
+            actions = self.agent.act(states, self.epsilon)
+
+            for t_idx in range(self.task_num):
+                action = actions[t_idx].numpy().flatten()
+                self.parent_conns[t_idx].send((t_idx, states[t_idx], action))
+
+            for t_idx in range(self.task_num):
+                obj = self.parent_conns[t_idx].recv()            
+
+                idx = obj['idx']
+                rewards[idx] = obj['reward']
+                states[idx] = obj['state']
+                actions[idx] = obj['action']
+                next_states[idx] = obj['next_state']
+                dones[idx] = obj['done']
+
+                iterations[idx] = obj['iteration']
+                scores[idx] += obj['reward']
+
+            # All recently evaluated SARS are passed at the same time
+            self.agent.step(states, actions, rewards, next_states, dones)
+
+            for idx in range(self.task_num):
+                if not (dones[idx] or iterations[idx] > max_iterations):
+                    continue
+
+                self.parent_conns[idx].send("RESET")
+                next_states[idx] = self.parent_conns[idx].recv()
+
+                self.scores_window.append(scores[idx])
+                self.all_scores.append(scores[idx])
+                scores[idx] = 0
+
+                self.all_iterations.append(iterations[idx])
+
+                self.episode += 1
+                mean_score: float = sum(self.scores_window) / len(self.scores_window)
+
+                # Log only once per evaluation, and outside s
+                if self.episode % log_every == 0:
+                    self.info(
+                        episode=self.episode, iterations=self.all_iterations[-1],
+                        score=self.all_scores[-1], mean_score=mean_score, epsilon=self.epsilon
+                    )
+
+                if self.episode % checkpoint_every == 0:
+                    self.save_state(self.model_path)
+
+            states = next_states
+
+            self.epsilon = max(eps_end, eps_decay * self.epsilon)
+
+            if mean_score >= reward_goal and len(self.scores_window) == self.window_len:
+                print(f'Environment solved after {self.episode} episodes!\tAverage Score: {mean_score:.2f}')
+                self.save_state(self.model_path)
+                self.agent.save_state(f'{self.model_path}_agent.net')
+                break
+        return self.all_scores
+
+    def close_all(self):
+        for (p_conn, ch_conn) in zip(self.parent_conns, self.child_conns):
+            p_conn.close()
+            ch_conn.close()
+
+        for process in self.processes:
+            process.terminate()
+            process.join()
+
+    def info(self, **kwargs):
+        """
+        Writes out current state into provided loggers.
+        Currently supports stdout logger (default on) and Tensorboard SummaryWriter initiated through EnvRun(writer=...)).
+        """
+        if self.writer is not None:
+            self.log_writer(**kwargs)
+        if self.logger is not None:
+            self.log_logger(**kwargs)
+
+    def log_logger(self, **kwargs):
+        line_chunks = ["Episode {episode};", "Iter: {iterations};"]
+        line_chunks += ["Current Score: {score:.2f};"]
+        line_chunks += ["Average Score: {mean_score:.2f};"]
+        line_chunks += ["Epsilon: {epsilon:5.3f};"]
+        line = "\t".join(line_chunks)
+        self.logger.info(line.format(**kwargs))
+
+    def log_writer(self, **kwargs):
+        self.writer.add_scalar("score/score", kwargs['score'], self.episode)
+        self.writer.add_scalar("score/avg_score", kwargs['mean_score'], self.episode)
+        self.writer.add_scalar("epsilon", kwargs['epsilon'], self.iteration)
+        self.log_interaction(**kwargs)
+
+    def log_interaction(self, **kwargs):
+        if self.writer and hasattr(self.agent, 'log_writer'):
+            self.agent.log_writer(self.writer, self.iteration)
 
     def save_state(self, state_name: str):
         """Saves the current state of the runner and the agent.
