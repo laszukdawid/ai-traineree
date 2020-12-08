@@ -1,4 +1,5 @@
 import abc
+from abc import abstractmethod
 import torch
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -20,20 +21,24 @@ class TaskType(abc.ABC):
     state_size: int
     is_discrete: bool
 
+    @abstractmethod
     def step(self, action: ActionType, **kwargs) -> TaskStepType:
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def render(self, mode: Optional[str]=None) -> None:
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def reset(self) -> StateType:
-        raise NotImplementedError
+        pass
 
 
 class MultiAgentTaskType(TaskType):
 
+    @abstractmethod
     def reset(self) -> List[StateType]:
-        raise NotImplementedError
+        pass
 
 
 class AgentType(abc.ABC):
@@ -45,22 +50,23 @@ class AgentType(abc.ABC):
     actor_loss: Optional[Union[int, float]] = None
     critic_loss: Optional[Union[int, float]] = None
 
+    @abstractmethod
     def act(self, state: StateType, noise: Any):
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def step(self, state: StateType, action: ActionType, reward: RewardType, next_state: StateType, done: DoneType):
-        raise NotImplementedError
+        pass
 
-    def describe_agent(self) -> None:
-        raise NotImplementedError
-
+    @abstractmethod
     def save_state(self, path: str):
         """Saves the whole agent state into a local file."""
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def load_state(self, path: str):
         """Reads the whole agent state from a local file."""
-        raise NotImplementedError
+        pass
 
 
 class MultiAgentType(abc.ABC):
@@ -77,19 +83,24 @@ class MultiAgentType(abc.ABC):
     def act(self, states: List[StateType], noise: Any) -> List[ActionType]:
         raise NotImplementedError
 
+    @abstractmethod
     def step(
         self, states: List[StateType], actions: List[ActionType], rewards: List[RewardType],
         next_states: List[StateType], dones: List[DoneType]
     ):
-        raise NotImplementedError
+        pass
 
-    def describe_agent(self) -> None:
-        raise NotImplementedError
+    @abstractmethod
+    def describe_agent(self) -> Dict[str, Any]:
+        """Returns description of all agent's components."""
+        pass
 
+    @abstractmethod
     def save_state(self, path: str):
         """Saves the whole agent state into a local file."""
-        raise NotImplementedError
+        pass
 
+    @abstractmethod
     def load_state(self, path: str):
         """Reads the whole agent state from a local file."""
-        raise NotImplementedError
+        pass

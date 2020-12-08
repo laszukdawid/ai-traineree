@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+from ai_traineree.utils import to_tensor
 from torch import Tensor
 from typing import List
 
@@ -34,6 +35,6 @@ def revert_norm_returns(rewards, dones, gamma=0.99, device=None) -> torch.Tensor
         discounted_reward = reward + gamma * discounted_reward * (1 - done)
         returns.insert(0, discounted_reward)
 
-    t_returns = torch.tensor(returns, device=device)
+    t_returns = to_tensor(returns).to(device)
     t_returns = (t_returns - t_returns.mean()) / torch.clamp(t_returns.std(), 1e-8)
     return t_returns
