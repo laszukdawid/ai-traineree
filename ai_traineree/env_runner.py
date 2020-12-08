@@ -354,7 +354,6 @@ class MultiSyncEnvRunner:
         self.processes = []
         self.parent_conns = []
         self.child_conns = []
-        self.init_network()
 
         self.agent = agent
         self.max_iterations = max_iterations
@@ -508,6 +507,10 @@ class MultiSyncEnvRunner:
         dones = np.empty(len(self.tasks))
         rewards = np.empty(len(self.tasks))
 
+        # Start processes just before using them
+        for process in self.processes:
+            process.start()
+
         for idx, conn in enumerate(self.parent_conns):
             conn.send("RESET")
             reset_state = conn.recv()
@@ -579,13 +582,16 @@ class MultiSyncEnvRunner:
         return self.all_scores
 
     def close_all(self):
-        for (p_conn, ch_conn) in zip(self.parent_conns, self.child_conns):
-            p_conn.close()
-            ch_conn.close()
+        while(self.parent_conns):
+            self.parent_conns.pop().close()
 
-        for process in self.processes:
-            process.terminate()
-            process.join()
+        while(self.child_conns):
+            self.child_conns.pop().close()
+
+        while(self.processes):
+            p = self.processes.pop()
+            p.terminate()
+            p.join()
 
     def info(self, **kwargs):
         """
