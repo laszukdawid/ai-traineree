@@ -1,9 +1,7 @@
 import torch
 import torch.nn as nn
 
-from ai_traineree.utils import to_tensor
 from torch import Tensor
-from typing import List
 
 
 def soft_update(target: nn.Module, source: nn.Module, tau: float) -> None:
@@ -20,7 +18,7 @@ def hard_update(target: nn.Module, source: nn.Module):
 def compute_gae(rewards: Tensor, dones: Tensor, values: Tensor, next_value: Tensor, gamma=0.99, lamb=0.9) -> Tensor:
     """Uses General Advantage Estimator to compute... general advantage estiomation."""
     _tmp_values = torch.cat((values, next_value[None, ...]))
-    masks = 1 - dones
+    masks = 1 - dones.int()
     gaes = torch.zeros_like(_tmp_values)
     deltas = rewards + gamma * _tmp_values[1:] * masks - _tmp_values[:-1]
     for idx in reversed(range(len(rewards))):
@@ -28,13 +26,19 @@ def compute_gae(rewards: Tensor, dones: Tensor, values: Tensor, next_value: Tens
     return gaes[:-1]
 
 
-def revert_norm_returns(rewards, dones, gamma=0.99, device=None) -> torch.Tensor:
-    discounted_reward = 0
-    returns: List[torch.Tensor] = []
-    for reward, done in zip(reversed(rewards), reversed(dones)):
+def revert_norm_returns(rewards: Tensor, dones: Tensor, gamma: float=0.99) -> Tensor:
+    """
+    Parameters:
+        rewards: Rewards to discount. Expected shape (..., 1)
+        dones: Tensor with termination flag. Expected ints {0, 1} in shape (..., 1)
+        gamma: Discount factor.
+    """
+    discounted_reward = torch.zeros(rewards.shape[1:])
+    returns = torch.zeros_like(rewards).float()
+    len_returns = returns.shape[0]
+    for idx, (reward, done) in enumerate(zip(reversed(rewards), reversed(dones.int()))):
         discounted_reward = reward + gamma * discounted_reward * (1 - done)
-        returns.insert(0, discounted_reward)
+        returns[len_returns - idx - 1] = discounted_reward
 
-    t_returns = to_tensor(returns).to(device)
-    t_returns = (t_returns - t_returns.mean()) / torch.clamp(t_returns.std(), 1e-8)
-    return t_returns
+    returns = (returns - returns.mean(dim=0)) / torch.clamp(returns.std(dim=0), 1e-8)
+    return returns

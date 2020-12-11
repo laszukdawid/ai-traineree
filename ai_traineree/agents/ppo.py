@@ -126,15 +126,15 @@ class PPOAgent(AgentType):
                 if self.is_discrete:  # *Technically* it's the max of Softmax but that's monotonic.
                     action = int(torch.argmax(action))
                 else:
-                    action = torch.clamp(action*self.action_scale, self.action_min, self.action_max).cpu()
+                    # TODO: This *makes sense* but seems that some environments work better without.
+                    #       Should we leave min/scale/max to the policy learning?
+                    # action = torch.clamp(action*self.action_scale, self.action_min, self.action_max).cpu()
+                    action = action.numpy().flatten().tolist()
                 actions.append(action)
 
-            # TODO: This *makes sense* but seems that some environments work better without.
-            #       Should we leave min/scale/max to the policy learning?
-            # action = torch.clamp(action*self.action_scale, self.action_min, self.action_max)
             self.local_memory_buffer['value'] = torch.cat(values)
             self.local_memory_buffer['logprob'] = torch.cat(logprobs)
-            return actions
+            return actions if self.executor_num > 1 else actions[0]
 
     def step(self, states, actions, rewards, next_state, done, **kwargs):
         self.iteration += 1
@@ -174,8 +174,8 @@ class PPOAgent(AgentType):
                 returns = advantages + values
                 assert advantages.shape == returns.shape == values.shape
             else:
-                values = (values - values.mean()) / values.std()
-                returns = revert_norm_returns(rewards, dones, self.gamma, device=self.device).unsqueeze(1)
+                values = (values - values.mean(dim=0)) / torch.clamp(values.std(dim=0), 1e-7)
+                returns = revert_norm_returns(rewards, dones, self.gamma)
                 returns = returns.float()
                 advantages = returns - values
                 assert advantages.shape == returns.shape == values.shape
@@ -208,7 +208,7 @@ class PPOAgent(AgentType):
         value = self.critic(states.detach(), action_mu.detach())
 
         if not self.using_gae:
-            value = (value - value.mean()) / max(value.std(), 1e-8)
+            value = (value - value.mean(dim=0)) / torch.clamp(value.std(dim=0), 1e-8)
 
         entropy = dist.entropy()
         new_log_probs = self.policy.log_prob(dist, actions.detach())
