@@ -525,7 +525,7 @@ class MultiSyncEnvRunner:
             actions = self.agent.act(states, self.epsilon)
 
             for t_idx in range(self.task_num):
-                action = actions[t_idx].numpy().flatten()
+                action = actions[t_idx].cpu().numpy().flatten()
                 self.parent_conns[t_idx].send((t_idx, states[t_idx], action))
 
             for t_idx in range(self.task_num):
@@ -612,9 +612,10 @@ class MultiSyncEnvRunner:
         self.logger.info(line.format(**kwargs))
 
     def log_writer(self, **kwargs):
-        self.writer.add_scalar("score/score", kwargs['score'], self.episode)
-        self.writer.add_scalar("score/avg_score", kwargs['mean_score'], self.episode)
-        self.writer.add_scalar("epsilon", kwargs['epsilon'], self.iteration)
+        self.writer.add_scalar("episode/score", kwargs['score'], self.episode)
+        self.writer.add_scalar("episode/avg_score", kwargs['mean_score'], self.episode)
+        self.writer.add_scalar("episode/epsilon", kwargs['epsilon'], self.episode)
+        self.writer.add_scalar("episode/iterations", kwargs['iterations'], self.episode)
         self.log_interaction(**kwargs)
 
     def log_interaction(self, **kwargs):
