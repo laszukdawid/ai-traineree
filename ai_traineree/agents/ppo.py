@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from ai_traineree import DEVICE
-from ai_traineree.agents.utils import compute_gae, revert_norm_returns
+from ai_traineree.agents.utils import EPS, compute_gae, normalize, revert_norm_returns
 from ai_traineree.buffers import ReplayBuffer
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.policies import DirichletPolicy, MultivariateGaussianPolicySimple
@@ -32,8 +32,6 @@ class PPOAgent(AgentType):
         """
         Parameters:
             is_discrete: (default: False) Whether return discrete action.
-            shared_opt: (default: False) Whether a single optimier for all updates.
-                In case of share optimizer, actor_lr and actor_betas are used.
             kl_div: (default: False) Whether to use KL divergence in loss.
             using_gae: (default: True) Whether to use General Advantage Estimator.
             gae_lambda: (default: 0.9) Value of \lambda in GAE.
@@ -57,7 +55,6 @@ class PPOAgent(AgentType):
         self.iteration = 0
 
         self.is_discrete = bool(kwargs.get("is_discrete", False))
-        self.shared_opt = bool(kwargs.get("shared_opt", False))
         self.kl_div = bool(kwargs.get("kl_div", False))
         self.kl_beta = 0.1
         self.using_gae = bool(kwargs.get("using_gae", True))
@@ -74,7 +71,7 @@ class PPOAgent(AgentType):
         self.rollout_length = int(kwargs.get("rollout_length", 48))  # "Much less than the episode length"
         self.batch_size = int(kwargs.get("batch_size", self.rollout_length))
         self.number_updates = int(kwargs.get("number_updates", 1))
-        self.entropy_weight = float(kwargs.get("entropy_weight", 0.0005))
+        self.entropy_weight = float(kwargs.get("entropy_weight", 0.5))
         self.value_loss_weight = float(kwargs.get("value_loss_weight", 1.0))
 
         self.local_memory_buffer = {}
@@ -83,8 +80,8 @@ class PPOAgent(AgentType):
         self.action_scale: float = float(kwargs.get("action_scale", 1))
         self.action_min: float = float(kwargs.get("action_min", -1))
         self.action_max: float = float(kwargs.get("action_max", 1))
-        self.max_grad_norm_actor: float = float(kwargs.get("max_grad_norm_actor", 10.0))
-        self.max_grad_norm_critic: float = float(kwargs.get("max_grad_norm_critic", 10.0))
+        self.max_grad_norm_actor: float = float(kwargs.get("max_grad_norm_actor", 100.0))
+        self.max_grad_norm_critic: float = float(kwargs.get("max_grad_norm_critic", 100.0))
 
         self.hidden_layers = kwargs.get('hidden_layers', hidden_layers)
         # self.policy = DirichletPolicy()  # TODO: Apparently Beta dist is better than Normal in PPO. Leaving for validation.
@@ -94,12 +91,9 @@ class PPOAgent(AgentType):
 
         self.actor_params = list(self.actor.parameters()) + list(self.policy.parameters())
         self.critic_params = list(self.critic.parameters())
-        if self.shared_opt:
-            self.opt_params = self.actor_params + self.critic_params
-            self.opt = optim.Adam(self.opt_params, lr=self.actor_lr, betas=self.actor_betas)
-        else:
-            self.actor_opt = optim.Adam(self.actor_params, lr=self.actor_lr, betas=self.actor_betas)
-            self.critic_opt = optim.Adam(self.critic_params, lr=self.critic_lr, betas=self.critic_betas)
+
+        self.actor_opt = optim.Adam(self.actor_params, lr=self.actor_lr, betas=self.actor_betas)
+        self.critic_opt = optim.Adam(self.critic_params, lr=self.critic_lr, betas=self.critic_betas)
         self.actor_loss = 0
         self.critic_loss = 0
 
@@ -134,6 +128,7 @@ class PPOAgent(AgentType):
 
             self.local_memory_buffer['value'] = torch.cat(values)
             self.local_memory_buffer['logprob'] = torch.cat(logprobs)
+            assert len(actions) == self.executor_num
             return actions if self.executor_num > 1 else actions[0]
 
     def step(self, states, actions, rewards, next_state, done, **kwargs):
@@ -167,17 +162,21 @@ class PPOAgent(AgentType):
         assert states.shape == (self.rollout_length, self.executor_num, self.state_size), f"Wrong state shape: {states.shape}"
         assert actions.shape == (self.rollout_length, self.executor_num, self.action_size), f"Wrong action shape: {actions.shape}"
 
+        # Normalize values. Keep mean and std to update next_value estimate.
+        values_mean, values_std = values.mean(dim=0), values.std(dim=0)
+        values = (values - values_mean) / torch.clamp(values_std, EPS)
+
         with torch.no_grad():
             if self.using_gae:
-                next_val = self.critic.act(states[-1], actions[-1])
-                advantages = compute_gae(rewards, dones, values, next_val, self.gamma, self.gae_lambda)
+                next_value = (self.critic.act(states[-1], actions[-1]) - values_mean) / torch.clamp(values_std, EPS)
+                advantages = compute_gae(rewards, dones, values, next_value, self.gamma, self.gae_lambda)
+                advantages = normalize(advantages)
                 returns = advantages + values
                 assert advantages.shape == returns.shape == values.shape
             else:
-                values = (values - values.mean(dim=0)) / torch.clamp(values.std(dim=0), 1e-7)
                 returns = revert_norm_returns(rewards, dones, self.gamma)
                 returns = returns.float()
-                advantages = returns - values
+                advantages = normalize(returns - values)
                 assert advantages.shape == returns.shape == values.shape
 
         # Flatten all evaluation to pretend that they're independent samples
@@ -209,52 +208,61 @@ class PPOAgent(AgentType):
 
         if not self.using_gae:
             value = (value - value.mean(dim=0)) / torch.clamp(value.std(dim=0), 1e-8)
+        assert value.shape == returns.shape
 
         entropy = dist.entropy()
-        new_log_probs = self.policy.log_prob(dist, actions.detach())
+        new_log_probs = self.policy.log_prob(dist, actions).view(-1, 1)
+        assert new_log_probs.shape == old_log_probs.shape
 
         # advantages = advantages.unsqueeze(1)
-        r_theta = (new_log_probs - old_log_probs).exp().unsqueeze(-1)
+        r_theta = (new_log_probs - old_log_probs).exp()
         r_theta_clip = torch.clamp(r_theta, 1.0 - self.ppo_ratio_clip, 1.0 + self.ppo_ratio_clip)
+        assert r_theta.shape == r_theta_clip.shape
 
         if self.kl_div:
-            kl_div = F.kl_div(old_log_probs.exp(), new_log_probs.exp(), reduction='mean')  # Reverse KL, see [2]
+            # kl_div = F.kl_div(old_log_probs.exp(), new_log_probs.exp(), reduction='mean')  # Reverse KL, see [2]
+            kl_div = torch.mean(new_log_probs.exp() * (new_log_probs - old_log_probs))  # Global mean
             policy_loss = -torch.mean(r_theta * advantages) + self.kl_beta * kl_div
         else:
-            policy_loss = -torch.min(r_theta * advantages, r_theta_clip * advantages).mean()
+            joint_theta_adv = torch.stack((r_theta * advantages, r_theta_clip * advantages))
+            assert joint_theta_adv.shape[0] == 2
+            policy_loss = -torch.amin(joint_theta_adv, dim=0).mean()
         entropy_loss = -self.entropy_weight * entropy.mean()
 
         # Update value and critic loss
-        value_loss = self.value_loss_weight * 0.5 * F.mse_loss(returns, value)
+        actor_loss = policy_loss + entropy_loss
+        critic_loss = self.value_loss_weight * 0.5 * F.mse_loss(returns, value)
 
-        if self.shared_opt:
-            loss = policy_loss + value_loss + entropy_loss
-            self.opt.zero_grad()
-            loss.backward()
-            nn.utils.clip_grad_norm_(self.opt_params, self.max_grad_norm_actor)
-            self.opt.step()
-            self.actor_loss = policy_loss.mean().item()
-            self.critic_loss = value_loss.mean().item()
-        else:
-            actor_loss = policy_loss + entropy_loss
-            # Update policy and actor loss
-            self.actor_opt.zero_grad()
-            actor_loss.backward()
-            nn.utils.clip_grad_norm_(self.actor_params, self.max_grad_norm_actor)
-            self.actor_opt.step()
-            self.actor_loss = actor_loss.item()
+        # Update policy and actor loss
+        self.actor_opt.zero_grad()
+        actor_loss.backward()
+        nn.utils.clip_grad_norm_(self.actor_params, self.max_grad_norm_actor)
+        self.actor_opt.step()
+        self.actor_loss = actor_loss.item()
 
-            self.critic_opt.zero_grad()
-            value_loss.backward()
-            nn.utils.clip_grad_norm_(self.critic_params, self.max_grad_norm_critic)
-            self.critic_opt.step()
-            self.critic_loss = value_loss.mean().item()
+        self.critic_opt.zero_grad()
+        critic_loss.backward()
+        nn.utils.clip_grad_norm_(self.critic_params, self.max_grad_norm_critic)
+        self.critic_opt.step()
+        self.critic_loss = critic_loss.mean().item()
 
     def log_writer(self, writer, step):
         writer.add_scalar("loss/actor", self.actor_loss, step)
         writer.add_scalar("loss/critic", self.critic_loss, step)
         policy_params = {str(i): v for i, v in enumerate(itertools.chain.from_iterable(self.policy.parameters()))}
         writer.add_scalars("policy/param", policy_params, step)
+
+        for idx, layer in enumerate(self.actor.layers):
+            if hasattr(layer, "weight"):
+                writer.add_histogram(f"actor/layer_weights_{idx}", layer.weight, step)
+            if hasattr(layer, "bias") and layer.bias:
+                writer.add_histogram(f"actor/layer_bias_{idx}", layer.bias, step)
+
+        for idx, layer in enumerate(self.critic.layers):
+            if hasattr(layer, "weight"):
+                writer.add_histogram(f"critic/layer_weights_{idx}", layer.weight, step)
+            if hasattr(layer, "bias") and layer.bias:
+                writer.add_histogram(f"critic/layer_bias_{idx}", layer.bias, step)
 
     def save_state(self, path: str):
         agent_state = dict(policy=self.policy.state_dict(), actor=self.actor.state_dict(), critic=self.critic.state_dict())

@@ -2,7 +2,58 @@ import pytest
 import torch
 
 from ai_traineree.agents import utils
-from ai_traineree.agents.utils import compute_gae
+from ai_traineree.agents.utils import compute_gae, normalize
+
+
+def test_normalize_1d():
+    # Assign
+    test_t = torch.arange(0, 26).float()
+    expected_t = (test_t - test_t.mean()) / test_t.std()
+
+    # Act
+    norm_t = normalize(test_t)
+
+    # Assert
+    assert norm_t.shape == test_t.shape
+    assert torch.all(norm_t == expected_t)
+
+
+def test_normalize_2d():
+    # Assign
+    t1 = torch.arange(0, 26).float()
+    t2 = torch.full(t1.shape, 10)
+    test_t = torch.stack((t1, t2)).T  # Shape: (26, 2)
+
+    expected_t1 = (t1 - t1.mean()) / t1.std()
+    expected_t2 = torch.zeros(t2.shape)
+    expected_t = torch.stack((expected_t1, expected_t2)).T  # Shape: (26, 2)
+
+    # Act
+    norm_t = normalize(test_t)
+    norm_t_dim0 = normalize(test_t, dim=0)
+
+    # Assert
+    assert test_t.shape == norm_t.shape == norm_t_dim0.shape == (26, 2)
+    assert torch.all(norm_t == expected_t)
+    assert torch.all(norm_t == norm_t_dim0)
+
+
+def test_normalize_2d_not_default_dim():
+    # Assign
+    t1 = torch.arange(0, 26).float()
+    t2 = torch.full(t1.shape, 10)
+    test_t = torch.stack((t1, t2))  # Shape: (2, 26)
+
+    expected_t1 = (t1 - t1.mean()) / t1.std()
+    expected_t2 = torch.zeros(t2.shape)
+    expected_t = torch.stack((expected_t1, expected_t2))  # Shape: (2, 26)
+
+    # Act
+    norm_t = normalize(test_t, 1)
+
+    # Assert
+    assert norm_t.shape == test_t.shape == (2, 26)
+    assert torch.all(norm_t == expected_t)
 
 
 def test_revert_norm_returns_default():

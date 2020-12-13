@@ -3,6 +3,8 @@ import torch.nn as nn
 
 from torch import Tensor
 
+EPS = 1e-7
+
 
 def soft_update(target: nn.Module, source: nn.Module, tau: float) -> None:
     for target_param, param in zip(target.parameters(), source.parameters()):
@@ -26,6 +28,15 @@ def compute_gae(rewards: Tensor, dones: Tensor, values: Tensor, next_value: Tens
     return gaes[:-1]
 
 
+def normalize(t: Tensor, dim: int=0) -> Tensor:
+    """Returns normalized (zero 0 and std 1) tensor along specified axis (default: 0)."""
+    if dim == 0:
+        # Special case since by default it reduces on dim 0 and it should be faster.
+        return (t - t.mean(dim=dim)) / torch.clamp(t.std(dim=dim), EPS)
+    else:
+        return (t - t.mean(dim=dim, keepdim=True)) / torch.clamp(t.std(dim=dim, keepdim=True), EPS)
+
+
 def revert_norm_returns(rewards: Tensor, dones: Tensor, gamma: float=0.99) -> Tensor:
     """
     Parameters:
@@ -40,5 +51,4 @@ def revert_norm_returns(rewards: Tensor, dones: Tensor, gamma: float=0.99) -> Te
         discounted_reward = reward + gamma * discounted_reward * (1 - done)
         returns[len_returns - idx - 1] = discounted_reward
 
-    returns = (returns - returns.mean(dim=0)) / torch.clamp(returns.std(dim=0), 1e-8)
-    return returns
+    return normalize(returns, dim=0)
