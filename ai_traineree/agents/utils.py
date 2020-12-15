@@ -23,8 +23,9 @@ def compute_gae(rewards: Tensor, dones: Tensor, values: Tensor, next_value: Tens
     masks = 1 - dones.int()
     gaes = torch.zeros_like(_tmp_values)
     deltas = rewards + gamma * _tmp_values[1:] * masks - _tmp_values[:-1]
+    gamma_lambda = gamma * lamb
     for idx in reversed(range(len(rewards))):
-        gaes[idx] = deltas[idx] + gamma * lamb * masks[idx] * gaes[idx + 1]
+        gaes[idx] = deltas[idx] + gamma_lambda * masks[idx] * gaes[idx + 1]
     return gaes[:-1]
 
 

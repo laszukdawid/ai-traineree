@@ -38,31 +38,31 @@ class MultivariateGaussianPolicySimple(PolicyType):
         super(MultivariateGaussianPolicySimple, self).__init__()
         self.size = size
         self.dist = Normal if size == 1 else MultivariateNormal
-        self.std_init = std_init
         self.std_min = std_min
         self.std_max = std_max
-        self.batch_size = batch_size
-        idx = torch.arange(size, device=device).unsqueeze(1)
-        self._empty_std = torch.zeros((batch_size, size, size), device=device)
-        self.diag_idx = torch.stack((idx,)*batch_size)
+        std_init = float(max(min(std_max, std_init), std_min))
 
-        self.std = nn.Parameter(torch.ones(self.size)*self.std_init).to(device=device)
+        self.batch_size = batch_size
+        self._empty_std = torch.zeros((batch_size, size, size), device=device)
+        self.diag_idx = torch.arange(size, device=device).repeat((batch_size, 1, 1))
+        self.std = nn.Parameter(torch.full((self.size,), std_init, device=device))
 
     def forward(self, x) -> Distribution:
         """Returns distribution"""
-        x = x.view(-1, self.size, self.param_dim)
-        mu = x[..., 0]
-        std = torch.clamp(self.std, self.std_min, self.std_max)
+        # if param_dim == 1 then directly x -> normal.loc
+        self.std.data = torch.clamp(self.std, self.std_min, self.std_max)
         if self.size == 1:
-            return self.dist(mu.view(-1, 1), scale=std.view(-1, 1))
+            return self.dist(x.view(-1, 1), scale=self.std.view(-1, 1))
 
+        # Distinction here is primarily performance optimization (though it isn't too optimal)
         if x.shape[0] == 1:
-            idx = torch.arange(self.size, device=x.device).view(1, self.size, 1)
-            std = torch.zeros((1, self.size, self.size), device=x.device).scatter(-1, idx, std.repeat(x.shape))
+            new_shape = (1, self.size, 1)
+            idx = torch.arange(self.size, device=x.device).view(new_shape)
+            std = torch.zeros((1, self.size, self.size), device=x.device).scatter(-1, idx, self.std.repeat(new_shape))
         else:
-            std = std.repeat(self.batch_size).view(self.batch_size, self.size, 1)
-            std = self._empty_std.scatter(-1, self.diag_idx, std)
-        return self.dist(mu, scale_tril=std)
+            std = self.std.repeat((self.batch_size, 1, 1))
+            std = self._empty_std.scatter(1, self.diag_idx, std)
+        return self.dist(x, scale_tril=std)
 
     @staticmethod
     def log_prob(dist, samples) -> torch.Tensor:
@@ -102,9 +102,9 @@ class MultivariateGaussianPolicy(PolicyType):
 
     def forward(self, x) -> Distribution:
         """Returns distribution"""
-        x = x.view(-1, self.size, self.param_dim)
-        mu = x[..., 0]
-        std = torch.clamp(x[..., 1], self.std_min, self.std_max).unsqueeze(-1)
+        x = x.view(-1, self.param_dim, self.size)
+        mu = x[:, 0]
+        std = torch.clamp(x[:, 1], self.std_min, self.std_max).unsqueeze(-1)
         if self.size == 1:
             return self.dist(mu.view(-1, 1), scale=std.view(-1, 1))
 
@@ -115,7 +115,7 @@ class MultivariateGaussianPolicy(PolicyType):
             std = self._empty_std.scatter(-1, self.diag_idx, std)
         return self.dist(mu, scale_tril=std)
 
-    def act(self, x):
+    def act(self, x) -> torch.Tensor:
         """Deterministic pass. Ignores covariance and returns locations directly."""
         return x.view(-1, self.size, self.param_dim)[..., 0]
 
@@ -166,7 +166,7 @@ class BetaPolicy(PolicyType):
 
     param_dim = 2
 
-    def __init__(self, size, bounds: Tuple[float, float]=(1, float('inf'))):
+    def __init__(self, size: int, bounds: Tuple[float, float]=(1, float('inf'))):
         """
         Parameters:
             size: Observation's dimensionality upon sampling.
@@ -177,7 +177,7 @@ class BetaPolicy(PolicyType):
         super(BetaPolicy, self).__init__()
         self.bounds = bounds
         self.action_size = size
-        self.dist = Beta if size == 1 else Dirichlet
+        self.dist = Beta if size > 1 else Dirichlet
 
     def forward(self, x) -> Distribution:
         x = x.view(-1, self.action_size, self.param_dim)
