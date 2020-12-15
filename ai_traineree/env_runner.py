@@ -173,6 +173,8 @@ class EnvRunner:
         self.reset()
         if not force_new:
             self.load_state(self.model_path)
+        mean_scores = []
+        epsilons = []
 
         while (self.episode < max_episodes):
             self.episode += 1
@@ -183,7 +185,8 @@ class EnvRunner:
             self.all_iterations.append(iterations)
             self.all_scores.append(score)
 
-            mean_score: float = sum(self.scores_window) / len(self.scores_window)
+            mean_scores.append(sum(self.scores_window) / len(self.scores_window))
+            epsilons.append(self.epsilon)
 
             self.epsilon = max(eps_end, eps_decay * self.epsilon)
 
@@ -192,15 +195,23 @@ class EnvRunner:
                     loss = {'actor_loss': self.agent.actor_loss, 'critic_loss': self.agent.critic_loss}
                 else:
                     loss = {'loss': self.agent.loss}
-                self.info(episode=self.episode, iterations=iterations, score=score, mean_score=mean_score, epsilon=self.epsilon, **loss)
+                last_episodes = [self.episode - i for i in range(log_every)[::-1]]
+                self.info(
+                    episodes=last_episodes,
+                    iterations=self.all_iterations[-log_every:],
+                    scores=self.all_scores[-log_every:],
+                    mean_scores=mean_scores[-log_every:],
+                    epsilons=epsilons[-log_every:],
+                    **loss
+                )
 
             if render_gif and len(self.__images):
                 gif_path = "gifs/{}_e{}.gif".format(self.model_path, str(self.episode).zfill(len(str(max_episodes))))
                 save_gif(gif_path, self.__images)
                 self.__images = []
 
-            if mean_score >= reward_goal and len(self.scores_window) == self.window_len:
-                print(f'Environment solved after {self.episode} episodes!\tAverage Score: {mean_score:.2f}')
+            if mean_scores[-1] >= reward_goal and len(self.scores_window) == self.window_len:
+                print(f'Environment solved after {self.episode} episodes!\tAverage Score: {mean_scores[-1]:.2f}')
                 self.save_state(self.model_path)
                 self.agent.save_state(f'{self.model_path}_agent.net')
                 break
@@ -221,23 +232,39 @@ class EnvRunner:
             self.log_logger(**kwargs)
 
     def log_logger(self, **kwargs):
-        line_chunks = ["Episode {episode};", "Iter: {iterations};"]
-        line_chunks += ["Current Score: {score:.2f};"]
-        line_chunks += ["Average Score: {mean_score:.2f};"]
+        """Writes out env logs via logger (either stdout or a file)."""
+        episode = kwargs.get('episodes')[-1]
+        score = kwargs.get('scores')[-1]
+        iteration = kwargs.get('iterations')[-1]
+        mean_score = kwargs.get('mean_scores')[-1]
+        epsilon = kwargs.get('epsilons')[-1]
+        line_chunks = [f"Episode {episode};"]
+        line_chunks += [f"Iter: {iteration};"]
+        line_chunks += [f"Current Score: {score:.2f};"]
+        line_chunks += [f"Average Score: {mean_score:.2f};"]
         if 'critic_loss' in self.agent.__dict__ and self.agent.critic_loss is not None:
             line_chunks += ["Actor loss: {actor_loss:10.4f};"]
             line_chunks += ["Critic loss: {critic_loss:10.4f};"]
         else:
             line_chunks += ["Loss: {loss:10.4f};"]
-        line_chunks += ["Epsilon: {epsilon:5.3f};"]
+        line_chunks += [f"Epsilon: {epsilon:5.3f};"]
         line = "\t".join(line_chunks)
         self.logger.info(line.format(**kwargs))
 
     def log_writer(self, **kwargs):
-        self.writer.add_scalar("episode/score", kwargs['score'], self.episode)
-        self.writer.add_scalar("episode/avg_score", kwargs['mean_score'], self.episode)
-        self.writer.add_scalar("episode/epsilon", kwargs['epsilon'], self.episode)
-        self.writer.add_scalar("episode/iterations", kwargs['iterations'], self.episode)
+        """Uses writer, e.g. Tensorboard, to store env metrics."""
+        episodes: List[int] = kwargs.get('episodes', [])
+        for episode, epsilon in zip(episodes, kwargs.get('epsilons', [])):
+            self.writer.add_scalar("episode/epsilon", epsilon, episode)
+
+        for episode, mean_score in zip(episodes, kwargs.get('mean_scores', [])):
+            self.writer.add_scalar("episode/avg_score", mean_score, episode)
+
+        for episode, score in zip(episodes, kwargs.get('scores', [])):
+            self.writer.add_scalar("episode/score", score, episode)
+
+        for episode, iteration in zip(episodes, kwargs.get('iterations', [])):
+            self.writer.add_scalar("episode/iterations", iteration, episode)
         self.log_interaction(**kwargs)
 
     def log_interaction(self, **kwargs):
@@ -430,7 +457,7 @@ class MultiSyncEnvRunner:
         self,
         reward_goal: float=100.0,
         max_episodes: int=2000,
-        max_iterations: int=1000,
+        max_iterations: int=int(1e6),
         eps_start: float=1.0,
         eps_end: float=0.01,
         eps_decay: float=0.995,
@@ -516,6 +543,8 @@ class MultiSyncEnvRunner:
             reset_state = conn.recv()
             states[idx] = reset_state
 
+        mean_scores = []
+        epsilons = []
         mean_score = -float('inf')
 
         while (self.episode < max_episodes):
@@ -559,12 +588,18 @@ class MultiSyncEnvRunner:
 
                 self.episode += 1
                 mean_score: float = sum(self.scores_window) / len(self.scores_window)
+                mean_scores.append(mean_score)
+                epsilons.append(self.epsilon)
 
                 # Log only once per evaluation, and outside s
                 if self.episode % log_every == 0:
+                    last_episodes = [self.episode - i for i in range(log_every)[::-1]]
                     self.info(
-                        episode=self.episode, iterations=self.all_iterations[-1],
-                        score=self.all_scores[-1], mean_score=mean_score, epsilon=self.epsilon
+                        episodes=last_episodes,
+                        iterations=self.all_iterations[-log_every:],
+                        scores=self.all_scores[-log_every:],
+                        mean_scores=mean_scores[-log_every:],
+                        epsilons=epsilons[-log_every:],
                     )
 
                 if self.episode % checkpoint_every == 0:
@@ -604,18 +639,34 @@ class MultiSyncEnvRunner:
             self.log_logger(**kwargs)
 
     def log_logger(self, **kwargs):
-        line_chunks = ["Episode {episode};", "Iter: {iterations};"]
-        line_chunks += ["Current Score: {score:.2f};"]
-        line_chunks += ["Average Score: {mean_score:.2f};"]
-        line_chunks += ["Epsilon: {epsilon:5.3f};"]
+        """Writes out env logs via logger (either stdout or a file)."""
+        episode = kwargs.get('episodes')[-1]
+        score = kwargs.get('scores')[-1]
+        iteration = kwargs.get('iterations')[-1]
+        mean_score = kwargs.get('mean_scores')[-1]
+        epsilon = kwargs.get('epsilons')[-1]
+        line_chunks = [f"Episode {episode};"]
+        line_chunks += [f"Iter: {iteration};"]
+        line_chunks += [f"Current Score: {score:.2f};"]
+        line_chunks += [f"Average Score: {mean_score:.2f};"]
+        line_chunks += [f"Epsilon: {epsilon:5.3f};"]
         line = "\t".join(line_chunks)
         self.logger.info(line.format(**kwargs))
 
     def log_writer(self, **kwargs):
-        self.writer.add_scalar("episode/score", kwargs['score'], self.episode)
-        self.writer.add_scalar("episode/avg_score", kwargs['mean_score'], self.episode)
-        self.writer.add_scalar("episode/epsilon", kwargs['epsilon'], self.episode)
-        self.writer.add_scalar("episode/iterations", kwargs['iterations'], self.episode)
+        """Uses writer, e.g. Tensorboard, to store env metrics."""
+        episodes: List[int] = kwargs.get('episodes', [])
+        for episode, epsilon in zip(episodes, kwargs.get('epsilons', [])):
+            self.writer.add_scalar("episode/epsilon", epsilon, episode)
+
+        for episode, mean_score in zip(episodes, kwargs.get('mean_scores', [])):
+            self.writer.add_scalar("episode/avg_score", mean_score, episode)
+
+        for episode, score in zip(episodes, kwargs.get('scores', [])):
+            self.writer.add_scalar("episode/score", score, episode)
+
+        for episode, iteration in zip(episodes, kwargs.get('iterations', [])):
+            self.writer.add_scalar("episode/iterations", iteration, episode)
         self.log_interaction(**kwargs)
 
     def log_interaction(self, **kwargs):
@@ -819,6 +870,9 @@ class MultiAgentEnvRunner:
         if not force_new:
             self.load_state(self.model_path)
 
+        mean_scores = []
+        epsilons = []
+
         while (self.episode < max_episodes):
             self.episode += 1
             render_gif = gif_every_episodes is not None and (self.episode % gif_every_episodes) == 0
@@ -831,7 +885,8 @@ class MultiAgentEnvRunner:
             self.all_iterations.append(iterations)
             self.all_scores.append(scores)
 
-            mean_score: float = sum(self.scores_window) / len(self.scores_window)
+            mean_scores.append(sum(self.scores_window) / len(self.scores_window))
+            epsilons.append(self.epsilon)
 
             self.epsilon = max(eps_end, eps_decay * self.epsilon)
 
@@ -840,15 +895,23 @@ class MultiAgentEnvRunner:
                     loss = {'actor_loss': self.multi_agent.actor_loss, 'critic_loss': self.multi_agent.critic_loss}
                 else:
                     loss = {'loss': self.multi_agent.loss}
-                self.info(episode=self.episode, iterations=iterations, score=score, mean_score=mean_score, epsilon=self.epsilon, **loss)
+                last_episodes = [self.episode - i for i in range(log_every)[::-1]]
+                self.info(
+                    episodes=last_episodes,
+                    iterations=self.all_iterations[-log_every:],
+                    scores=self.all_scores[-log_every:],
+                    mean_score=mean_scores[-log_every:],
+                    epsilon=epsilons[-log_every:],
+                    **loss
+                )
 
             if render_gif and len(self.__images):
                 gif_path = "gifs/{}_e{}.gif".format(self.model_path, str(self.episode).zfill(len(str(max_episodes))))
                 save_gif(gif_path, self.__images)
                 self.__images = []
 
-            if mean_score >= reward_goal and len(self.scores_window) == self.window_len:
-                print(f'Environment solved after {self.episode} episodes!\tAverage Score: {mean_score:.2f}')
+            if mean_scores[-1] >= reward_goal and len(self.scores_window) == self.window_len:
+                print(f'Environment solved after {self.episode} episodes!\tAverage Score: {mean_scores[-1]:.2f}')
                 self.save_state(self.model_path)
                 self.multi_agent.save_state(f'{self.model_path}_agent.net')
                 break
@@ -869,15 +932,22 @@ class MultiAgentEnvRunner:
             self.log_logger(**kwargs)
 
     def log_logger(self, **kwargs):
-        line_chunks = ["Episode {episode};", "Iter: {iterations};"]
-        line_chunks += ["Current Score: {score:.2f};"]
-        line_chunks += ["Average Score: {mean_score:.2f};"]
+        """Writes out env logs via logger (either stdout or a file)."""
+        episode = kwargs.get('episodes')[-1]
+        score = kwargs.get('scores')[-1]
+        iteration = kwargs.get('iterations')[-1]
+        mean_score = kwargs.get('mean_scores')[-1]
+        epsilon = kwargs.get('epsilons')[-1]
+        line_chunks = [f"Episode {episode};"]
+        line_chunks += [f"Iter: {iteration};"]
+        line_chunks += [f"Current Score: {score:.2f};"]
+        line_chunks += [f"Average Score: {mean_score:.2f};"]
         if 'critic_loss' in self.multi_agent.__dict__ and self.multi_agent.critic_loss is not None:
             line_chunks += ["Actor loss: {actor_loss:10.4f};"]
             line_chunks += ["Critic loss: {critic_loss:10.4f};"]
         else:
             line_chunks += ["Loss: {loss:10.4f};"]
-        line_chunks += ["Epsilon: {epsilon:5.3f};"]
+        line_chunks += [f"Epsilon: {epsilon:5.3f};"]
         line = "\t".join(line_chunks)
         try:
             self.logger.info(line.format(**kwargs))
@@ -886,10 +956,19 @@ class MultiAgentEnvRunner:
             print("kwargs: ", kwargs)
 
     def log_writer(self, **kwargs):
-        self.writer.add_scalar("episode/score", kwargs['score'], self.episode)
-        self.writer.add_scalar("episode/avg_score", kwargs['mean_score'], self.episode)
-        self.writer.add_scalar("episode/epsilon", kwargs['epsilon'], self.episode)
-        self.writer.add_scalar("episode/iterations", kwargs['iterations'], self.episode)
+        """Uses writer, e.g. Tensorboard, to store env metrics."""
+        episodes: List[int] = kwargs.get('episodes', [])
+        for episode, epsilon in zip(episodes, kwargs.get('epsilons', [])):
+            self.writer.add_scalar("episode/epsilon", epsilon, episode)
+
+        for episode, mean_score in zip(episodes, kwargs.get('mean_scores', [])):
+            self.writer.add_scalar("episode/avg_score", mean_score, episode)
+
+        for episode, score in zip(episodes, kwargs.get('scores', [])):
+            self.writer.add_scalar("episode/score", score, episode)
+
+        for episode, iteration in zip(episodes, kwargs.get('iterations', [])):
+            self.writer.add_scalar("episode/iterations", iteration, episode)
         self.log_interaction(**kwargs)
 
     def log_interaction(self, **kwargs):
