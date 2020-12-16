@@ -258,12 +258,12 @@ class RainbowAgent(AgentType):
             for idx, layer in enumerate(self.net.value_net.layers):
                 if hasattr(layer, "weight"):
                     writer.add_histogram(f"value_net/layer_weights_{idx}", layer.weight, iteration)
-                if hasattr(layer, "bias"):
+                if hasattr(layer, "bias") and layer.bias is not None:
                     writer.add_histogram(f"value_net/layer_bias_{idx}", layer.bias, iteration)
             for idx, layer in enumerate(self.net.advantage_net.layers):
                 if hasattr(layer, "weight"):
                     writer.add_histogram(f"advantage_net/layer_{idx}", layer.weight, iteration)
-                if hasattr(layer, "bias"):
+                if hasattr(layer, "bias") and layer.bias is not None:
                     writer.add_histogram(f"advantage_net/layer_bias_{idx}", layer.bias, iteration)
 
     def save_state(self, path: str) -> None:

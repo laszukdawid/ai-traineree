@@ -137,8 +137,9 @@ class FcNet(NetworkType):
     """
     def __init__(
         self, in_features: Union[Sequence[int], int], out_features: Union[Sequence[int], int],
-        hidden_layers: Optional[Sequence[int]]=(200, 100), last_layer_range=(-3e-3, 3e-3),
+        hidden_layers: Optional[Sequence[int]]=(200, 100), last_layer_range=(-3e-4, 3e-4),
         gate=torch.tanh, gate_out=torch.tanh,
+        bias: bool=True,
         device: Optional[torch.device]=None,
     ):
         """Fully Connected network that with default APIs.
@@ -159,7 +160,7 @@ class FcNet(NetworkType):
         self.out_features = out_features if isinstance(out_features, int) else out_features[0]
         num_layers = list(hidden_layers) if hidden_layers is not None else []
         num_layers = [self.in_features] + num_layers + [self.out_features]
-        layers = [nn.Linear(dim_in, dim_out) for dim_in, dim_out in zip(num_layers[:-1], num_layers[1:])]
+        layers = [nn.Linear(dim_in, dim_out, bias=bias) for dim_in, dim_out in zip(num_layers[:-1], num_layers[1:])]
 
         self.last_layer_range = last_layer_range
         self.layers = nn.ModuleList(layers)
@@ -197,7 +198,9 @@ class CriticBody(NetworkType):
     """
     def __init__(
             self, in_features: FeatureType, action_size: int, hidden_layers: Optional[Sequence[int]]=(200, 100),
-            actions_layer: int=1, gate=torch.tanh, gate_out=None, **kwargs
+            actions_layer: int=1, gate=torch.tanh, gate_out=None,
+            bias: bool=True,
+            **kwargs
     ):
         """
         Parameters:
@@ -224,7 +227,7 @@ class CriticBody(NetworkType):
             in_dim, out_dim = num_layers[in_idx], num_layers[in_idx+1]
             if in_idx == actions_layer:  # Injects `actions` into the second layer of the Critic
                 in_dim += action_size
-            layers.append(nn.Linear(in_dim, out_dim))
+            layers.append(nn.Linear(in_dim, out_dim, bias=bias))
 
         self.layers = nn.ModuleList(layers)
         self.reset_parameters()
