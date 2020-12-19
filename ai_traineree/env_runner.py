@@ -191,10 +191,6 @@ class EnvRunner:
             self.epsilon = max(eps_end, eps_decay * self.epsilon)
 
             if self.episode % log_every == 0:
-                if 'critic_loss' in self.agent.__dict__ and self.agent.critic_loss is not None:
-                    loss = {'actor_loss': self.agent.actor_loss, 'critic_loss': self.agent.critic_loss}
-                else:
-                    loss = {'loss': self.agent.loss}
                 last_episodes = [self.episode - i for i in range(log_every)[::-1]]
                 self.info(
                     episodes=last_episodes,
@@ -202,7 +198,7 @@ class EnvRunner:
                     scores=self.all_scores[-log_every:],
                     mean_scores=mean_scores[-log_every:],
                     epsilons=epsilons[-log_every:],
-                    **loss
+                    loss=self.agent.loss,
                 )
 
             if render_gif and len(self.__images):
@@ -238,15 +234,12 @@ class EnvRunner:
         iteration = kwargs.get('iterations')[-1]
         mean_score = kwargs.get('mean_scores')[-1]
         epsilon = kwargs.get('epsilons')[-1]
+        loss = kwargs.get('loss', {})
         line_chunks = [f"Episode {episode};"]
         line_chunks += [f"Iter: {iteration};"]
         line_chunks += [f"Current Score: {score:.2f};"]
         line_chunks += [f"Average Score: {mean_score:.2f};"]
-        if 'critic_loss' in self.agent.__dict__ and self.agent.critic_loss is not None:
-            line_chunks += ["Actor loss: {actor_loss:10.4f};"]
-            line_chunks += ["Critic loss: {critic_loss:10.4f};"]
-        else:
-            line_chunks += ["Loss: {loss:10.4f};"]
+        line_chunks += [f"{loss_name.capitalize()}: {loss_value:10.4f}" for (loss_name, loss_value) in loss.items()]
         line_chunks += [f"Epsilon: {epsilon:5.3f};"]
         line = "\t".join(line_chunks)
         self.logger.info(line.format(**kwargs))
@@ -273,11 +266,9 @@ class EnvRunner:
 
         if hasattr(self.agent, 'log_writer'):
             self.agent.log_writer(self.writer, self.iteration)
-        elif 'critic_loss' in self.agent.__dict__ and self.agent.critic_loss is not None:
-            self.writer.add_scalar("Actor loss", kwargs['actor_loss'], self.iteration)
-            self.writer.add_scalar("Critic loss", kwargs['critic_loss'], self.iteration)
         else:
-            self.writer.add_scalar("loss", kwargs['loss'], self.iteration)
+            for loss_name, loss_value in kwargs.get('loss', {}).items():
+                self.writer.add_scalar(f"loss/{loss_name}", loss_value, self.iteration)
 
         while(len(self._actions) > 0):
             step, actions = self._actions.pop()
@@ -306,14 +297,8 @@ class EnvRunner:
             'epsilon': self.epsilon,
             'score': self.all_scores[-1],
             'average_score': sum(self.scores_window) / len(self.scores_window),
+            'loss': self.agent.loss,
         }
-        if hasattr(self.agent, "critic_loss") and self.agent.critic_loss is not None:
-            state['actor_loss'] = self.agent.actor_loss,
-            state['critic_loss'] = self.agent.critic_loss,
-        elif hasattr(self.agent, "loss"):
-            state['loss'] = self.agent.loss
-        else:
-            pass
 
         Path(self.state_dir).mkdir(parents=True, exist_ok=True)
         self.agent.save_state(f'{self.state_dir}/{state_name}_e{self.episode}.agent')
@@ -347,12 +332,7 @@ class EnvRunner:
 
         self.logger.info("Loading saved agent state: %s/%s.agent", self.state_dir, state_name)
         self.agent.load_state(f'{self.state_dir}/{state_name}.agent')
-
-        if hasattr(self.agent, "actor_loss") and self.agent.actor_loss is not None:
-            self.agent.actor_loss = state.get('actor_loss', 0)
-            self.agent.critic_loss = state.get('critic_loss', 0)
-        else:
-            self.agent.loss = state.get('loss', 0)
+        self.agent.loss = state.get('loss', 0)
 
 
 class MultiSyncEnvRunner:
@@ -685,14 +665,8 @@ class MultiSyncEnvRunner:
             'epsilon': self.epsilon,
             'score': self.all_scores[-1],
             'average_score': sum(self.scores_window) / len(self.scores_window),
+            'loss': self.agent.loss,
         }
-        if hasattr(self.agent, "critic_loss") and self.agent.critic_loss is not None:
-            state['actor_loss'] = self.agent.actor_loss,
-            state['critic_loss'] = self.agent.critic_loss,
-        elif hasattr(self.agent, "loss"):
-            state['loss'] = self.agent.loss
-        else:
-            pass
 
         Path(self.state_dir).mkdir(parents=True, exist_ok=True)
         self.agent.save_state(f'{self.state_dir}/{state_name}_e{self.episode}.agent')
@@ -726,12 +700,7 @@ class MultiSyncEnvRunner:
 
         self.logger.info("Loading saved agent state: %s/%s.agent", self.state_dir, state_name)
         self.agent.load_state(f'{self.state_dir}/{state_name}.agent')
-
-        if hasattr(self.agent, "actor_loss") and self.agent.actor_loss is not None:
-            self.agent.actor_loss = state.get('actor_loss', 0)
-            self.agent.critic_loss = state.get('critic_loss', 0)
-        else:
-            self.agent.loss = state.get('loss', 0)
+        self.agent.loss = state.get('loss', 0)
 
 
 class MultiAgentEnvRunner:
@@ -891,10 +860,6 @@ class MultiAgentEnvRunner:
             self.epsilon = max(eps_end, eps_decay * self.epsilon)
 
             if self.episode % log_every == 0:
-                if hasattr(self.multi_agent, 'critic_loss') and self.multi_agent.critic_loss is not None:
-                    loss = {'actor_loss': self.multi_agent.actor_loss, 'critic_loss': self.multi_agent.critic_loss}
-                else:
-                    loss = {'loss': self.multi_agent.loss}
                 last_episodes = [self.episode - i for i in range(log_every)[::-1]]
                 self.info(
                     episodes=last_episodes,
@@ -902,7 +867,7 @@ class MultiAgentEnvRunner:
                     scores=self.all_scores[-log_every:],
                     mean_score=mean_scores[-log_every:],
                     epsilon=epsilons[-log_every:],
-                    **loss
+                    loss=self.multi_agent.loss,
                 )
 
             if render_gif and len(self.__images):
@@ -938,15 +903,12 @@ class MultiAgentEnvRunner:
         iteration = kwargs.get('iterations')[-1]
         mean_score = kwargs.get('mean_scores')[-1]
         epsilon = kwargs.get('epsilons')[-1]
+        loss = kwargs.get('loss', {})
         line_chunks = [f"Episode {episode};"]
         line_chunks += [f"Iter: {iteration};"]
         line_chunks += [f"Current Score: {score:.2f};"]
         line_chunks += [f"Average Score: {mean_score:.2f};"]
-        if 'critic_loss' in self.multi_agent.__dict__ and self.multi_agent.critic_loss is not None:
-            line_chunks += ["Actor loss: {actor_loss:10.4f};"]
-            line_chunks += ["Critic loss: {critic_loss:10.4f};"]
-        else:
-            line_chunks += ["Loss: {loss:10.4f};"]
+        line_chunks += [f"{loss_name.capitalize()}: {loss_value:10.4f}" for (loss_name, loss_value) in loss.items()]
         line_chunks += [f"Epsilon: {epsilon:5.3f};"]
         line = "\t".join(line_chunks)
         try:
@@ -972,13 +934,11 @@ class MultiAgentEnvRunner:
         self.log_interaction(**kwargs)
 
     def log_interaction(self, **kwargs):
-        if hasattr(self.agent, 'log_writer'):
-            self.agent.log_writer(self.writer, self.iteration)
-        elif 'critic_loss' in self.agent.__dict__ and self.agent.critic_loss is not None:
-            self.writer.add_scalar("Actor loss", kwargs['actor_loss'], self.iteration)
-            self.writer.add_scalar("Critic loss", kwargs['critic_loss'], self.iteration)
+        if hasattr(self.multi_agent, 'log_writer'):
+            self.multi_agent.log_writer(self.writer, self.iteration)
         else:
-            self.writer.add_scalar("loss", kwargs['loss'], self.iteration)
+            for loss_name, loss_value in kwargs.get('loss', {}).items():
+                self.writer.add_scalar(f"loss/{loss_name}", loss_value, self.iteration)
 
         while(len(self._actions) > 0):
             step, actions = self._actions.pop()
@@ -1007,14 +967,8 @@ class MultiAgentEnvRunner:
             'epsilon': self.epsilon,
             'score': self.all_scores[-1],
             'average_score': sum(self.scores_window) / len(self.scores_window),
+            'loss': self.multi_agent.loss,
         }
-        if hasattr(self.multi_agent, "critic_loss") and self.multi_agent.critic_loss is not None:
-            state['actor_loss'] = self.multi_agent.actor_loss,
-            state['critic_loss'] = self.multi_agent.critic_loss,
-        elif hasattr(self.multi_agent, "loss"):
-            state['loss'] = self.multi_agent.loss
-        else:
-            pass
 
         Path(self.state_dir).mkdir(parents=True, exist_ok=True)
         self.multi_agent.save_state(f'{self.state_dir}/{state_name}_e{self.episode}.agent')
@@ -1046,9 +1000,4 @@ class MultiAgentEnvRunner:
 
         self.logger.info("Loading saved agent state: %s/%s.agent", self.state_dir, state_name)
         self.multi_agent.load_state(f'{self.state_dir}/{state_name}.agent')
-
-        if hasattr(self.multi_agent, "actor_loss") and self.multi_agent.actor_loss is not None:
-            self.multi_agent.actor_loss = state.get('actor_loss', 0)
-            self.multi_agent.critic_loss = state.get('critic_loss', 0)
-        else:
-            self.multi_agent.loss = state.get('loss', 0)
+        self.multi_agent.loss = state.get('loss', 0)

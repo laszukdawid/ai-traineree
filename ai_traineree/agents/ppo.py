@@ -11,7 +11,7 @@ from ai_traineree.networks.bodies import ActorBody
 from ai_traineree.policies import MultivariateGaussianPolicySimple, MultivariateGaussianPolicy
 from ai_traineree.types import AgentType
 from ai_traineree.utils import to_tensor
-from typing import Tuple
+from typing import Dict, Tuple
 
 
 class PPOAgent(AgentType):
@@ -100,8 +100,21 @@ class PPOAgent(AgentType):
 
         self.actor_opt = optim.Adam(self.actor_params, lr=self.actor_lr, betas=self.actor_betas)
         self.critic_opt = optim.Adam(self.critic_params, lr=self.critic_lr, betas=self.critic_betas)
-        self.actor_loss = 0
-        self.critic_loss = 0
+        self._loss_actor: float = 0
+        self._loss_critic: float = 0
+
+    @property
+    def loss(self) -> Dict[str, float]:
+        return {'actor': self._loss_actor, 'critic': self._loss_critic}
+
+    @loss.setter
+    def loss(self, value):
+        if isinstance(value, dict):
+            self._loss_actor = value['actor']
+            self._loss_critic = value['critic']
+        else:
+            self._loss_actor = value
+            self._loss_critic = value
 
     def __clear_memory(self):
         self.memory = ReplayBuffer(batch_size=self.rollout_length, buffer_size=self.rollout_length)
@@ -234,31 +247,31 @@ class PPOAgent(AgentType):
         return F.mse_loss(values, returns)
 
     def learn(self, samples):
-        self.actor_loss = 0.
+        self._loss_actor = 0.
 
         for _ in range(self.actor_number_updates):
             self.actor_opt.zero_grad()
-            actor_loss, self.kl_div = self.compute_policy_loss(samples)
+            loss_actor, self.kl_div = self.compute_policy_loss(samples)
             if self.kl_div > 1.5 * self.target_kl:
                 # Early break
                 # print(f"Iter: {i:02} Early break")
                 break
-            actor_loss.backward()
+            loss_actor.backward()
             nn.utils.clip_grad_norm_(self.actor_params, self.max_grad_norm_actor)
             self.actor_opt.step()
-            self.actor_loss = actor_loss.item()
+            self._loss_actor = loss_actor.item()
 
         for _ in range(self.critic_number_updates):
             self.critic_opt.zero_grad()
-            critic_loss = self.compute_value_loss(samples)
-            critic_loss.backward()
+            loss_critic = self.compute_value_loss(samples)
+            loss_critic.backward()
             nn.utils.clip_grad_norm_(self.critic_params, self.max_grad_norm_critic)
             self.critic_opt.step()
-            self.critic_loss = float(critic_loss.item())
+            self._loss_critic = float(loss_critic.item())
 
     def log_writer(self, writer, step):
-        writer.add_scalar("loss/actor", self.actor_loss, step)
-        writer.add_scalar("loss/critic", self.critic_loss, step)
+        writer.add_scalar("loss/actor", self._loss_actor, step)
+        writer.add_scalar("loss/critic", self._loss_critic, step)
         writer.add_scalar("policy/kl_div", self.kl_div, step)
         policy_params = {str(i): v for i, v in enumerate(itertools.chain.from_iterable(self.policy.parameters()))}
         writer.add_scalars("policy/param", policy_params, step)

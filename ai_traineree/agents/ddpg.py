@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 
 from ai_traineree import DEVICE
 from ai_traineree.agents.utils import hard_update, soft_update
@@ -10,7 +11,7 @@ from ai_traineree.utils import to_tensor
 from numpy import float32 as _float32
 from torch.optim import Adam
 from torch.nn.functional import mse_loss
-from typing import Any, Sequence, Tuple
+from typing import Any, Dict, Sequence, Tuple
 
 
 class DDPGAgent(AgentType):
@@ -65,12 +66,27 @@ class DDPGAgent(AgentType):
         # Breath, my child.
         self.reset_agent()
         self.iteration = 0
+        self._loss_actor: float = 0
+        self._loss_critic: float = 0
 
     def reset_agent(self) -> None:
         self.actor.reset_parameters()
         self.critic.reset_parameters()
         self.target_actor.reset_parameters()
         self.target_critic.reset_parameters()
+
+    @property
+    def loss(self) -> Dict[str, float]:
+        return {'actor': self._loss_actor, 'critic': self._loss_critic}
+
+    @loss.setter
+    def loss(self, value):
+        if isinstance(value, dict):
+            self._loss_actor = value['actor']
+            self._loss_critic = value['critic']
+        else:
+            self._loss_actor = value
+            self._loss_critic = value
 
     def act(self, obs, noise: float=0.0):
         with torch.no_grad():
@@ -109,23 +125,23 @@ class DDPGAgent(AgentType):
         Q_target_next = self.target_critic(next_states, next_actions)
         Q_target = rewards + (self.gamma * Q_target_next * (1 - dones))
         Q_expected = self.critic(states, actions)
-        critic_loss = mse_loss(Q_expected, Q_target)
+        loss_critic = mse_loss(Q_expected, Q_target)
 
         # Minimize the loss
         self.critic_optimizer.zero_grad()
-        critic_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm_critic)
+        loss_critic.backward()
+        nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm_critic)
         self.critic_optimizer.step()
-        self.critic_loss = critic_loss.item()
+        self._loss_critic = loss_critic.item()
 
         # Compute actor loss
         pred_actions = self.actor(states)
-        actor_loss = -self.critic(states, pred_actions).mean()
+        loss_actor = -self.critic(states, pred_actions).mean()
         self.actor_optimizer.zero_grad()
-        actor_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm_critic)
+        loss_actor.backward()
+        nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm_actor)
         self.actor_optimizer.step()
-        self.actor_loss = actor_loss.item()
+        self._loss_actor = loss_actor.item()
 
         soft_update(self.target_actor, self.actor, self.tau)
         soft_update(self.target_critic, self.critic, self.tau)
@@ -138,8 +154,8 @@ class DDPGAgent(AgentType):
         return (self.actor.state_dict(), self.target_actor.state_dict(), self.critic.state_dict(), self.target_critic())
 
     def log_writer(self, writer, episode):
-        writer.add_scalar("loss/actor", self.actor_loss, episode)
-        writer.add_scalar("loss/critic", self.critic_loss, episode)
+        writer.add_scalar("loss/actor", self._loss_actor, episode)
+        writer.add_scalar("loss/critic", self._loss_critic, episode)
 
     def save_state(self, path: str):
         agent_state = dict(

@@ -1,6 +1,7 @@
 from ai_traineree.types import AgentType
 import numpy as np
 import torch
+import torch.nn as nn
 import torch.optim as optim
 
 from ai_traineree import DEVICE
@@ -8,7 +9,6 @@ from ai_traineree.agents.utils import soft_update
 from ai_traineree.buffers import NStepBuffer, PERBuffer
 from ai_traineree.networks.heads import RainbowNet
 from ai_traineree.utils import to_tensor
-from torch.nn.utils import clip_grad_norm_
 from typing import Callable, Dict, List, Optional, Sequence, Union
 
 
@@ -104,7 +104,17 @@ class RainbowAgent(AgentType):
 
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
         self.dist_probs = None
-        self.loss = float('inf')
+        self._loss = float('inf')
+
+    @property
+    def loss(self):
+        return {'loss': self._loss}
+
+    @loss.setter
+    def loss(self, value):
+        if isinstance(value, dict):
+            value = value['loss']
+        self._loss = value
 
     def step(self, state, action, reward, next_state, done) -> None:
         """Letting the agent to take a step.
@@ -219,7 +229,7 @@ class RainbowAgent(AgentType):
 
         self.optimizer.zero_grad()
         loss.backward()
-        clip_grad_norm_(self.net.parameters(), self.max_grad_norm)
+        nn.utils.clip_grad_norm_(self.net.parameters(), self.max_grad_norm)
         self.optimizer.step()
         self.loss = loss.item()
 

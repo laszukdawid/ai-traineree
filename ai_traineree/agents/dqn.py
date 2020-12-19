@@ -1,5 +1,6 @@
 import random
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
@@ -10,7 +11,6 @@ from ai_traineree.networks import NetworkType, NetworkTypeClass
 from ai_traineree.networks.heads import DuelingNet
 from ai_traineree.types import AgentType
 from ai_traineree.utils import to_tensor
-from torch.nn.utils import clip_grad_norm_
 from typing import Callable, Dict, Optional, Type, Sequence, Union
 
 
@@ -95,7 +95,17 @@ class DQNAgent(AgentType):
             self.net = DuelingNet(self.input_shape, self.output_shape, hidden_layers=hidden_layers, device=self.device)
             self.target_net = DuelingNet(self.input_shape, self.output_shape, hidden_layers=hidden_layers, device=self.device)
         self.optimizer = optim.AdamW(self.net.parameters(), lr=self.lr)
-        self.loss = float('inf')
+        self._loss: float = float('inf')
+
+    @property
+    def loss(self) -> Dict[str, float]:
+        return {'loss': self._loss}
+
+    @loss.setter
+    def loss(self, value):
+        if isinstance(value, dict):
+            value = value['loss']
+        self._loss = value
 
     def step(self, state, action, reward, next_state, done) -> None:
         """Letting the agent to take a step.
@@ -178,9 +188,9 @@ class DQNAgent(AgentType):
 
         self.optimizer.zero_grad()
         loss.backward()
-        clip_grad_norm_(self.net.parameters(), self.max_grad_norm)
+        nn.utils.clip_grad_norm_(self.net.parameters(), self.max_grad_norm)
         self.optimizer.step()
-        self.loss = loss.item()
+        self._loss = float(loss.item())
 
         if hasattr(self.buffer, 'priority_update'):
             error = Q_expected - Q_targets
@@ -204,7 +214,7 @@ class DQNAgent(AgentType):
             step_num (int): Ordering value, e.g. episode number.
         """
 
-        writer.add_scalar("loss/agent", self.loss, step_num)
+        writer.add_scalar("loss/agent", self._loss, step_num)
 
     def save_state(self, path: str) -> None:
         """Saves agent's state into a file.

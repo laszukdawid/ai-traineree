@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
@@ -10,7 +11,7 @@ from ai_traineree.networks.bodies import CriticBody
 from ai_traineree.types import ActionType, MultiAgentType, StateType
 from ai_traineree.utils import to_tensor
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 
 class MADDPGAgent(MultiAgentType):
@@ -82,9 +83,22 @@ class MADDPGAgent(MultiAgentType):
         self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=critic_lr)
         hard_update(self.target_critic, self.critic)
 
-        self.actor_loss = 0
-        self.critic_loss = 0
+        self._loss_actor: float = 0.
+        self._loss_critic: float = 0.
         self.reset()
+
+    @property
+    def loss(self) -> Dict[str, float]:
+        return {'actor': self._loss_actor, 'critic': self._loss_critic}
+
+    @loss.setter
+    def loss(self, value):
+        if isinstance(value, dict):
+            self._loss_actor = value['actor']
+            self._loss_critic = value['critic']
+        else:
+            self._loss_actor = value
+            self._loss_critic = value
 
     def reset(self):
         self.iteration = 0
@@ -156,25 +170,25 @@ class MADDPGAgent(MultiAgentType):
         Q_target_next = self.target_critic(flat_next_states, self.__flatten_actions(next_actions))
         Q_target = agent_rewards + (self.gamma * Q_target_next * (1 - agent_dones))
         Q_expected = self.critic(flat_states, flat_actions)
-        critic_loss = F.mse_loss(Q_expected, Q_target)
+        loss_critic = F.mse_loss(Q_expected, Q_target)
 
         # Minimize the loss
         self.critic_optimizer.zero_grad()
-        critic_loss.backward()
+        loss_critic.backward()
         if self.gradient_clip:
-            torch.nn.utils.clip_grad_norm_(self.critic.parameters(), self.gradient_clip)
+            nn.utils.clip_grad_norm_(self.critic.parameters(), self.gradient_clip)
         self.critic_optimizer.step()
-        self.critic_loss = critic_loss.mean().item()
+        self._loss_critic = float(loss_critic.mean().item())
 
         # Compute actor loss
         pred_actions = actions.detach().clone()
         pred_actions.data[:, agent_number] = agent.actor(flat_states)
 
-        actor_loss = -self.critic(flat_states, self.__flatten_actions(pred_actions)).mean()
+        loss_actor = -self.critic(flat_states, self.__flatten_actions(pred_actions)).mean()
         agent.actor_optimizer.zero_grad()
-        actor_loss.backward()
+        loss_actor.backward()
         agent.actor_optimizer.step()
-        self.actor_loss = actor_loss.mean().item()
+        self._loss_actor = loss_actor.mean().item()
 
     def update_targets(self):
         """soft update targets"""
@@ -183,8 +197,8 @@ class MADDPGAgent(MultiAgentType):
         soft_update(self.target_critic, self.critic, self.tau)
 
     def log_writer(self, writer, episode):
-        writer.add_scalar("loss/actor", self.actor_loss, episode)
-        writer.add_scalar("loss/critic", self.critic_loss, episode)
+        writer.add_scalar("loss/actor", self._loss_actor, episode)
+        writer.add_scalar("loss/critic", self._loss_critic, episode)
 
     def save_state(self, path: str):
         agents_state = {}

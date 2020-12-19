@@ -46,9 +46,7 @@ class AgentType(abc.ABC):
     name: str
     state_size: Union[Sequence[int], int]
     action_size: int
-    loss: Optional[Union[int, float]] = None
-    actor_loss: Optional[Union[int, float]] = None
-    critic_loss: Optional[Union[int, float]] = None
+    loss: Dict[str, float]
 
     @abstractmethod
     def act(self, state: StateType, noise: Any):
@@ -74,9 +72,7 @@ class MultiAgentType(abc.ABC):
     name: str
     state_size: Union[Sequence[int], int]
     action_size: int
-    loss: Optional[Union[int, float]] = None
-    actor_loss: Optional[Union[int, float]] = None
-    critic_loss: Optional[Union[int, float]] = None
+    loss: Dict[str, float]
     agents: List[AgentType]
     agents_number: int
 
