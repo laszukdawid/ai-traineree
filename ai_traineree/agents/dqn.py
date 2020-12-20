@@ -32,12 +32,8 @@ class DQNAgent(AgentType):
         self,
         input_shape: Union[Sequence[int], int],
         output_shape: Union[Sequence[int], int],
-        lr: float = 3e-4,
-        gamma: float = 0.99,
-        tau: float = 0.002,
         network_fn: Callable[[], NetworkType]=None,
         network_class: Type[NetworkTypeClass]=None,
-        hidden_layers: Sequence[int]=(64, 64),
         state_transform: Optional[Callable]=None,
         reward_transform: Optional[Callable]=None,
         **kwargs
@@ -64,24 +60,25 @@ class DQNAgent(AgentType):
         self.output_shape: Sequence[int] = output_shape if not isinstance(output_shape, int) else (output_shape,)
         self.out_features: int = self.output_shape[0]
 
-        self.lr = float(kwargs.get('lr', lr))
-        self.gamma = float(kwargs.get('gamma', gamma))
-        self.tau = float(kwargs.get('tau', tau))
+        self.lr = float(self._register_param(kwargs, 'lr', 3e-4))
+        self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))
+        self.tau = float(self._register_param(kwargs, 'tau', 0.002))
 
-        self.update_freq = int(kwargs.get('update_freq', 1))
-        self.batch_size = int(kwargs.pop('batch_size', 32))
-        self.buffer_size = int(kwargs.pop('buffer_size', 1e5))
-        self.warm_up = int(kwargs.get('warm_up', 0))
-        self.number_updates = int(kwargs.get('number_updates', 1))
-        self.max_grad_norm = float(kwargs.get('max_grad_norm', 10))
+        self.update_freq = int(self._register_param(kwargs, 'update_freq', 1))
+        self.batch_size = int(self._register_param(kwargs, 'batch_size', 32))
+        self.buffer_size = int(self._register_param(kwargs, 'buffer_size', 1e5))
+        self.warm_up = int(self._register_param(kwargs, 'warm_up', 0))
+        self.number_updates = int(self._register_param(kwargs, 'number_updates', 1))
+        self.max_grad_norm = float(self._register_param(kwargs, 'max_grad_norm', 10))
 
         self.iteration: int = 0
         self.buffer = PERBuffer(batch_size=self.batch_size, buffer_size=self.buffer_size, **kwargs)
-        self.using_double_q = bool(kwargs.get("using_double_q", True))
+        self.using_double_q = bool(self._register_param(kwargs, "using_double_q", True))
 
-        self.n_steps = kwargs.get('n_steps', 1)
+        self.n_steps = self._register_param(kwargs, 'n_steps', 1)
         self.n_buffer = NStepBuffer(n_steps=self.n_steps, gamma=self.gamma)
 
+        hidden_layers = self._register_param(kwargs, 'hidden_layers', (64, 64))
         self.state_transform = state_transform if state_transform is not None else lambda x: x
         self.reward_transform = reward_transform if reward_transform is not None else lambda x: x
         if network_fn is not None:
@@ -91,7 +88,6 @@ class DQNAgent(AgentType):
             self.net = network_class(self.input_shape, self.out_features, hidden_layers=hidden_layers, device=self.device)
             self.target_net = network_class(self.input_shape, self.out_features, hidden_layers=hidden_layers, device=self.device)
         else:
-            hidden_layers = kwargs.get('hidden_layers', hidden_layers)
             self.net = DuelingNet(self.input_shape, self.output_shape, hidden_layers=hidden_layers, device=self.device)
             self.target_net = DuelingNet(self.input_shape, self.output_shape, hidden_layers=hidden_layers, device=self.device)
         self.optimizer = optim.AdamW(self.net.parameters(), lr=self.lr)
@@ -223,7 +219,11 @@ class DQNAgent(AgentType):
             path: String path where to write the state.
 
         """
-        agent_state = dict(net=self.net.state_dict(), target_net=self.target_net.state_dict())
+        agent_state = dict(
+            net=self.net.state_dict(),
+            target_net=self.target_net.state_dict(),
+            config=self._config,
+        )
         torch.save(agent_state, path)
 
     def load_state(self, path: str) -> None:
@@ -234,6 +234,9 @@ class DQNAgent(AgentType):
 
         """
         agent_state = torch.load(path)
+        self._config = agent_state.get('config', {})
+        self.__dict__.update(**self._config)
+
         self.net.load_state_dict(agent_state['net'])
         self.target_net.load_state_dict(agent_state['target_net'])
 

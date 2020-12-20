@@ -30,6 +30,9 @@ class PPOAgent(AgentType):
     def __init__(self, state_size: int, action_size: int, hidden_layers=(200, 200), device=None, **kwargs):
         """
         Parameters:
+            state_size: Number of input dimensions.
+            action_size: Number of output dimensions
+            hidden_layers: (default: (200, 200) ) Tuple defining hidden dimensions in fully connected nets.
             is_discrete: (default: False) Whether return discrete action.
             kl_div: (default: False) Whether to use KL divergence in loss.
             using_gae: (default: True) Whether to use General Advantage Estimator.
@@ -52,47 +55,48 @@ class PPOAgent(AgentType):
 
         self.state_size = state_size
         self.action_size = action_size
+        self.hidden_layers = hidden_layers
         self.iteration = 0
 
-        self.is_discrete = bool(kwargs.get("is_discrete", False))
-        self.using_kl_div = bool(kwargs.get("using_kl_div", False))
-        self.kl_beta = 0.1
-        self.using_gae = bool(kwargs.get("using_gae", True))
-        self.gae_lambda = float(kwargs.get("gae_lambda", 0.95))
+        self.is_discrete = bool(self._register_param(kwargs, "is_discrete", False))
+        self.using_gae = bool(self._register_param(kwargs, "using_gae", True))
+        self.gae_lambda = float(self._register_param(kwargs, "gae_lambda", 0.95))
 
-        self.actor_lr = float(kwargs.get('actor_lr', 3e-4))
-        self.actor_betas: Tuple[float, float] = kwargs.get('actor_betas', (0.9, 0.999))
-        self.critic_lr = float(kwargs.get('critic_lr', 1e-3))
-        self.critic_betas: Tuple[float, float] = kwargs.get('critic_betas', (0.9, 0.999))
-        self.gamma = float(kwargs.get("gamma", 0.99))
-        self.ppo_ratio_clip = float(kwargs.get("ppo_ratio_clip", 0.25))
+        self.actor_lr = float(self._register_param(kwargs, 'actor_lr', 3e-4))
+        self.actor_betas: Tuple[float, float] = self._register_param(kwargs, 'actor_betas', (0.9, 0.999))
+        self.critic_lr = float(self._register_param(kwargs, 'critic_lr', 1e-3))
+        self.critic_betas: Tuple[float, float] = self._register_param(kwargs, 'critic_betas', (0.9, 0.999))
+        self.gamma = float(self._register_param(kwargs, "gamma", 0.99))
+        self.ppo_ratio_clip = float(self._register_param(kwargs, "ppo_ratio_clip", 0.25))
+
+        self.using_kl_div = bool(self._register_param(kwargs, "using_kl_div", False))
+        self.kl_beta = float(self._register_param(kwargs, 'kl_beta', 0.1))
+        self.target_kl = float(self._register_param(kwargs, "target_kl", 0.01))
         self.kl_div = float('inf')
-        self.target_kl = float(kwargs.get("target_kl", 0.01))
 
-        self.executor_num = int(kwargs.get("executor_num", 1))  # TODO: Is this the right name?
-        self.rollout_length = int(kwargs.get("rollout_length", 48))  # "Much less than the episode length"
-        self.batch_size = int(kwargs.get("batch_size", self.rollout_length))
-        self.actor_number_updates = int(kwargs.get("actor_number_updates", 20))
-        self.critic_number_updates = int(kwargs.get("critic_number_updates", 20))
-        self.entropy_weight = float(kwargs.get("entropy_weight", 0.5))
-        self.value_loss_weight = float(kwargs.get("value_loss_weight", 1.0))
+        self.executor_num = int(self._register_param(kwargs, "executor_num", 1))  # TODO: Is this the right name?
+        self.rollout_length = int(self._register_param(kwargs, "rollout_length", 48))  # "Much less than the episode length"
+        self.batch_size = int(self._register_param(kwargs, "batch_size", self.rollout_length))
+        self.actor_number_updates = int(self._register_param(kwargs, "actor_number_updates", 10))
+        self.critic_number_updates = int(self._register_param(kwargs, "critic_number_updates", 10))
+        self.entropy_weight = float(self._register_param(kwargs, "entropy_weight", 0.5))
+        self.value_loss_weight = float(self._register_param(kwargs, "value_loss_weight", 1.0))
 
         self.local_memory_buffer = {}
-        self.memory = ReplayBuffer(batch_size=self.rollout_length, buffer_size=self.rollout_length)
 
-        self.action_scale: float = float(kwargs.get("action_scale", 1))
-        self.action_min: float = float(kwargs.get("action_min", -1))
-        self.action_max: float = float(kwargs.get("action_max", 1))
-        self.max_grad_norm_actor: float = float(kwargs.get("max_grad_norm_actor", 100.0))
-        self.max_grad_norm_critic: float = float(kwargs.get("max_grad_norm_critic", 100.0))
+        self.action_scale = float(self._register_param(kwargs, "action_scale", 1))
+        self.action_min = float(self._register_param(kwargs, "action_min", -1))
+        self.action_max = float(self._register_param(kwargs, "action_max", 1))
+        self.max_grad_norm_actor = float(self._register_param(kwargs, "max_grad_norm_actor", 100.0))
+        self.max_grad_norm_critic = float(self._register_param(kwargs, "max_grad_norm_critic", 100.0))
 
-        self.hidden_layers = kwargs.get('hidden_layers', hidden_layers)
         if kwargs.get("simple_policy", False):
             std_init = kwargs.get("std_init", 1.0)
-            self.policy = MultivariateGaussianPolicySimple(action_size, self.batch_size, std_init=std_init, device=self.device)
+            self.policy = MultivariateGaussianPolicySimple(self.action_size, self.batch_size, std_init=std_init, device=self.device)
         else:
-            self.policy = MultivariateGaussianPolicy(action_size, self.batch_size, device=self.device)
+            self.policy = MultivariateGaussianPolicy(self.action_size, self.batch_size, device=self.device)
 
+        self.memory = ReplayBuffer(batch_size=self.rollout_length, buffer_size=self.rollout_length)
         self.actor = ActorBody(state_size, self.policy.param_dim*action_size, gate_out=None, hidden_layers=self.hidden_layers, device=self.device)
         self.critic = ActorBody(state_size, 1, gate_out=None, hidden_layers=self.hidden_layers, device=self.device)
         self.actor_params = list(self.actor.parameters()) + list(self.policy.parameters())
@@ -292,11 +296,19 @@ class PPOAgent(AgentType):
                 writer.add_histogram(f"critic/layer_bias_{idx}", layer.bias, step)
 
     def save_state(self, path: str):
-        agent_state = dict(policy=self.policy.state_dict(), actor=self.actor.state_dict(), critic=self.critic.state_dict())
+        agent_state = dict(
+            config=self._config,
+            policy=self.policy.state_dict(),
+            actor=self.actor.state_dict(),
+            critic=self.critic.state_dict()
+        )
         torch.save(agent_state, path)
 
     def load_state(self, path: str):
         agent_state = torch.load(path)
+        self._config = agent_state.get('config', {})
+        self.__dict__.update(**self._config)
+
         self.policy.load_state_dict(agent_state['policy'])
         self.actor.load_state_dict(agent_state['actor'])
         self.critic.load_state_dict(agent_state['critic'])

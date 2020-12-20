@@ -47,6 +47,13 @@ class AgentType(abc.ABC):
     state_size: Union[Sequence[int], int]
     action_size: int
     loss: Dict[str, float]
+    _config: Dict = {}
+
+    def _register_param(self, source: Dict[str, Any], name: str, default_value=None, drop=False) -> Any:
+        self._config[name] = value = source.get(name, default_value)
+        if drop:
+            del source[name]
+        return value
 
     @abstractmethod
     def act(self, state: StateType, noise: Any):
@@ -75,6 +82,13 @@ class MultiAgentType(abc.ABC):
     loss: Dict[str, float]
     agents: List[AgentType]
     agents_number: int
+    _config: Dict = {}
+
+    def _register_param(self, source: Dict[str, Any], name: str, default_value=None, drop=False) -> Any:
+        self._config[name] = value = source.get(name, default_value)
+        if drop:
+            del source[name]
+        return value
 
     def act(self, states: List[StateType], noise: Any) -> List[ActionType]:
         raise NotImplementedError

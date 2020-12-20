@@ -45,16 +45,16 @@ class MADDPGAgent(MultiAgentType):
 
         """
 
-        self.device = kwargs.get("device", DEVICE)
+        self.device = self._register_param(kwargs, "device", DEVICE)
         self.state_size: int = state_size
         self.action_size = action_size
         self.agents_number = agents_number
 
-        hidden_layers = kwargs.get('hidden_layers', (256, 128))
-        noise_scale = float(kwargs.get('noise_scale', 0.5))
-        noise_sigma = float(kwargs.get('noise_sigma', 1.0))
-        actor_lr = float(kwargs.get('actor_lr', 1e-3))
-        critic_lr = float(kwargs.get('critic_lr', 1e-3))
+        hidden_layers = self._register_param(kwargs, 'hidden_layers', (256, 128))
+        noise_scale = float(self._register_param(kwargs, 'noise_scale', 0.5))
+        noise_sigma = float(self._register_param(kwargs, 'noise_sigma', 1.0))
+        actor_lr = float(self._register_param(kwargs, 'actor_lr', 1e-3))
+        critic_lr = float(self._register_param(kwargs, 'critic_lr', 1e-3))
 
         self.agents: List[DDPGAgent] = [
             DDPGAgent(
@@ -66,17 +66,17 @@ class MADDPGAgent(MultiAgentType):
             ) for _ in range(agents_number)
         ]
 
-        self.gamma: float = float(kwargs.get('gamma', 0.99))
-        self.tau: float = float(kwargs.get('tau', 0.002))
-        self.gradient_clip: Optional[float] = kwargs.get('gradient_clip')
+        self.gamma: float = float(self._register_param(kwargs, 'gamma', 0.99))
+        self.tau: float = float(self._register_param(kwargs, 'tau', 0.002))
+        self.gradient_clip: Optional[float] = self._register_param(kwargs, 'gradient_clip')
 
-        self.batch_size: int = int(kwargs.get('batch_size', 64))
-        self.buffer_size = int(kwargs.get('buffer_size', int(1e6)))
+        self.batch_size: int = int(self._register_param(kwargs, 'batch_size', 64))
+        self.buffer_size = int(self._register_param(kwargs, 'buffer_size', int(1e6)))
         self.buffer = ReplayBuffer(self.batch_size, self.buffer_size)
 
-        self.warm_up: int = int(kwargs.get('warm_up', 0))
-        self.update_freq: int = int(kwargs.get('update_freq', 1))
-        self.number_updates: int = int(kwargs.get('number_updates', 1))
+        self.warm_up: int = int(self._register_param(kwargs, 'warm_up', 0))
+        self.update_freq: int = int(self._register_param(kwargs, 'update_freq', 1))
+        self.number_updates: int = int(self._register_param(kwargs, 'number_updates', 1))
 
         self.critic = CriticBody(agents_number*state_size, agents_number*action_size, hidden_layers=hidden_layers).to(self.device)
         self.target_critic = CriticBody(agents_number*state_size, agents_number*action_size, hidden_layers=hidden_layers).to(self.device)
@@ -202,17 +202,23 @@ class MADDPGAgent(MultiAgentType):
 
     def save_state(self, path: str):
         agents_state = {}
+        agents_state['config'] = self._config
         for agent_id, agent in enumerate(self.agents):
             agents_state[f'actor_{agent_id}'] = agent.actor.state_dict()
             agents_state[f'target_actor_{agent_id}'] = agent.target_actor.state_dict()
             agents_state[f'critic_{agent_id}'] = agent.critic.state_dict()
             agents_state[f'target_critic_{agent_id}'] = agent.target_critic.state_dict()
+            agents_state[f'config_{agent_id}'] = agent._config
         torch.save(agents_state, path)
 
     def load_state(self, path: str):
         agent_state = torch.load(path)
+        self._config = agent_state.get('config', {})
+        self.__dict__.update(**self._config)
         for agent_id, agent in enumerate(self.agents):
             agent.actor.load_state_dict(agent_state[f'actor_{agent_id}'])
             agent.critic.load_state_dict(agent_state[f'critic_{agent_id}'])
             agent.target_actor.load_state_dict(agent_state[f'target_actor_{agent_id}'])
             agent.target_critic.load_state_dict(agent_state[f'target_critic_{agent_id}'])
+            agent._config = agent_state[f'config_{agent_id}'].get(f'config_{agent_id}', {})
+            agent.__dict__.update(**agent._config)

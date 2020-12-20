@@ -55,21 +55,21 @@ class TD3Agent(AgentType):
         self.critic_optimizer = AdamW(self.critic.parameters(), lr=critic_lr)
         self.max_grad_norm_actor: float = float(kwargs.get("max_grad_norm_actor", 10.0))
         self.max_grad_norm_critic: float = float(kwargs.get("max_grad_norm_critic", 10.0))
-        self.action_min = kwargs.get('action_min', -1.)
-        self.action_max = kwargs.get('action_max', 1.)
-        self.action_scale = kwargs.get('action_scale', 1.)
+        self.action_min = self._register_param(kwargs, 'action_min', -1.)
+        self.action_max = self._register_param(kwargs, 'action_max', 1.)
+        self.action_scale = self._register_param(kwargs, 'action_scale', 1.)
 
-        self.gamma: float = float(kwargs.get('gamma', 0.99))
-        self.tau: float = float(kwargs.get('tau', 0.02))
-        self.batch_size: int = int(kwargs.get('batch_size', 64))
-        self.buffer_size: int = int(kwargs.get('buffer_size', int(1e5)))
+        self.gamma: float = float(self._register_param(kwargs, 'gamma', 0.99))
+        self.tau: float = float(self._register_param(kwargs, 'tau', 0.02))
+        self.batch_size: int = int(self._register_param(kwargs, 'batch_size', 64))
+        self.buffer_size: int = int(self._register_param(kwargs, 'buffer_size', int(1e5)))
         self.buffer = ReplayBuffer(self.batch_size, self.buffer_size)
 
-        self.warm_up = int(kwargs.get('warm_up', 0))
-        self.update_freq = int(kwargs.get('update_freq', 1))
-        self.update_policy_freq = int(kwargs.get('update_policy_freq', 1))
-        self.number_updates = int(kwargs.get('number_updates', 1))
-        self.noise_reset_freq = int(kwargs.get('noise_reset_freq', 10000))
+        self.warm_up = int(self._register_param(kwargs, 'warm_up', 0))
+        self.update_freq = int(self._register_param(kwargs, 'update_freq', 1))
+        self.update_policy_freq = int(self._register_param(kwargs, 'update_policy_freq', 1))
+        self.number_updates = int(self._register_param(kwargs, 'number_updates', 1))
+        self.noise_reset_freq = int(self._register_param(kwargs, 'noise_reset_freq', 10000))
 
         # Breath, my child.
         self.reset_agent()
@@ -196,11 +196,15 @@ class TD3Agent(AgentType):
         agent_state = dict(
             actor=self.actor.state_dict(), target_actor=self.target_actor.state_dict(),
             critic=self.critic.state_dict(), target_critic=self.target_critic.state_dict(),
+            config=self._config,
         )
         torch.save(agent_state, path)
 
     def load_state(self, path: str):
         agent_state = torch.load(path)
+        self._config = agent_state.get('config', {})
+        self.__dict__.update(**self._config)
+
         self.actor.load_state_dict(agent_state['actor'])
         self.critic.load_state_dict(agent_state['critic'])
         self.target_actor.load_state_dict(agent_state['target_actor'])

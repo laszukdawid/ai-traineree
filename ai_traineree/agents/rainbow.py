@@ -37,9 +37,6 @@ class RainbowAgent(AgentType):
         self,
         input_shape: Union[Sequence[int], int],
         output_shape: Union[Sequence[int], int],
-        lr: float = 3e-4,
-        gamma: float = 0.99,
-        tau: float = 0.002,
         state_transform: Optional[Callable]=None,
         reward_transform: Optional[Callable]=None,
         **kwargs
@@ -60,32 +57,32 @@ class RainbowAgent(AgentType):
             tau (default: 0.002): Soft-copy factor.
 
         """
-        self.device = kwargs.get("device", DEVICE)
+        self.device = self._register_param(kwargs, "device", DEVICE)
         self.input_shape: Sequence[int] = input_shape if not isinstance(input_shape, int) else (input_shape,)
 
         self.in_features: int = self.input_shape[0]
         self.output_shape: Sequence[int] = output_shape if not isinstance(output_shape, int) else (output_shape,)
         self.out_features: int = self.output_shape[0]
 
-        self.lr = float(kwargs.get('lr', lr))
-        self.gamma = float(kwargs.get('gamma', gamma))
-        self.tau = float(kwargs.get('tau', tau))
-        self.update_freq = int(kwargs.get('update_freq', 1))
-        self.batch_size = int(kwargs.pop('batch_size', 32))
-        self.buffer_size = int(kwargs.pop('buffer_size', 1e5))
-        self.warm_up = int(kwargs.get('warm_up', 0))
-        self.number_updates = int(kwargs.get('number_updates', 1))
-        self.max_grad_norm = float(kwargs.get('max_grad_norm', 10))
+        self.lr = float(self._register_param(kwargs, 'lr', 3e-4))
+        self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))
+        self.tau = float(self._register_param(kwargs, 'tau', 0.002))
+        self.update_freq = int(self._register_param(kwargs, 'update_freq', 1))
+        self.batch_size = int(self._register_param(kwargs, 'batch_size', 32, drop=True))
+        self.buffer_size = int(self._register_param(kwargs, 'buffer_size', 1e5))
+        self.warm_up = int(self._register_param(kwargs, 'warm_up', 0))
+        self.number_updates = int(self._register_param(kwargs, 'number_updates', 1))
+        self.max_grad_norm = float(self._register_param(kwargs, 'max_grad_norm', 10))
 
         self.iteration: int = 0
-        self.using_double_q = bool(kwargs.get("using_double_q", True))
+        self.using_double_q = bool(self._register_param(kwargs, "using_double_q", True))
 
         self.state_transform = state_transform if state_transform is not None else lambda x: x
         self.reward_transform = reward_transform if reward_transform is not None else lambda x: x
 
-        self.v_min = float(kwargs.get("v_min", -10))
-        self.v_max = float(kwargs.get("v_max", 10))
-        self.n_atoms = int(kwargs.get("n_atoms", 21))
+        self.v_min = float(self._register_param(kwargs, "v_min", -10))
+        self.v_max = float(self._register_param(kwargs, "v_max", 10))
+        self.n_atoms = int(self._register_param(kwargs, "n_atoms", 21))
         self.z_atoms = torch.linspace(self.v_min, self.v_max, self.n_atoms, device=self.device)
         self.z_delta = self.z_atoms[1] - self.z_atoms[0]
 
@@ -94,7 +91,7 @@ class RainbowAgent(AgentType):
         self.offset = torch.linspace(0, ((self.batch_size - 1) * self.n_atoms), self.batch_size, device=self.device)
         self.offset = self.offset.unsqueeze(1).expand(self.batch_size, self.n_atoms)
 
-        self.n_steps = kwargs.get("n_steps", 3)
+        self.n_steps = self._register_param(kwargs, "n_steps", 3)
         self.n_buffer = NStepBuffer(n_steps=self.n_steps, gamma=self.gamma)
 
         # Note that in case a pre_network is provided, e.g. a shared net that extracts pixels values,
@@ -283,7 +280,11 @@ class RainbowAgent(AgentType):
             path: String path where to write the state.
 
         """
-        agent_state = dict(net=self.net.state_dict(), target_net=self.target_net.state_dict())
+        agent_state = dict(
+            net=self.net.state_dict(),
+            target_net=self.target_net.state_dict(),
+            config=self._config,
+        )
         torch.save(agent_state, path)
 
     def load_state(self, path: str) -> None:
@@ -294,6 +295,9 @@ class RainbowAgent(AgentType):
 
         """
         agent_state = torch.load(path)
+        self._config = agent_state.get('config', {})
+        self.__dict__.update(**self._config)
+
         self.net.load_state_dict(agent_state['net'])
         self.target_net.load_state_dict(agent_state['target_net'])
 

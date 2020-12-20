@@ -1,6 +1,7 @@
 import numpy as np
 import random
 import torch
+import torch.nn as nn
 
 from ai_traineree import DEVICE
 from ai_traineree.agents.utils import hard_update, soft_update
@@ -11,7 +12,6 @@ from ai_traineree.policies import MultivariateGaussianPolicy
 from ai_traineree.types import AgentType, FeatureType
 from ai_traineree.utils import to_tensor
 from torch import optim, Tensor
-from torch.nn.utils import clip_grad_norm_
 from typing import List, Sequence, Tuple
 
 
@@ -58,15 +58,16 @@ class SACAgent(AgentType):
         self.device = kwargs.get("device", DEVICE)
         self.state_size = (state_size,) if isinstance(state_size, int) else state_size
         self.action_size = (action_size,) if isinstance(action_size, int) else action_size
-        self.gamma: float = float(kwargs.get('gamma', 0.99))
-        self.tau: float = float(kwargs.get('tau', 0.02))
-        self.batch_size: int = int(kwargs.get('batch_size', 64))
-        self.buffer_size: int = int(kwargs.get('buffer_size', int(1e6)))
+
+        self.gamma: float = float(self._register_param(kwargs, 'gamma', 0.99))
+        self.tau: float = float(self._register_param(kwargs, 'tau', 0.02))
+        self.batch_size: int = int(self._register_param(kwargs, 'batch_size', 64))
+        self.buffer_size: int = int(self._register_param(kwargs, 'buffer_size', int(1e6)))
         self.memory = PERBuffer(self.batch_size, self.buffer_size)
 
-        self.warm_up: int = int(kwargs.get('warm_up', 0))
-        self.update_freq: int = int(kwargs.get('update_freq', 1))
-        self.number_updates: int = int(kwargs.get('number_updates', 1))
+        self.warm_up: int = int(self._register_param(kwargs, 'warm_up', 0))
+        self.update_freq: int = int(self._register_param(kwargs, 'update_freq', 1))
+        self.number_updates: int = int(self._register_param(kwargs, 'number_updates', 1))
 
         # Reason sequence initiation.
         hidden_layers = kwargs.get('hidden_layers', (128, 128))
@@ -81,8 +82,8 @@ class SACAgent(AgentType):
 
         # Optimization sequence initiation.
         self.target_entropy = -self.action_size[0]
-        self.alpha_lr = kwargs.get("alpha_lr")
-        alpha_init = float(kwargs.get("alpha", alpha))
+        self.alpha_lr = self._register_param(kwargs, "alpha_lr")
+        alpha_init = float(self._register_param(kwargs, "alpha", alpha))
         self.log_alpha = torch.tensor(np.log(alpha_init), device=self.device, requires_grad=True)
 
         self.actor_params = list(self.actor.parameters()) 
@@ -93,21 +94,34 @@ class SACAgent(AgentType):
             self.alpha_optimizer = optim.Adam([self.log_alpha], lr=self.alpha_lr)
         self.action_min = action_clip[0]
         self.action_max = action_clip[1]
-        self.action_scale = kwargs.get('action_scale', 1)
-        self.max_grad_norm_alpha: float = float(kwargs.get("max_grad_norm_alpha", 1.0))
-        self.max_grad_norm_actor: float = float(kwargs.get("max_grad_norm_actor", 20.0))
-        self.max_grad_norm_critic: float = float(kwargs.get("max_grad_norm_critic", 20.0))
+        self.action_scale = self._register_param(kwargs, 'action_scale', 1)
+        self.max_grad_norm_alpha: float = float(self._register_param(kwargs, "max_grad_norm_alpha", 1.0))
+        self.max_grad_norm_actor: float = float(self._register_param(kwargs, "max_grad_norm_actor", 20.0))
+        self.max_grad_norm_critic: float = float(self._register_param(kwargs, "max_grad_norm_critic", 20.0))
 
         # Breath, my child.
         self.reset_agent()
         self.iteration = 0
 
-        self.actor_loss = float('inf')
-        self.critic_loss = float('inf')
+        self._loss_actor = float('inf')
+        self._loss_critic = float('inf')
 
     @property
     def alpha(self):
         return self.log_alpha.exp()
+
+    @property
+    def loss(self):
+        return {'actor': self._loss_actor, 'critic': self._loss_critic}
+
+    @loss.setter
+    def loss(self, value):
+        if isinstance(value, dict):
+            self._loss_actor = value['actor']
+            self._loss_critic = value['critic']
+        else:
+            self._loss_actor = value
+            self._loss_critic = value
 
     def reset_agent(self) -> None:
         self.actor.reset_parameters()
@@ -170,14 +184,14 @@ class SACAgent(AgentType):
         mse_loss_2 = error_2.mean()
 
         error = error_1 + error_2
-        critic_loss = mse_loss_1 + mse_loss_2
+        loss_critic = mse_loss_1 + mse_loss_2
 
         # Minimize the loss
         self.critic_optimizer.zero_grad()
-        critic_loss.backward()
-        clip_grad_norm_(self.critic_params, self.max_grad_norm_critic)
+        loss_critic.backward()
+        nn.utils.clip_grad_norm_(self.critic_params, self.max_grad_norm_critic)
         self.critic_optimizer.step()
-        self.critic_loss = critic_loss.item()
+        self._loss_critic = loss_critic.item()
         return error
 
     def _update_policy(self, states):
@@ -188,20 +202,20 @@ class SACAgent(AgentType):
         log_prob = self.policy.log_prob(dist, pred_actions).unsqueeze(1)
 
         Q_actor = torch.min(*self.double_critic(states, pred_actions))
-        actor_loss = (self.alpha * log_prob - Q_actor).mean()
+        loss_actor = (self.alpha * log_prob - Q_actor).mean()
 
         self.actor_optimizer.zero_grad()
-        actor_loss.backward()
-        clip_grad_norm_(self.actor_params, self.max_grad_norm_actor)
+        loss_actor.backward()
+        nn.utils.clip_grad_norm_(self.actor_params, self.max_grad_norm_actor)
         self.actor_optimizer.step()
-        self.actor_loss = actor_loss.item()
+        self._loss_actor = loss_actor.item()
 
         # Update alpha
         if self.alpha_lr is not None:
             self.alpha_optimizer.zero_grad()
-            alpha_loss = (self.alpha * (-log_prob - self.target_entropy).detach()).mean()
-            alpha_loss.backward()
-            clip_grad_norm_(self.log_alpha, self.max_grad_norm_alpha)
+            loss_alpha = (self.alpha * (-log_prob - self.target_entropy).detach()).mean()
+            loss_alpha.backward()
+            nn.utils.clip_grad_norm_(self.log_alpha, self.max_grad_norm_alpha)
             self.alpha_optimizer.step()
 
     def learn(self, samples):
@@ -223,8 +237,8 @@ class SACAgent(AgentType):
         soft_update(self.target_double_critic, self.double_critic, self.tau)
 
     def log_writer(self, writer, episode):
-        writer.add_scalar("loss/actor", self.actor_loss, episode)
-        writer.add_scalar("loss/critic", self.critic_loss, episode)
+        writer.add_scalar("loss/actor", self._loss_actor, episode)
+        writer.add_scalar("loss/critic", self._loss_critic, episode)
         writer.add_scalar("loss/alpha", self.alpha, episode)
 
     def save_state(self, path: str):
@@ -232,11 +246,15 @@ class SACAgent(AgentType):
             actor=self.actor.state_dict(),
             double_critic=self.double_critic.state_dict(),
             target_double_critic=self.target_double_critic.state_dict(),
+            config=self._config,
         )
         torch.save(agent_state, path)
 
     def load_state(self, path: str):
         agent_state = torch.load(path)
+        self._config = agent_state.get('config', {})
+        self.__dict__.update(**self._config)
+
         self.actor.load_state_dict(agent_state['actor'])
         self.double_critic.load_state_dict(agent_state['double_critic'])
         self.target_double_critic.load_state_dict(agent_state['target_double_critic'])
