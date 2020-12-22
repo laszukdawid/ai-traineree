@@ -17,7 +17,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from functools import reduce
+from functools import lru_cache, reduce
 from typing import Callable, Optional, List, Sequence
 from ai_traineree.networks import NetworkType, NetworkTypeClass
 from ai_traineree.networks.bodies import FcNet, NoisyNet
@@ -164,13 +164,25 @@ class RainbowNet(NetworkType, nn.Module):
     """Rainbow networks combines dueling and categorical networks.
 
     """
-    def __init__(self, input_shape: Sequence[int], output_shape: Sequence[int], num_atoms: int, hidden_layers=(200, 200), noisy=False, device=None, **kwargs):
+    def __init__(
+        self,
+        input_shape: Sequence[int],
+        output_shape: Sequence[int],
+        num_atoms: int,
+        hidden_layers=(200, 200),
+        device=None,
+        **kwargs
+    ):
         """
         Parameters
+            input_shape: Shape of the single input.
+            output_shape: Shape of the expected output.
+            num_atoms: Number of atoms used in estimating distribution.
             pre_network_fn (func):
                 A shared network that is used before *value* and *advantage* networks.
         """
         super(RainbowNet, self).__init__()
+        self.device = device
 
         self.pre_network = None
         in_features = input_shape[0]
@@ -180,18 +192,29 @@ class RainbowNet(NetworkType, nn.Module):
             self.pre_netowrk_params = self.pre_network.parameters()  # Registers pre_network's parameters to this module
             in_features = self.pre_network.out_features
 
-        if noisy:
+        self.v_min = float(kwargs.get("v_min", -10))
+        self.v_max = float(kwargs.get("v_max", 10))
+        self.n_atoms = int(kwargs.get("n_atoms", 21))
+        self.z_atoms = torch.linspace(self.v_min, self.v_max, self.n_atoms, device=self.device)
+        self.z_delta = self.z_atoms[1] - self.z_atoms[0]
+
+        self.noisy = kwargs.get("noisy", False)
+        if self.noisy:
             self.value_net = NoisyNet(in_features, num_atoms, hidden_layers=hidden_layers, device=device)
             self.advantage_net = NoisyNet(in_features, out_features*num_atoms, hidden_layers=hidden_layers, device=device)
         else:
             self.value_net = FcNet(in_features, num_atoms, hidden_layers=hidden_layers, gate_out=None, device=device)
             self.advantage_net = FcNet((in_features,), (out_features*num_atoms,), hidden_layers=hidden_layers, gate_out=None, device=device)
 
-        self.noisy = noisy
         self.in_features = in_features if self.pre_network is None else self.pre_network.in_features
         self.out_features = out_features
         self.num_atoms = num_atoms
-        self.to(device=device)
+        self.to(device=self.device)
+
+    @lru_cache(maxsize=5)
+    def _offset(self, batch_size):
+        offset = torch.linspace(0, ((batch_size - 1) * self.n_atoms), batch_size, device=self.device)
+        return offset.unsqueeze(1).expand(batch_size, self.n_atoms)
 
     def reset_noise(self):
         if self.noisy:
@@ -233,3 +256,38 @@ class RainbowNet(NetworkType, nn.Module):
             # Doc: It's computationally quicker than log(softmax) and more stable
             return F.log_softmax(q, dim=-1)
         return F.softmax(q, dim=-1)
+
+    def dist_projection(self, rewards: torch.Tensor, masks: torch.Tensor, discount: float, prob_next: torch.Tensor) -> torch.Tensor:
+        """
+        Parameters:
+            rewards: Tensor containing rewards that are used as offsets for each distrubitions.
+            masks: Tensor indicating whether the iteration is terminal. Usually `masks = 1 - dones`.
+            discount: H
+        """
+        batch_size = rewards.shape[0]
+        Tz = rewards + discount * masks * self.z_atoms.view(1, -1)
+        assert Tz.shape == (batch_size, self.n_atoms)
+        Tz.clamp_(self.v_min, self.v_max)  # in place
+
+        b_idx = (Tz - self.v_min) / self.z_delta
+        l_idx = b_idx.floor().to(torch.int64)
+        u_idx = b_idx.ceil().to(torch.int64)
+
+        # Fix disappearing probability mass when l = b = u (b is int)
+        l_idx[(u_idx > 0) * (l_idx == u_idx)] -= 1
+        u_idx[(l_idx < (self.n_atoms - 1)) * (l_idx == u_idx)] += 1
+
+        offset = self._offset(batch_size)
+        l_offset_idx = (l_idx + offset).type(torch.int64)
+        u_offset_idx = (u_idx + offset).type(torch.int64)
+
+        # Distribute probability of Tz
+        m = rewards.new_zeros(batch_size * self.n_atoms)
+
+        # Dealing with indices. *Note* not to forget batches.
+        # m[l] = m[l] + p(s[t+n], a*)(u - b)
+        m.index_add_(0, l_offset_idx.view(-1), (prob_next * (u_idx.float() - b_idx)).view(-1))
+        # m[u] = m[u] + p(s[t+n], a*)(b - l)
+        m.index_add_(0, u_offset_idx.view(-1), (prob_next * (b_idx - l_idx.float())).view(-1))
+
+        return m.view(batch_size, self.n_atoms)

@@ -51,7 +51,7 @@ class AgentType(abc.ABC):
 
     def _register_param(self, source: Dict[str, Any], name: str, default_value=None, drop=False) -> Any:
         self._config[name] = value = source.get(name, default_value)
-        if drop:
+        if drop and name in source:
             del source[name]
         return value
 

@@ -68,7 +68,7 @@ class RainbowAgent(AgentType):
         self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))
         self.tau = float(self._register_param(kwargs, 'tau', 0.002))
         self.update_freq = int(self._register_param(kwargs, 'update_freq', 1))
-        self.batch_size = int(self._register_param(kwargs, 'batch_size', 32, drop=True))
+        self.batch_size = int(self._register_param(kwargs, 'batch_size', 80))
         self.buffer_size = int(self._register_param(kwargs, 'buffer_size', 1e5))
         self.warm_up = int(self._register_param(kwargs, 'warm_up', 0))
         self.number_updates = int(self._register_param(kwargs, 'number_updates', 1))
@@ -80,24 +80,22 @@ class RainbowAgent(AgentType):
         self.state_transform = state_transform if state_transform is not None else lambda x: x
         self.reward_transform = reward_transform if reward_transform is not None else lambda x: x
 
-        self.v_min = float(self._register_param(kwargs, "v_min", -10))
-        self.v_max = float(self._register_param(kwargs, "v_max", 10))
+        v_min = float(self._register_param(kwargs, "v_min", -10))
+        v_max = float(self._register_param(kwargs, "v_max", 10))
         self.n_atoms = int(self._register_param(kwargs, "n_atoms", 21))
-        self.z_atoms = torch.linspace(self.v_min, self.v_max, self.n_atoms, device=self.device)
+        self.z_atoms = torch.linspace(v_min, v_max, self.n_atoms, device=self.device)
         self.z_delta = self.z_atoms[1] - self.z_atoms[0]
 
         self.buffer = PERBuffer(batch_size=self.batch_size, buffer_size=self.buffer_size)
         self.__batch_indices = torch.arange(self.batch_size, device=self.device)
-        self.offset = torch.linspace(0, ((self.batch_size - 1) * self.n_atoms), self.batch_size, device=self.device)
-        self.offset = self.offset.unsqueeze(1).expand(self.batch_size, self.n_atoms)
 
         self.n_steps = self._register_param(kwargs, "n_steps", 3)
         self.n_buffer = NStepBuffer(n_steps=self.n_steps, gamma=self.gamma)
 
         # Note that in case a pre_network is provided, e.g. a shared net that extracts pixels values,
         # it should be explicitly passed in kwargs
-        self.net = RainbowNet(self.input_shape, self.output_shape, num_atoms=self.n_atoms, **kwargs)
-        self.target_net = RainbowNet(self.input_shape, self.output_shape, num_atoms=self.n_atoms, **kwargs)
+        self.net = RainbowNet(self.input_shape, self.output_shape, num_atoms=self.n_atoms, batch_size=self.batch_size, **kwargs)
+        self.target_net = RainbowNet(self.input_shape, self.output_shape, num_atoms=self.n_atoms, batch_size=self.batch_size, **kwargs)
 
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
         self.dist_probs = None
@@ -179,6 +177,9 @@ class RainbowAgent(AgentType):
         states = to_tensor(experiences['state']).float().to(self.device)
         next_states = to_tensor(experiences['next_state']).float().to(self.device)
         actions = to_tensor(experiences['action']).type(torch.long).to(self.device)
+        assert rewards.shape == dones.shape == (self.batch_size, 1)
+        assert states.shape == next_states.shape == (self.batch_size, self.in_features)
+        assert actions.shape == (self.batch_size, 1)  # Discrete domain
 
         with torch.no_grad():
             prob_next = self.target_net.act(next_states)
@@ -191,36 +192,17 @@ class RainbowAgent(AgentType):
 
             prob_next = prob_next[self.__batch_indices, a_next, :]
 
-            Tz = rewards + self.gamma ** self.n_steps * (1 - dones) * self.z_atoms.view(1, -1)
-            Tz.clamp_(self.v_min, self.v_max)  # in place
-
-            b_idx = (Tz - self.v_min) / self.z_delta
-            l_idx = b_idx.floor().to(torch.int64)
-            u_idx = b_idx.ceil().to(torch.int64)
-
-            # Fix disappearing probability mass when l = b = u (b is int)
-            l_idx[(u_idx > 0) * (l_idx == u_idx)] -= 1
-            u_idx[(l_idx < (self.n_atoms - 1)) * (l_idx == u_idx)] += 1
-
-            l_offset_idx = (l_idx + self.offset).type(torch.int64)
-            u_offset_idx = (u_idx + self.offset).type(torch.int64)
-
-            # Distribute probability of Tz
-            m = states.new_zeros(self.batch_size * self.n_atoms)
-
-            # Dealing with indices. *Note* not to forget batches.
-            # m[l] = m[l] + p(s[t+n], a*)(u - b)
-            m.index_add_(0, l_offset_idx.view(-1), (prob_next * (u_idx.float() - b_idx)).view(-1))
-            # m[u] = m[u] + p(s[t+n], a*)(b - l)
-            m.index_add_(0, u_offset_idx.view(-1), (prob_next * (b_idx - l_idx.float())).view(-1))
-
-            m = m.view(self.batch_size, self.n_atoms)
+        m = self.net.dist_projection(rewards, 1 - dones, self.gamma ** self.n_steps, prob_next)
+        assert m.shape == (self.batch_size, self.n_atoms)
 
         log_prob = self.net(states, log_prob=True)
+        assert log_prob.shape == (self.batch_size, self.out_features, self.n_atoms)
         log_prob = log_prob[self.__batch_indices, actions.squeeze(), :]
+        assert log_prob.shape == m.shape == (self.batch_size, self.n_atoms)
 
         # Cross-entropy loss error and the loss is batch mean
         error = -torch.sum(m * log_prob, 1)
+        assert error.shape == (self.batch_size,)
         loss = error.mean()
         assert loss >= 0
 
@@ -228,7 +210,7 @@ class RainbowAgent(AgentType):
         loss.backward()
         nn.utils.clip_grad_norm_(self.net.parameters(), self.max_grad_norm)
         self.optimizer.step()
-        self.loss = loss.item()
+        self._loss = float(loss.item())
 
         if hasattr(self.buffer, 'priority_update'):
             assert (~torch.isnan(error)).any()
@@ -247,7 +229,7 @@ class RainbowAgent(AgentType):
         return self.net.state_dict()
 
     def log_writer(self, writer, iteration, full_mode=False):
-        writer.add_scalar("loss/agent", self.loss, iteration)
+        writer.add_scalar("loss/agent", self._loss, iteration)
 
         if full_mode and self.dist_probs is not None:
             for action_idx in range(self.out_features):
