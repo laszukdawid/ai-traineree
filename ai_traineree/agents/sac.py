@@ -71,7 +71,7 @@ class SACAgent(AgentType):
 
         # Reason sequence initiation.
         hidden_layers = kwargs.get('hidden_layers', (128, 128))
-        self.policy = MultivariateGaussianPolicy(self.action_size[0], self.batch_size, device=self.device)
+        self.policy = MultivariateGaussianPolicy(self.action_size[0], device=self.device)
         self.actor = ActorBody(self.state_size, self.policy.param_dim*self.action_size[0], hidden_layers=hidden_layers, device=self.device)
 
         self.double_critic = DoubleCritic(self.state_size, self.action_size[0], CriticBody, hidden_layers=hidden_layers, device=self.device)

@@ -92,9 +92,9 @@ class PPOAgent(AgentType):
 
         if kwargs.get("simple_policy", False):
             std_init = kwargs.get("std_init", 1.0)
-            self.policy = MultivariateGaussianPolicySimple(self.action_size, self.batch_size, std_init=std_init, device=self.device)
+            self.policy = MultivariateGaussianPolicySimple(self.action_size, std_init=std_init, device=self.device)
         else:
-            self.policy = MultivariateGaussianPolicy(self.action_size, self.batch_size, device=self.device)
+            self.policy = MultivariateGaussianPolicy(self.action_size, device=self.device)
 
         self.memory = ReplayBuffer(batch_size=self.rollout_length, buffer_size=self.rollout_length)
         self.actor = ActorBody(state_size, self.policy.param_dim*action_size, gate_out=None, hidden_layers=self.hidden_layers, device=self.device)

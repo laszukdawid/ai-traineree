@@ -29,7 +29,7 @@ def test_multi_gauss_simple_std_updates():
     test_loc = torch.arange(size).unsqueeze(0)  # Shape: (1, 5)
     test_std = torch.full((size,), std_init)  # Shape: (5,)
     test_cov_mat = torch.eye(size).unsqueeze(0) * std_init**2  # Shape: (1, 5, 5)
-    policy = MultivariateGaussianPolicySimple(size, 1, std_init=std_init, std_min=std_min, std_max=std_max)
+    policy = MultivariateGaussianPolicySimple(size, std_init=std_init, std_min=std_min, std_max=std_max)
 
     # Act
     dist = policy(test_loc)
@@ -49,7 +49,7 @@ def test_multi_gauss_simple_statistic():
     batch_size = 3000
     expected_loc = torch.tensor([-2., 0, 2.])  # Shape: (3,)
     expected_std = test_std = torch.tensor([0.1, 1, 2.])
-    policy = MultivariateGaussianPolicySimple(size, batch_size, std_max=max(expected_std)*2)
+    policy = MultivariateGaussianPolicySimple(size, std_max=max(expected_std)*2)
     policy.std.data = test_std
     test_loc = expected_loc.repeat((batch_size, 1))  # Shape: (3000, 3)
 
@@ -68,8 +68,7 @@ def test_multi_gauss_simple_statistic():
 def test_multi_gauss():
     # Assign
     size = 3
-    batch_size = 10
-    policy = MultivariateGaussianPolicy(size, batch_size=batch_size)
+    policy = MultivariateGaussianPolicy(size)
     loc = torch.zeros((1, size))  # Shape: (1, 3)
     std = torch.ones((1, size))  # Shape: (1, 3)
     x = torch.hstack((loc, std))  # Shape: (1, 6)
