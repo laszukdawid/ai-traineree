@@ -74,7 +74,7 @@ class PPOAgent(AgentType):
         self.target_kl = float(self._register_param(kwargs, "target_kl", 0.01))
         self.kl_div = float('inf')
 
-        self.executor_num = int(self._register_param(kwargs, "executor_num", 1))  # TODO: Is this the right name?
+        self.num_workers = int(self._register_param(kwargs, "num_workers", 1))
         self.rollout_length = int(self._register_param(kwargs, "rollout_length", 48))  # "Much less than the episode length"
         self.batch_size = int(self._register_param(kwargs, "batch_size", self.rollout_length))
         self.actor_number_updates = int(self._register_param(kwargs, "actor_number_updates", 10))
@@ -104,8 +104,8 @@ class PPOAgent(AgentType):
 
         self.actor_opt = optim.Adam(self.actor_params, lr=self.actor_lr, betas=self.actor_betas)
         self.critic_opt = optim.Adam(self.critic_params, lr=self.critic_lr, betas=self.critic_betas)
-        self._loss_actor: float = 0
-        self._loss_critic: float = 0
+        self._loss_actor: float = float('nan')
+        self._loss_critic: float = float('nan')
 
     @property
     def loss(self) -> Dict[str, float]:
@@ -123,46 +123,47 @@ class PPOAgent(AgentType):
     def __clear_memory(self):
         self.memory = ReplayBuffer(batch_size=self.rollout_length, buffer_size=self.rollout_length)
 
+    @torch.no_grad()
     def act(self, state, epsilon: float=0.):
         actions = []
         logprobs = []
         values = []
-        with torch.no_grad():
-            state = to_tensor(state).view(self.executor_num, self.state_size).float().to(self.device)
-            for executor in range(self.executor_num):
-                actor_est = self.actor.act(state[executor].unsqueeze(0))
-                assert not torch.any(torch.isnan(actor_est))
+        state = to_tensor(state).view(self.num_workers, self.state_size).float().to(self.device)
+        for worker in range(self.num_workers):
+            actor_est = self.actor.act(state[worker].unsqueeze(0))
+            assert not torch.any(torch.isnan(actor_est))
 
-                dist = self.policy(actor_est)
-                action = dist.sample()
-                value = self.critic.act(state[executor].unsqueeze(0))  # Shape: (1, 1)
-                logprob = self.policy.log_prob(dist, action)  # Shape: (1,)
-                values.append(value)
-                logprobs.append(logprob)
+            dist = self.policy(actor_est)
+            action = dist.sample()
+            value = self.critic.act(state[worker].unsqueeze(0))  # Shape: (1, 1)
+            logprob = self.policy.log_prob(dist, action)  # Shape: (1,)
+            values.append(value)
+            logprobs.append(logprob)
 
-                if self.is_discrete:  # *Technically* it's the max of Softmax but that's monotonic.
-                    action = int(torch.argmax(action))
-                else:
-                    # TODO: This *makes sense* but seems that some environments work better without.
-                    #       Should we leave min/scale/max to the policy learning?
-                    # action = torch.clamp(action*self.action_scale, self.action_min, self.action_max).cpu()
-                actions.append(action)
+            if self.is_discrete:  # *Technically* it's the max of Softmax but that's monotonic.
+                action = int(torch.argmax(action))
+            else:
+                # TODO: This *makes sense* but seems that some environments work better without.
+                #       Should we leave min/scale/max to the policy learning?
+                # action = torch.clamp(action*self.action_scale, self.action_min, self.action_max)
+                action = action.cpu().numpy().flatten().tolist()
+            actions.append(action)
 
-            self.local_memory_buffer['value'] = torch.cat(values)
-            self.local_memory_buffer['logprob'] = torch.stack(logprobs)
-            assert len(actions) == self.executor_num
-            return actions if self.executor_num > 1 else actions[0]
+        self.local_memory_buffer['value'] = torch.cat(values)
+        self.local_memory_buffer['logprob'] = torch.stack(logprobs)
+        assert len(actions) == self.num_workers
+        return actions if self.num_workers > 1 else actions[0]
 
-    def step(self, states, actions, rewards, next_state, done, **kwargs):
+    def step(self, states, actions, rewards, next_states, dones, **kwargs):
         self.iteration += 1
 
         self.memory.add(
-            state=torch.tensor(states).reshape(self.executor_num, self.state_size).float(),
-            action=torch.tensor(actions).reshape(self.executor_num, self.action_size).float(),
-            reward=torch.tensor(rewards).reshape(self.executor_num, 1),
-            done=torch.tensor(done).reshape(self.executor_num, 1),
-            logprob=self.local_memory_buffer['logprob'].reshape(self.executor_num, 1),
-            value=self.local_memory_buffer['value'].reshape(self.executor_num, 1),
+            state=torch.tensor(states).reshape(self.num_workers, self.state_size).float(),
+            action=torch.tensor(actions).reshape(self.num_workers, self.action_size).float(),
+            reward=torch.tensor(rewards).reshape(self.num_workers, 1),
+            done=torch.tensor(dones).reshape(self.num_workers, 1),
+            logprob=self.local_memory_buffer['logprob'].reshape(self.num_workers, 1),
+            value=self.local_memory_buffer['value'].reshape(self.num_workers, 1),
         )
 
         if self.iteration % self.rollout_length == 0:
@@ -181,8 +182,8 @@ class PPOAgent(AgentType):
         values = to_tensor(experiences['value']).to(self.device)
         logprobs = to_tensor(experiences['logprob']).to(self.device)
         assert rewards.shape == dones.shape == values.shape == logprobs.shape
-        assert states.shape == (self.rollout_length, self.executor_num, self.state_size), f"Wrong state shape: {states.shape}"
-        assert actions.shape == (self.rollout_length, self.executor_num, self.action_size), f"Wrong action shape: {actions.shape}"
+        assert states.shape == (self.rollout_length, self.num_workers, self.state_size), f"Wrong state shape: {states.shape}"
+        assert actions.shape == (self.rollout_length, self.num_workers, self.action_size), f"Wrong action shape: {actions.shape}"
 
         # Normalize values. Keep mean and std to update next_value estimate.
         values_mean, values_std = values.mean(dim=0), values.std(dim=0)
@@ -190,7 +191,6 @@ class PPOAgent(AgentType):
 
         with torch.no_grad():
             if self.using_gae:
-                # next_value = (self.critic.act(states[-1], actions[-1]) - values_mean) / torch.clamp(values_std, EPS)
                 next_value = (self.critic.act(states[-1]) - values_mean) / torch.clamp(values_std, EPS)
                 advantages = compute_gae(rewards, dones, values, next_value, self.gamma, self.gae_lambda)
                 advantages = normalize(advantages)
