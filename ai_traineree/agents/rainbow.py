@@ -228,32 +228,32 @@ class RainbowAgent(AgentType):
         """
         return self.net.state_dict()
 
-    def log_writer(self, writer, iteration, full_mode=False):
-        writer.add_scalar("loss/agent", self._loss, iteration)
+    def log_writer(self, writer, step: int, full_log: bool=False):
+        writer.add_scalar("loss/agent", self._loss, step)
 
-        if full_mode and self.dist_probs is not None:
+        if full_log and self.dist_probs is not None:
             for action_idx in range(self.out_features):
                 dist = self.dist_probs[0, action_idx]
-                writer.add_scalar(f'dist/expected_{action_idx}', (dist*self.z_atoms).sum(), iteration)
+                writer.add_scalar(f'dist/expected_{action_idx}', (dist*self.z_atoms).sum(), step)
                 writer.add_histogram_raw(
                     f'dist/Q_{action_idx}', min=self.z_atoms[0], max=self.z_atoms[-1], num=len(self.z_atoms),
                     sum=dist.sum(), sum_squares=dist.pow(2).sum(), bucket_limits=self.z_atoms+self.z_delta,
-                    bucket_counts=dist, global_step=iteration
+                    bucket_counts=dist, global_step=step
                 )
 
         # This method, `log_writer`, isn't executed on every iteration but just in case we delay plotting weights.
         # It simply might be quite costly. Thread wisely.
-        if full_mode:
+        if full_log:
             for idx, layer in enumerate(self.net.value_net.layers):
                 if hasattr(layer, "weight"):
-                    writer.add_histogram(f"value_net/layer_weights_{idx}", layer.weight, iteration)
+                    writer.add_histogram(f"value_net/layer_weights_{idx}", layer.weight, step)
                 if hasattr(layer, "bias") and layer.bias is not None:
-                    writer.add_histogram(f"value_net/layer_bias_{idx}", layer.bias, iteration)
+                    writer.add_histogram(f"value_net/layer_bias_{idx}", layer.bias, step)
             for idx, layer in enumerate(self.net.advantage_net.layers):
                 if hasattr(layer, "weight"):
-                    writer.add_histogram(f"advantage_net/layer_{idx}", layer.weight, iteration)
+                    writer.add_histogram(f"advantage_net/layer_{idx}", layer.weight, step)
                 if hasattr(layer, "bias") and layer.bias is not None:
-                    writer.add_histogram(f"advantage_net/layer_bias_{idx}", layer.bias, iteration)
+                    writer.add_histogram(f"advantage_net/layer_bias_{idx}", layer.bias, step)
 
     def save_state(self, path: str) -> None:
         """Saves agent's state into a file.

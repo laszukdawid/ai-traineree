@@ -24,7 +24,8 @@ class DDPGAgent(AgentType):
     name = "DDPG"
 
     def __init__(
-        self, state_size: int,
+        self,
+        state_size: int,
         action_size: int,
         hidden_layers: Sequence[int]=(128, 128),
         actor_lr: float=2e-3,
@@ -35,12 +36,14 @@ class DDPGAgent(AgentType):
         **kwargs
     ):
         self.device = device = self._register_param(kwargs, "device", DEVICE)
+        self.state_size = state_size
+        self.action_size = action_size
 
         # Reason sequence initiation.
         self.hidden_layers = self._register_param(kwargs, 'hidden_layers', hidden_layers)
-        self.actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
+        self.actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers, gate_out=torch.tanh).to(self.device)
         self.critic = CriticBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
-        self.target_actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
+        self.target_actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers, gate_out=torch.tanh).to(self.device)
         self.target_critic = CriticBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
 
         # Noise sequence initiation
@@ -96,18 +99,13 @@ class DDPGAgent(AgentType):
             self._loss_actor = value
             self._loss_critic = value
 
+    @torch.no_grad()
     def act(self, obs, noise: float=0.0):
-        with torch.no_grad():
-            obs = to_tensor(obs).float().to(self.device)
-            action = self.actor(obs)
-            action += noise*self.noise.sample()
-            return self.action_scale*torch.clamp(action, self.action_min, self.action_max).cpu().numpy().astype(_float32)
-
-    def target_act(self, obs, noise: float=0.0):
-        with torch.no_grad():
-            obs = to_tensor(obs).float().to(self.device)
-            action = self.target_actor(obs) + noise*self.noise.sample()
-            return torch.clamp(action, self.action_min, self.action_max).cpu().numpy().astype(_float32)
+        obs = to_tensor(obs).float().to(self.device)
+        action = self.actor(obs)
+        action += noise*self.noise.sample()
+        action = torch.clamp(action*self.action_scale, self.action_min, self.action_max)
+        return action.cpu().numpy().astype(_float32)
 
     def step(self, state, action, reward, next_state, done):
         self.iteration += 1
@@ -120,6 +118,19 @@ class DDPGAgent(AgentType):
             for _ in range(self.number_updates):
                 self.learn(self.buffer.sample())
 
+    def compute_value_loss(self, states, actions, next_states, rewards, dones):
+        next_actions = self.target_actor.act(next_states)
+        assert next_actions.shape == actions.shape
+        Q_target_next = self.target_critic.act(next_states, next_actions)
+        Q_target = rewards + self.gamma * Q_target_next * (1 - dones)
+        Q_expected = self.critic(states, actions)
+        assert Q_expected.shape == Q_target.shape == Q_target_next.shape
+        return mse_loss(Q_expected, Q_target)
+
+    def compute_policy_loss(self, states):
+        pred_actions = self.actor(states)
+        return -self.critic(states, pred_actions).mean()
+
     def learn(self, experiences):
         """Update critics and actors"""
         rewards = to_tensor(experiences['reward']).float().to(self.device).unsqueeze(1)
@@ -127,30 +138,27 @@ class DDPGAgent(AgentType):
         states = to_tensor(experiences['state']).float().to(self.device)
         actions = to_tensor(experiences['action']).to(self.device)
         next_states = to_tensor(experiences['next_state']).float().to(self.device)
+        assert rewards.shape == dones.shape == (self.batch_size, 1)
+        assert states.shape == next_states.shape == (self.batch_size, self.state_size)
+        assert actions.shape == (self.batch_size, self.action_size)
 
-        # critic loss
-        next_actions = self.target_actor(next_states)
-        Q_target_next = self.target_critic(next_states, next_actions)
-        Q_target = rewards + (self.gamma * Q_target_next * (1 - dones))
-        Q_expected = self.critic(states, actions)
-        loss_critic = mse_loss(Q_expected, Q_target)
-
-        # Minimize the loss
+        # Value (critic) optimization
+        loss_critic = self.compute_value_loss(states, actions, next_states, rewards, dones)
         self.critic_optimizer.zero_grad()
         loss_critic.backward()
-        nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm_critic)
+        nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm_critic)
         self.critic_optimizer.step()
-        self._loss_critic = loss_critic.item()
+        self._loss_critic = float(loss_critic.item())
 
-        # Compute actor loss
-        pred_actions = self.actor(states)
-        loss_actor = -self.critic(states, pred_actions).mean()
+        # Policy (actor) optimization
+        loss_actor = self.compute_policy_loss(states)
         self.actor_optimizer.zero_grad()
         loss_actor.backward()
         nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm_actor)
         self.actor_optimizer.step()
         self._loss_actor = loss_actor.item()
 
+        # Soft update target weights
         soft_update(self.target_actor, self.actor, self.tau)
         soft_update(self.target_critic, self.critic, self.tau)
 
@@ -161,9 +169,22 @@ class DDPGAgent(AgentType):
         """
         return (self.actor.state_dict(), self.target_actor.state_dict(), self.critic.state_dict(), self.target_critic())
 
-    def log_writer(self, writer, episode):
-        writer.add_scalar("loss/actor", self._loss_actor, episode)
-        writer.add_scalar("loss/critic", self._loss_critic, episode)
+    def log_writer(self, writer, step: int, full_log: bool=False):
+        writer.add_scalar("loss/actor", self._loss_actor, step)
+        writer.add_scalar("loss/critic", self._loss_critic, step)
+
+        if full_log:
+            for idx, layer in enumerate(self.actor.layers):
+                if hasattr(layer, "weight"):
+                    writer.add_histogram(f"actor/layer_weights_{idx}", layer.weight, step)
+                if hasattr(layer, "bias") and layer.bias is not None:
+                    writer.add_histogram(f"actor/layer_bias_{idx}", layer.bias, step)
+
+            for idx, layer in enumerate(self.critic.layers):
+                if hasattr(layer, "weight"):
+                    writer.add_histogram(f"critic/layer_weights_{idx}", layer.weight, step)
+                if hasattr(layer, "bias") and layer.bias is not None:
+                    writer.add_histogram(f"critic/layer_bias_{idx}", layer.bias, step)
 
     def save_state(self, path: str):
         agent_state = dict(
