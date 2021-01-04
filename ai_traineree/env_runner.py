@@ -10,10 +10,10 @@ from ai_traineree.types import ActionType, AgentType, DoneType, MultiAgentType, 
 from ai_traineree.types import MultiAgentTaskType
 from collections import deque
 from pathlib import Path
-from typing import Any, List, Optional, Sequence, Tuple
+from typing import Any, Iterable, List, Optional, Tuple
 
 
-FRAMES_PER_SEC = 25
+FRAMES_PER_SEC = 45
 logging.basicConfig(
     stream=sys.stdout,
     level=logging.INFO,
@@ -282,20 +282,18 @@ class EnvRunner:
             for loss_name, loss_value in kwargs.get('loss', {}).items():
                 self.writer.add_scalar(f"loss/{loss_name}", loss_value, self.iteration)
 
-        while(len(self._actions) > 0):
+        while(self._actions):
             step, actions = self._actions.pop()
-            actions = actions if isinstance(actions, Sequence) else [actions]
+            actions = actions if isinstance(actions, Iterable) else [actions]
             self.writer.add_scalars("env/action", {str(i): a for i, a in enumerate(actions)}, step)
 
-        while(len(self._rewards) > 0):
+        while(self._rewards):
             step, rewards = self._rewards.pop()
-            rewards = rewards if isinstance(rewards, Sequence) else [rewards]
-            self.writer.add_scalars("env/reward", {str(i): r for i, r in enumerate(rewards)}, step)
+            self.writer.add_scalar("env/reward", float(rewards), step)
 
-        while(len(self._dones) > 0):
+        while(self._dones):
             step, dones = self._dones.pop()
-            dones = dones if isinstance(dones, Sequence) else [dones]
-            self.writer.add_scalars("env/done", {str(i): d for i, d in enumerate(dones)}, step)
+            self.writer.add_scalar("env/done", int(dones), step)
 
     def save_state(self, state_name: str):
         """Saves the current state of the runner and the agent.
@@ -592,6 +590,7 @@ class MultiSyncEnvRunner:
                         scores=self.all_scores[-log_every:],
                         mean_scores=mean_scores[-log_every:],
                         epsilons=epsilons[-log_every:],
+                        loss=self.agent.loss,
                     )
 
                 if self.episode % checkpoint_every == 0:
@@ -635,12 +634,14 @@ class MultiSyncEnvRunner:
         episode = kwargs.get('episodes')[-1]
         score = kwargs.get('scores')[-1]
         iteration = kwargs.get('iterations')[-1]
+        loss = kwargs.get('loss', {})
         mean_score = kwargs.get('mean_scores')[-1]
         epsilon = kwargs.get('epsilons')[-1]
         line_chunks = [f"Episode {episode};"]
         line_chunks += [f"Iter: {iteration};"]
         line_chunks += [f"Current Score: {score:.2f};"]
         line_chunks += [f"Average Score: {mean_score:.2f};"]
+        line_chunks += [f"{loss_name.capitalize()}: {loss_value:10.4f}" for (loss_name, loss_value) in loss.items()]
         line_chunks += [f"Epsilon: {epsilon:5.3f};"]
         line = "\t".join(line_chunks)
         self.logger.info(line.format(**kwargs))
@@ -952,19 +953,19 @@ class MultiAgentEnvRunner:
             for loss_name, loss_value in kwargs.get('loss', {}).items():
                 self.writer.add_scalar(f"loss/{loss_name}", loss_value, self.iteration)
 
-        while(len(self._actions) > 0):
+        while(self._actions):
             step, actions = self._actions.pop()
-            actions = actions if isinstance(actions, Sequence) else [actions]
+            actions = actions if isinstance(actions, Iterable) else [actions]
             self.writer.add_scalars("env/action", {str(i): a for i, a in enumerate(actions)}, step)
 
-        while(len(self._rewards) > 0):
+        while(self._rewards):
             step, rewards = self._rewards.pop()
-            rewards = rewards if isinstance(rewards, Sequence) else [rewards]
+            rewards = rewards if isinstance(rewards, Iterable) else [rewards]
             self.writer.add_scalars("env/reward", {str(i): r for i, r in enumerate(rewards)}, step)
 
-        while(len(self._dones) > 0):
+        while(self._dones):
             step, dones = self._dones.pop()
-            dones = dones if isinstance(dones, Sequence) else [dones]
+            dones = dones if isinstance(dones, Iterable) else [dones]
             self.writer.add_scalars("env/done", {str(i): d for i, d in enumerate(dones)}, step)
 
     def save_state(self, state_name: str):
