@@ -68,6 +68,9 @@ class EnvRunner:
 
         self.writer = kwargs.get("writer")
         self.logger.info("writer: %s", str(self.writer))
+        if self.writer:
+            self.writer.add_hparams(self.agent.hparams, {})
+
         self._actions: List[Any] = []
         self._rewards: List[Any] = []
         self._dones: List[Any] = []
@@ -214,6 +217,15 @@ class EnvRunner:
 
             if self.episode % checkpoint_every == 0:
                 self.save_state(self.model_path)
+
+        # Store hyper parameters and experiment metrics in logger so that it's easier to compare runs
+        if self.writer:
+            end_metrics = {
+                "hparam/total_iterations": sum(self.all_iterations),
+                "hparam/total_episodes": len(self.all_iterations),
+                "hparam/score": mean_scores[-1],
+            }
+            self.writer.add_hparams(self.agent.hparams, end_metrics, run_name="hparams")
 
         return self.all_scores
 

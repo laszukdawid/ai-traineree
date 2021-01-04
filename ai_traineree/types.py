@@ -49,6 +49,12 @@ class AgentType(abc.ABC):
     loss: Dict[str, float]
     _config: Dict = {}
 
+    @property
+    def hparams(self):
+        def make_strings_out_of_things_that_are_not_obvious_numbers(v):
+            return str(v) if v is not isinstance(v, (int, float)) else v
+        return {k: make_strings_out_of_things_that_are_not_obvious_numbers(v) for (k, v) in self._config.items()}
+
     def _register_param(self, source: Dict[str, Any], name: str, default_value=None, drop=False) -> Any:
         self._config[name] = value = source.get(name, default_value)
         if drop and name in source:
@@ -83,6 +89,12 @@ class MultiAgentType(abc.ABC):
     agents: List[AgentType]
     agents_number: int
     _config: Dict = {}
+
+    @property
+    def hparams(self):
+        def make_strings_out_of_things_that_are_not_obvious_numbers(v):
+            return str(v) if v is not isinstance(v, (int, float)) else v
+        return {k: make_strings_out_of_things_that_are_not_obvious_numbers(v) for (k, v) in self._config.items()}
 
     def _register_param(self, source: Dict[str, Any], name: str, default_value=None, drop=False) -> Any:
         self._config[name] = value = source.get(name, default_value)
