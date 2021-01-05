@@ -82,8 +82,8 @@ class RainbowAgent(AgentType):
 
         v_min = float(self._register_param(kwargs, "v_min", -10))
         v_max = float(self._register_param(kwargs, "v_max", 10))
-        self.n_atoms = int(self._register_param(kwargs, "n_atoms", 21))
-        self.z_atoms = torch.linspace(v_min, v_max, self.n_atoms, device=self.device)
+        self.num_atoms = int(self._register_param(kwargs, "num_atoms", 21))
+        self.z_atoms = torch.linspace(v_min, v_max, self.num_atoms, device=self.device)
         self.z_delta = self.z_atoms[1] - self.z_atoms[0]
 
         self.buffer = PERBuffer(batch_size=self.batch_size, buffer_size=self.buffer_size)
@@ -94,8 +94,8 @@ class RainbowAgent(AgentType):
 
         # Note that in case a pre_network is provided, e.g. a shared net that extracts pixels values,
         # it should be explicitly passed in kwargs
-        self.net = RainbowNet(self.input_shape, self.output_shape, num_atoms=self.n_atoms, batch_size=self.batch_size, **kwargs)
-        self.target_net = RainbowNet(self.input_shape, self.output_shape, num_atoms=self.n_atoms, batch_size=self.batch_size, **kwargs)
+        self.net = RainbowNet(self.input_shape, self.output_shape, num_atoms=self.num_atoms, batch_size=self.batch_size, **kwargs)
+        self.target_net = RainbowNet(self.input_shape, self.output_shape, num_atoms=self.num_atoms, batch_size=self.batch_size, **kwargs)
 
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
         self.dist_probs = None
@@ -193,12 +193,12 @@ class RainbowAgent(AgentType):
             prob_next = prob_next[self.__batch_indices, a_next, :]
 
         m = self.net.dist_projection(rewards, 1 - dones, self.gamma ** self.n_steps, prob_next)
-        assert m.shape == (self.batch_size, self.n_atoms)
+        assert m.shape == (self.batch_size, self.num_atoms)
 
         log_prob = self.net(states, log_prob=True)
-        assert log_prob.shape == (self.batch_size, self.out_features, self.n_atoms)
+        assert log_prob.shape == (self.batch_size, self.out_features, self.num_atoms)
         log_prob = log_prob[self.__batch_indices, actions.squeeze(), :]
-        assert log_prob.shape == m.shape == (self.batch_size, self.n_atoms)
+        assert log_prob.shape == m.shape == (self.batch_size, self.num_atoms)
 
         # Cross-entropy loss error and the loss is batch mean
         error = -torch.sum(m * log_prob, 1)

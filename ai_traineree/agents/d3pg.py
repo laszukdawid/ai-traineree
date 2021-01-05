@@ -82,13 +82,13 @@ class D3PGAgent(AgentType):
         self.actor = ActorBody(state_size, self.policy.param_dim*action_size, hidden_layers=hidden_layers, gate_out=torch.tanh, device=self.device)
         critic = CriticBody(state_size, action_size, out_features=self.num_atoms, hidden_layers=hidden_layers, device=self.device)
         self.critic = CategoricalNet(
-            state_size + action_size, 1, num_atoms=self.num_atoms,
-            v_min=v_min, v_max=v_max, hidden_layers=hidden_layers, net=critic, device=self.device
+            num_atoms=self.num_atoms, v_min=v_min, v_max=v_max,
+            net=critic, hidden_layers=hidden_layers, device=self.device
         )
         self.target_actor = ActorBody(state_size, self.policy.param_dim*action_size, hidden_layers=hidden_layers, gate_out=torch.tanh, device=self.device)
         target_critic = CriticBody(state_size, action_size, out_features=self.num_atoms, hidden_layers=hidden_layers, device=self.device)
         self.target_critic = CategoricalNet(
-            state_size + action_size, 1, num_atoms=self.num_atoms, v_min=v_min, v_max=v_max,
+            num_atoms=self.num_atoms, v_min=v_min, v_max=v_max,
             net=target_critic, hidden_layers=hidden_layers, device=self.device
         )
         self.value_loss_func = nn.BCELoss(reduction='none')
