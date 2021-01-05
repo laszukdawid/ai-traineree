@@ -148,11 +148,13 @@ class RainbowAgent(AgentType):
             soft_update(self.target_net, self.net, self.tau)
 
     def act(self, state, eps: float = 0.) -> int:
-        """Returns actions for given state as per current policy.
+        """
+        Returns actions for given state as per current policy.
 
         Parameters:
-            state (array_like): current state
-            eps (float): epsilon, for epsilon-greedy action selection
+            state: Current available state from the environment.
+            epislon: Epsilon value in the epislon-greedy policy.
+
         """
         # Epsilon-greedy action selection
         if np.random.random() < eps:

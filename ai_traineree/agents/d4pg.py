@@ -27,32 +27,32 @@ class D4PGAgent(AgentType):
     4. Prioritization of the experience replay (PER).
 
     [1] "Distributed Distributional Deterministic Policy Gradients"
-        (2018, ICLR) by G. Barth-Maron & M. Hoffman et al. 
+        (2018, ICLR) by G. Barth-Maron & M. Hoffman et al.
 
     """
 
     name = "D4PG"
 
-    def __init__(
-        self, state_size: int,
-        action_size: int,
-        hidden_layers: Sequence[int]=(128, 128),
-        actor_lr: float=2e-4,
-        critic_lr: float=2e-4,
-        clip: Tuple[int, int]=(-1, 1),
-        **kwargs
-    ):
+    def __init__(self, state_size: int, action_size: int, hidden_layers: Sequence[int]=(128, 128), **kwargs):
+        """
+        Parameters:
+            num_atoms: Number of discrete values for the value distribution. Default 51.
+            v_min: Value distribution minimum (left most) value. Default -10.
+            v_max: Value distribution maximum (right most) value. Default 10.
+            n_steps: Number of steps (N-steps) for the TD. Defualt 3.
+            num_workers: Number of workers that will assume this agent.
+        """
         self.device = self._register_param(kwargs, "device", DEVICE)
         self.state_size: int = state_size
         self.action_size = action_size
 
-        self.num_atoms = int(self._register_param(kwargs, 'num_atoms', 21))
+        self.num_atoms = int(self._register_param(kwargs, 'num_atoms', 51))
         v_min = float(self._register_param(kwargs, 'v_min', -10))
         v_max = float(self._register_param(kwargs, 'v_max', 10))
 
         # Reason sequence initiation.
-        self.action_min = clip[0]
-        self.action_max = clip[1]
+        self.action_min = float(self._register_param(kwargs, 'action_min', -1))
+        self.action_max = float(self._register_param(kwargs, 'action_max', 1))
         self.action_scale = self._register_param(kwargs, 'action_scale', 1)
 
         self.gamma: float = float(self._register_param(kwargs, 'gamma', 0.99))
@@ -66,42 +66,50 @@ class D4PGAgent(AgentType):
 
         self.warm_up: int = int(self._register_param(kwargs, 'warm_up', 0))
         self.update_freq: int = int(self._register_param(kwargs, 'update_freq', 1))
-        self.number_updates: int = int(self._register_param(kwargs, 'number_updates', 1))
 
-        # self.hidden_layers = self._register_param(kwargs, 'hidden_layers', hidden_layers)
-        self.hidden_layers = kwargs.get('hidden_layers', hidden_layers)
+        self.actor_hidden_layers = kwargs.get('actor_hidden_layers', hidden_layers)
+        self.critic_hidden_layers = kwargs.get('critic_hidden_layers', hidden_layers)
 
         if kwargs.get("simple_policy", False):
-            std_init = kwargs.get("std_init", 1.0)
-            std_max = kwargs.get("std_max", 1.0)
-            std_min = kwargs.get("std_min", 0.05)
+            std_init = self._register_param(kwargs, "std_init", 1.0)
+            std_max = self._register_param(kwargs, "std_max", 2.0)
+            std_min = self._register_param(kwargs, "std_min", 0.05)
             self.policy = MultivariateGaussianPolicySimple(self.action_size, std_init=std_init, std_min=std_min, std_max=std_max, device=self.device)
         else:
             self.policy = MultivariateGaussianPolicy(self.action_size, device=self.device)
 
-        self.actor = ActorBody(state_size, self.policy.param_dim*action_size, hidden_layers=hidden_layers, gate_out=torch.tanh, device=self.device)
-        critic = CriticBody(state_size, action_size, out_features=self.num_atoms, hidden_layers=hidden_layers, device=self.device)
+        # This looks messy but it's not that bad. Actor, critic_net and Critic(critic_net). Then the same for `target_`.
+        self.actor = ActorBody(
+            state_size, self.policy.param_dim*action_size, hidden_layers=self.actor_hidden_layers,
+            gate_out=torch.tanh, device=self.device
+        )
+        critic_net = CriticBody(
+            state_size, action_size, out_features=self.num_atoms, hidden_layers=self.critic_hidden_layers, device=self.device
+        )
         self.critic = CategoricalNet(
-            num_atoms=self.num_atoms, v_min=v_min, v_max=v_max,
-            net=critic, hidden_layers=self.hidden_layers, device=self.device
+            num_atoms=self.num_atoms, v_min=v_min, v_max=v_max, net=critic_net, device=self.device
         )
-        self.target_actor = ActorBody(state_size, self.policy.param_dim*action_size, hidden_layers=hidden_layers, gate_out=torch.tanh, device=self.device)
-        target_critic = CriticBody(state_size, action_size, out_features=self.num_atoms, hidden_layers=hidden_layers, device=self.device)
+
+        self.target_actor = ActorBody(
+            state_size, self.policy.param_dim*action_size, hidden_layers=self.actor_hidden_layers,
+            gate_out=torch.tanh, device=self.device
+        )
+        target_critic_net = CriticBody(
+            state_size, action_size, out_features=self.num_atoms, hidden_layers=self.critic_hidden_layers, device=self.device
+        )
         self.target_critic = CategoricalNet(
-            num_atoms=self.num_atoms, v_min=v_min, v_max=v_max,
-            net=target_critic, hidden_layers=self.hidden_layers, device=self.device
+            num_atoms=self.num_atoms, v_min=v_min, v_max=v_max, net=target_critic_net, device=self.device
         )
-        self.value_loss_func = nn.BCELoss(reduction='none')
 
         # Target sequence initiation
         hard_update(self.target_actor, self.actor)
         hard_update(self.target_critic, self.critic)
 
         # Optimization sequence initiation.
-        self.actor_lr = self._register_param(kwargs, 'actor_lr', actor_lr)
-        self.critic_lr = self._register_param(kwargs, 'critic_lr', critic_lr)
+        self.actor_lr = float(self._register_param(kwargs, 'actor_lr', 3e-4))
+        self.critic_lr = float(self._register_param(kwargs, 'critic_lr', 3e-4))
+        self.value_loss_func = nn.BCELoss(reduction='none')
 
-        # self.actor_params = list(self.actor.parameters()) #+ list(self.policy.parameters())
         self.actor_params = list(self.actor.parameters()) + list(self.policy.parameters())
         self.actor_optimizer = Adam(self.actor_params, lr=self.actor_lr)
         self.critic_optimizer = Adam(self.critic.parameters(), lr=self.critic_lr)
@@ -111,17 +119,9 @@ class D4PGAgent(AgentType):
         self.num_workers = int(self._register_param(kwargs, "num_workers", 1))
 
         # Breath, my child.
-        self.reset_agent()
         self.iteration = 0
         self._loss_actor = float('nan')
         self._loss_critic = float('nan')
-        # self._display_dist = torch.empty(self.critic.z_atoms.shape)
-
-    def reset_agent(self) -> None:
-        self.actor.reset_parameters()
-        self.critic.reset_parameters()
-        self.target_actor.reset_parameters()
-        self.target_critic.reset_parameters()
 
     @property
     def loss(self) -> Dict[str, float]:
@@ -138,13 +138,21 @@ class D4PGAgent(AgentType):
 
     @torch.no_grad()
     def act(self, state, epsilon: float=0.) -> List[Any]:
+        """
+        Returns actions for given state as per current policy.
+
+        Parameters:
+            state: Current available state from the environment.
+            epislon: Epsilon value in the epislon-greedy policy.
+
+        """
         actions = []
         state = to_tensor(state).view(self.num_workers, self.state_size).float().to(self.device)
         for worker in range(self.num_workers):
             if random.random() < epsilon:
                 action = self.action_scale*(torch.rand(self.action_size) - 0.5)
             else:
-                action_seed = self.actor.act(state[worker]).view(1, -1)
+                action_seed = self.actor.act(state[worker].view(1, -1))
                 action_dist = self.policy(action_seed)
                 action = action_dist.sample()
                 action *= self.action_scale
@@ -153,16 +161,6 @@ class D4PGAgent(AgentType):
 
         assert len(actions) == self.num_workers
         return actions
-
-    @torch.no_grad()
-    def target_act(self, obs, eps: float=0.0):
-        if random.random() < eps:
-            random_action = torch.rand(self.action_size)*(self.action_max - self.action_min) + self.action_min
-            return random_action.numpy()
-
-        obs = to_tensor(obs).float().to(self.device)
-        action = self.target_actor(obs)
-        return torch.clamp(action, self.action_min, self.action_max).cpu().numpy()
 
     def step(self, states, actions, rewards, next_states, dones):
         self.iteration += 1
@@ -192,8 +190,7 @@ class D4PGAgent(AgentType):
             return
 
         if len(self.buffer) > self.batch_size and (self.iteration % self.update_freq) == 0:
-            for _ in range(self.number_updates):
-                self.learn(self.buffer.sample())
+            self.learn(self.buffer.sample())
 
     def compute_value_loss(self, states, actions, next_states, rewards, dones, indices=None):
         # Q_w estimate
@@ -221,7 +218,8 @@ class D4PGAgent(AgentType):
 
         # Comparing Q_w with Q_w'
         loss = self.value_loss_func(value_dist, target_value_projected)
-        samples_error = loss.sum(dim=-1).abs()
+        self._metric_batch_error = loss.detach().sum(dim=-1)
+        samples_error = loss.sum(dim=-1).pow(2)
         loss_critic = samples_error.mean()
 
         if hasattr(self.buffer, 'priority_update') and indices is not None:
@@ -233,9 +231,11 @@ class D4PGAgent(AgentType):
     def compute_policy_loss(self, states):
         # Compute actor loss
         pred_action_seeds = self.actor(states)
+        pred_actions = self.policy.act(pred_action_seeds)
         pred_actions = self.policy(pred_action_seeds).rsample()
         # Negative because the optimizer minimizes, but we want to maximize the value
         value_dist = self.critic(states, pred_actions)
+        self._batch_value_dist_metric = value_dist.detach()
         # Estimate on Z support
         return -torch.mean(value_dist*self.critic.z_atoms)
 
@@ -279,11 +279,29 @@ class D4PGAgent(AgentType):
         """
         return (self.actor.state_dict(), self.target_actor.state_dict(), self.critic.state_dict(), self.target_critic())
 
-    def log_writer(self, writer, step):
+    def log_writer(self, writer, step, full_log=False):
         writer.add_scalar("loss/actor", self._loss_actor, step)
         writer.add_scalar("loss/critic", self._loss_critic, step)
         policy_params = {str(i): v for i, v in enumerate(itertools.chain.from_iterable(self.policy.parameters()))}
         writer.add_scalars("policy/param", policy_params, step)
+
+        writer.add_histogram('metric/batch_errors', self._metric_batch_error.sum(-1), step)
+        writer.add_histogram('metric/batch_value_dist', self._batch_value_dist_metric, step)
+
+        # This method, `log_writer`, isn't executed on every iteration but just in case we delay plotting weights.
+        # It simply might be quite costly. Thread wisely.
+        if full_log:
+            for idx, layer in enumerate(self.actor.layers):
+                if hasattr(layer, "weight"):
+                    writer.add_histogram(f"actor/layer_weights_{idx}", layer.weight, step)
+                if hasattr(layer, "bias") and layer.bias is not None:
+                    writer.add_histogram(f"actor/layer_bias_{idx}", layer.bias, step)
+
+            for idx, layer in enumerate(self.critic.net.layers):
+                if hasattr(layer, "weight"):
+                    writer.add_histogram(f"critic/layer_{idx}", layer.weight, step)
+                if hasattr(layer, "bias") and layer.bias is not None:
+                    writer.add_histogram(f"critic/layer_bias_{idx}", layer.bias, step)
 
     def save_state(self, path: str):
         agent_state = dict(

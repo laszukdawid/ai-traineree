@@ -32,7 +32,6 @@ class DDPGAgent(AgentType):
         critic_lr: float=2e-3,
         noise_scale: float=0.2,
         noise_sigma: float=0.1,
-        clip: Tuple[int, int]=(-1, 1),
         **kwargs
     ):
         self.device = device = self._register_param(kwargs, "device", DEVICE)
@@ -60,8 +59,8 @@ class DDPGAgent(AgentType):
         self.critic_optimizer = Adam(self.critic.parameters(), lr=self.critic_lr)
         self.max_grad_norm_actor: float = float(self._register_param(kwargs, "max_grad_norm_actor", 10.0))
         self.max_grad_norm_critic: float = float(self._register_param(kwargs, "max_grad_norm_critic", 10.0))
-        self.action_min = clip[0]
-        self.action_max = clip[1]
+        self.action_min = float(self._register_param(kwargs, 'action_min', -1))
+        self.action_max = float(self._register_param(kwargs, 'action_max', 1))
         self.action_scale = self._register_param(kwargs, 'action_scale', 1)
 
         self.gamma: float = float(self._register_param(kwargs, 'gamma', 0.99))

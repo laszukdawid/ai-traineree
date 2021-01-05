@@ -112,10 +112,10 @@ class ConvNet(NetworkType):
     def output_size(self):
         return reduce(lambda a, b: a*b, self._calculate_output_size(self.input_dim, self.layers))
 
+    @torch.no_grad()
     def _calculate_output_size(self, input_dim: Sequence[int], layers) -> Sequence[int]:
         test_tensor = torch.zeros((1,) + tuple(input_dim)).to(self.device)
-        with torch.no_grad():
-            out = self.forward(test_tensor)
+        out = self.forward(test_tensor)
         return out.shape
 
     def reset_parameters(self):
@@ -138,7 +138,7 @@ class FcNet(NetworkType):
     def __init__(
         self, in_features: Union[Sequence[int], int], out_features: Union[Sequence[int], int],
         hidden_layers: Optional[Sequence[int]]=(200, 100), last_layer_range=(-3e-4, 3e-4),
-        gate=torch.tanh, gate_out=torch.tanh,
+        gate=torch.tanh, gate_out=None,
         bias: bool=True,
         device: Optional[torch.device]=None,
     ):
@@ -197,7 +197,7 @@ class CriticBody(NetworkType):
     Since the main purpose for this is value function estimation the output is a single value.
     """
     def __init__(
-            self, in_features: FeatureType, action_size: int, hidden_layers: Optional[Sequence[int]]=(200, 100),
+            self, in_features: FeatureType, action_size: int, out_features: int=1, hidden_layers: Optional[Sequence[int]]=(200, 100),
             actions_layer: int=1, gate=torch.tanh, gate_out=None,
             bias: bool=True,
             **kwargs
@@ -215,7 +215,7 @@ class CriticBody(NetworkType):
         super(CriticBody, self).__init__()
 
         self.in_features: int = in_features if isinstance(in_features, int) else in_features[0]
-        self.out_features = 1
+        self.out_features = out_features
         num_layers = list(hidden_layers) if hidden_layers is not None else []
         num_layers = [self.in_features] + num_layers + [self.out_features]
         self.actions_layer = actions_layer
