@@ -129,6 +129,8 @@ class ReplayBuffer(BufferBase):
             compress_state: bool (default: False)
                 Whether manage memory used by states. Useful when states are "large".
                 Improves memory usage but has a significant performance penalty.
+            seed: int (default: None)
+                Set seed for the random number generator.
         """
         super().__init__()
         self.batch_size = batch_size
@@ -137,9 +139,9 @@ class ReplayBuffer(BufferBase):
         self.indices = range(batch_size)
         self.exp: List = []
 
-        self._states_mng = kwargs.get("compress_state", False)
+        self._states_mng = kwargs.get('compress_state', False)
         self._states = ReferenceBuffer(buffer_size + 20)
-        self._rng = random.Random()
+        self._rng = random.Random(kwargs.get('seed'))
 
     def __len__(self) -> int:
         return len(self.exp)
@@ -201,12 +203,18 @@ class PERBuffer(BufferBase):
     https://arxiv.org/pdf/1511.05952.pdf
     """
 
-    def __init__(self, batch_size, buffer_size: int=int(1e6), alpha=0.5, device=None, **kwargs):
+    def __init__(self, batch_size: int, buffer_size: int=int(1e6), alpha=0.5, device=None, **kwargs):
         """
         Parameters:
-            compress_state: bool (default: False)
+            batch_size (int): Number of samples to return on sampling.
+            buffer_size (int): Maximum number of samples to store. Default: 10^6.
+            alpha (float): Optional (default: 0.5).
+                Power factor for priorities making the sampling prob ~priority^alpha.
+            compress_state (bool): Optional (default: False).
                 Whether manage memory used by states. Useful when states are "large".
                 Improves memory usage but has a significant performance penalty.
+            seed (int): Optional (default None). Set seed for the random number generator.
+
         """
         super(PERBuffer, self).__init__()
         self.batch_size = batch_size
@@ -215,11 +223,11 @@ class PERBuffer(BufferBase):
         self.tree = SumTree(buffer_size)
         self.alpha: float = alpha
         self.__default_weights = np.ones(self.batch_size)/self.buffer_size
-        self._rng = random.Random()
+        self._rng = random.Random(kwargs.get('seed'))
 
         self.tiny_offset: float = 0.05
 
-        self._states_mng = kwargs.get("compress_state", False)
+        self._states_mng = kwargs.get('compress_state', False)
         self._states = ReferenceBuffer(buffer_size + 20)
 
     def __len__(self) -> int:
