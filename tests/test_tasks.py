@@ -125,3 +125,26 @@ def test_gym_task_render_cannot_render(mock_gym, fix_env):
 
     # Assert
     assert not fix_env.render.called
+
+
+def test_gym_seed():
+    def _deterministic_gym_eval(task):
+        states = []
+        for _ in range(3):
+            states.append(task.reset())
+            for _ in range(3):
+                states.append(task.step(0)[0])
+        return states
+
+    # Assign
+    task = GymTask('CartPole-v1')
+
+    # Act
+    task.seed(0)
+    first_states = _deterministic_gym_eval(task)
+    task.seed(0)
+    second_states = _deterministic_gym_eval(task)
+
+    # Assert
+    for state_1, state_2 in zip(first_states, second_states):
+        assert all([s1 == s2 for (s1, s2) in zip(state_1, state_2)])

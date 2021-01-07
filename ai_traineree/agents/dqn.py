@@ -5,16 +5,16 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from ai_traineree import DEVICE
+from ai_traineree.agents import AgentBase
 from ai_traineree.agents.utils import soft_update
 from ai_traineree.buffers import NStepBuffer, PERBuffer
 from ai_traineree.networks import NetworkType, NetworkTypeClass
 from ai_traineree.networks.heads import DuelingNet
-from ai_traineree.types import AgentType
 from ai_traineree.utils import to_tensor
 from typing import Callable, Dict, Optional, Type, Sequence, Union
 
 
-class DQNAgent(AgentType):
+class DQNAgent(AgentBase):
     """Deep Q-Learning Network (DQN).
 
     The agent is not a vanilla DQN, although can be configured as such.
@@ -54,6 +54,8 @@ class DQNAgent(AgentType):
             n_steps: (int: 1) N steps reward lookahead
 
         """
+        super().__init__()
+
         self.device = kwargs.get("device", DEVICE)
         self.input_shape: Sequence[int] = input_shape if not isinstance(input_shape, int) else (input_shape,)
         self.in_features: int = self.input_shape[0]
@@ -150,7 +152,7 @@ class DQNAgent(AgentType):
 
         """
         # Epsilon-greedy action selection
-        if random.random() < eps:
+        if self._rng.random() < eps:
             return random.randint(0, self.out_features-1)
 
         state = to_tensor(self.state_transform(state)).float()
@@ -202,15 +204,14 @@ class DQNAgent(AgentType):
         """
         return self.net.state_dict()
 
-    def log_writer(self, writer, step_num: int):
+    def log_writer(self, writer, step: int):
         """Uses provided (TensorBoard) writer to provide agent's metrics.
 
         Parameters:
             writer (TensorBoard): Instance of the SummaryView, e.g. torch.utils.tensorboard.SummaryWritter.
             step_num (int): Ordering value, e.g. episode number.
         """
-
-        writer.add_scalar("loss/agent", self._loss, step_num)
+        writer.add_scalar("loss/agent", self._loss, step)
 
     def save_state(self, path: str) -> None:
         """Saves agent's state into a file.

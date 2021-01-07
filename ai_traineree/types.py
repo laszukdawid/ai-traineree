@@ -22,6 +22,10 @@ class TaskType(abc.ABC):
     is_discrete: bool
 
     @abstractmethod
+    def seed(self, seed):
+        pass
+
+    @abstractmethod
     def step(self, action: ActionType, **kwargs) -> TaskStepType:
         pass
 

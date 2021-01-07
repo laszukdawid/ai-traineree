@@ -139,9 +139,16 @@ class ReplayBuffer(BufferBase):
 
         self._states_mng = kwargs.get("compress_state", False)
         self._states = ReferenceBuffer(buffer_size + 20)
+        self._rng = random.Random()
 
     def __len__(self) -> int:
         return len(self.exp)
+
+    def seed(self, seed: int):
+        self._rng = random.Random(seed)
+
+    def clear(self):
+        self.exp = []
 
     def add(self, **kwargs):
         if self._states_mng:
@@ -165,7 +172,7 @@ class ReplayBuffer(BufferBase):
         Returns:
             Returns all values for asked keys.
         """
-        sampled_exp: List[Experience] = random.sample(self.exp, self.batch_size)
+        sampled_exp: List[Experience] = self._rng.sample(self.exp, self.batch_size)
         keys = keys if keys is not None else list(self.exp[0].__dict__.keys())
         all_experiences = {k: [] for k in keys}
         for exp in sampled_exp:
@@ -208,6 +215,7 @@ class PERBuffer(BufferBase):
         self.tree = SumTree(buffer_size)
         self.alpha: float = alpha
         self.__default_weights = np.ones(self.batch_size)/self.buffer_size
+        self._rng = random.Random()
 
         self.tiny_offset: float = 0.05
 
@@ -216,6 +224,9 @@ class PERBuffer(BufferBase):
 
     def __len__(self) -> int:
         return len(self.tree)
+
+    def seed(self, seed):
+        return seed
 
     def add(self, *, priority: float=0, **kwargs):
         priority += self.tiny_offset
@@ -240,7 +251,7 @@ class PERBuffer(BufferBase):
         weights = self.__default_weights.copy()
         priorities = []
         for k in range(self.batch_size):
-            r = random.random()
+            r = self._rng.random()
             data, priority, index = self.tree.find(r)
             priorities.append(priority)
             weights[k] = pow(weights[k]/priority, beta) if priority > 1e-16 else 0

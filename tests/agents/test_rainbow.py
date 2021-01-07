@@ -26,4 +26,3 @@ def test_rainbow_init_default():
     assert isinstance(agent.target_net, RainbowNet)
     assert agent.in_features == input_shape[0]
     assert agent.out_features == output_shape[0]
-

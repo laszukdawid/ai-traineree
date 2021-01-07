@@ -97,6 +97,9 @@ class GymTask(TaskType):
     def actual_state_size(self) -> Sequence[int]:
         return self.reset().shape
 
+    def seed(self, seed: int):
+        return self.env.seed(seed)
+
     def reset(self) -> StateType:
         state = self.env.reset()
 

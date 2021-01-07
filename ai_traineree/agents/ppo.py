@@ -5,16 +5,16 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from ai_traineree import DEVICE
+from ai_traineree.agents import AgentBase
 from ai_traineree.agents.utils import EPS, compute_gae, normalize, revert_norm_returns
 from ai_traineree.buffers import ReplayBuffer
 from ai_traineree.networks.bodies import ActorBody
 from ai_traineree.policies import MultivariateGaussianPolicySimple, MultivariateGaussianPolicy
-from ai_traineree.types import AgentType
 from ai_traineree.utils import to_tensor
 from typing import Dict, Tuple
 
 
-class PPOAgent(AgentType):
+class PPOAgent(AgentBase):
     """
     Proximal Policy Optimization (PPO) [1] is an online policy gradient method
     that could be considered as an implementation-wise simplified version of
@@ -51,6 +51,8 @@ class PPOAgent(AgentType):
             value_loss_weight: (default: 0.005) Weight of the entropy term in the loss.
 
         """
+        super().__init__()
+
         self.device = device if device is not None else DEVICE
 
         self.state_size = state_size
@@ -96,7 +98,7 @@ class PPOAgent(AgentType):
         else:
             self.policy = MultivariateGaussianPolicy(self.action_size, device=self.device)
 
-        self.memory = ReplayBuffer(batch_size=self.rollout_length, buffer_size=self.rollout_length)
+        self.buffer = ReplayBuffer(batch_size=self.rollout_length, buffer_size=self.rollout_length)
         self.actor = ActorBody(state_size, self.policy.param_dim*action_size, gate_out=None, hidden_layers=self.hidden_layers, device=self.device)
         self.critic = ActorBody(state_size, 1, gate_out=None, hidden_layers=self.hidden_layers, device=self.device)
         self.actor_params = list(self.actor.parameters()) + list(self.policy.parameters())
@@ -121,7 +123,7 @@ class PPOAgent(AgentType):
             self._loss_critic = value
 
     def __clear_memory(self):
-        self.memory = ReplayBuffer(batch_size=self.rollout_length, buffer_size=self.rollout_length)
+        self.buffer.clear()
 
     @torch.no_grad()
     def act(self, state, epsilon: float=0.):
@@ -157,7 +159,7 @@ class PPOAgent(AgentType):
     def step(self, states, actions, rewards, next_states, dones, **kwargs):
         self.iteration += 1
 
-        self.memory.add(
+        self.buffer.add(
             state=torch.tensor(states).reshape(self.num_workers, self.state_size).float(),
             action=torch.tensor(actions).reshape(self.num_workers, self.action_size).float(),
             reward=torch.tensor(rewards).reshape(self.num_workers, 1),
@@ -174,7 +176,7 @@ class PPOAgent(AgentType):
         """
         Main loop that initiates the training.
         """
-        experiences = self.memory.sample()
+        experiences = self.buffer.sample()
         rewards = to_tensor(experiences['reward']).to(self.device)
         dones = to_tensor(experiences['done']).type(torch.int).to(self.device)
         states = to_tensor(experiences['state']).to(self.device)
