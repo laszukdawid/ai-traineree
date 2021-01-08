@@ -5,18 +5,18 @@ import torch.nn.functional as F
 import random
 
 from ai_traineree import DEVICE
+from ai_traineree.agents import AgentBase
 from ai_traineree.agents.utils import hard_update, soft_update
 from ai_traineree.buffers import NStepBuffer, PERBuffer
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import CategoricalNet
 from ai_traineree.policies import MultivariateGaussianPolicySimple, MultivariateGaussianPolicy
-from ai_traineree.types import AgentType
 from ai_traineree.utils import to_tensor
 from torch.optim import Adam
 from typing import Any, Dict, Sequence, Tuple
 
 
-class D3PGAgent(AgentType):
+class D3PGAgent(AgentBase):
     """Distributional DDPG (D3PG) [1].
 
     It's closely related to, and sits in-between, D4PG and DDPG. Compared to D4PG it lacks
@@ -33,6 +33,7 @@ class D3PGAgent(AgentType):
     name = "D3PG"
 
     def __init__(self, state_size: int, action_size: int, hidden_layers: Sequence[int]=(128, 128), **kwargs):
+        super().__init__()
         self.device = self._register_param(kwargs, "device", DEVICE)
         self.state_size = state_size
         self.action_size = action_size
@@ -152,7 +153,7 @@ class D3PGAgent(AgentType):
         self._display_dist = self.target_critic.act(state, action.to(self.device)).squeeze().cpu()
         self._display_dist = F.softmax(self._display_dist, dim=0)
 
-        return torch.clamp(action, self.action_min, self.action_max).cpu().numpy()
+        return torch.clamp(action, self.action_min, self.action_max).cpu().tolist()
 
     def step(self, state, action, reward, next_state, done):
         self.iteration += 1

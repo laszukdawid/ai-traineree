@@ -1,3 +1,4 @@
+import copy
 import mock
 import numpy as np
 import pytest
@@ -38,3 +39,20 @@ def fix_env():
     mock_env.observation_space = np.array((4, 2))
     mock_env.action_space = MockContinuousSpace(2, 4)
     return mock_env
+
+
+def deterministic_interactions(agent, state_size=4, num_iters=50):
+    state = [0]*state_size
+    next_state = copy.copy(state)
+    actions = []
+    for i in range(num_iters):
+        action = agent.act(state)
+        actions.append(action)
+
+        next_state[i % state_size] = (next_state[i % state_size] + 1) % 2
+        reward = (i % 4 - 2) / 2.
+        done = (i + 1) % 100 == 0
+
+        agent.step(state, action, reward, next_state, done)
+        state = copy.copy(next_state)
+    return actions

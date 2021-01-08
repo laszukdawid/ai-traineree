@@ -2,19 +2,18 @@ import torch
 import torch.nn as nn
 
 from ai_traineree import DEVICE
+from ai_traineree.agents import AgentBase
 from ai_traineree.agents.utils import hard_update, soft_update
 from ai_traineree.buffers import ReplayBuffer
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.noise import GaussianNoise
-from ai_traineree.types import AgentType
 from ai_traineree.utils import to_tensor
-from numpy import float32 as _float32
 from torch.optim import Adam
 from torch.nn.functional import mse_loss
 from typing import Any, Dict, Sequence, Tuple
 
 
-class DDPGAgent(AgentType):
+class DDPGAgent(AgentBase):
     """
     Deep Deterministic Policy Gradients (DDPG).
 
@@ -34,6 +33,7 @@ class DDPGAgent(AgentType):
         noise_sigma: float=0.1,
         **kwargs
     ):
+        super().__init__()
         self.device = device = self._register_param(kwargs, "device", DEVICE)
         self.state_size = state_size
         self.action_size = action_size
@@ -104,7 +104,7 @@ class DDPGAgent(AgentType):
         action = self.actor(obs)
         action += noise*self.noise.sample()
         action = torch.clamp(action*self.action_scale, self.action_min, self.action_max)
-        return action.cpu().numpy().astype(_float32)
+        return action.cpu().numpy().tolist()
 
     def step(self, state, action, reward, next_state, done):
         self.iteration += 1

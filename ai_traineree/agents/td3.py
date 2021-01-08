@@ -3,20 +3,20 @@ import random
 import torch
 import torch.nn as nn
 
-from ai_traineree.utils import to_tensor
 from ai_traineree import DEVICE
+from ai_traineree.agents import AgentBase
 from ai_traineree.agents.utils import hard_update, soft_update
 from ai_traineree.buffers import ReplayBuffer
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import DoubleCritic
 from ai_traineree.noise import OUProcess
-from ai_traineree.types import AgentType
+from ai_traineree.utils import to_tensor
 from torch.optim import AdamW
 from torch.nn.functional import mse_loss
 from typing import Any, Dict, List, Sequence, Tuple
 
 
-class TD3Agent(AgentType):
+class TD3Agent(AgentBase):
     """
     Twin Delayed Deep Deterministic (TD3) Policy Gradient.
 
@@ -32,6 +32,7 @@ class TD3Agent(AgentType):
         noise_scale: float=0.2, noise_sigma: float=0.1,
         device=None, **kwargs
     ):
+        super().__init__()
         self.device = device if device is not None else DEVICE
 
         # Reason sequence initiation.

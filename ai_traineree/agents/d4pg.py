@@ -5,18 +5,18 @@ import torch.nn.functional as F
 import random
 
 from ai_traineree import DEVICE
+from ai_traineree.agents import AgentBase
 from ai_traineree.agents.utils import hard_update, soft_update
 from ai_traineree.buffers import NStepBuffer, PERBuffer
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import CategoricalNet
 from ai_traineree.policies import MultivariateGaussianPolicySimple, MultivariateGaussianPolicy
-from ai_traineree.types import AgentType
 from ai_traineree.utils import to_tensor
 from torch.optim import Adam
 from typing import Any, Dict, List, Sequence, Tuple
 
 
-class D4PGAgent(AgentType):
+class D4PGAgent(AgentBase):
     """
     Distributed Distributional DDPG (D4PG) [1].
 
@@ -42,6 +42,7 @@ class D4PGAgent(AgentType):
             n_steps: Number of steps (N-steps) for the TD. Defualt 3.
             num_workers: Number of workers that will assume this agent.
         """
+        super().__init__()
         self.device = self._register_param(kwargs, "device", DEVICE)
         self.state_size: int = state_size
         self.action_size = action_size
@@ -157,7 +158,7 @@ class D4PGAgent(AgentType):
                 action = action_dist.sample()
                 action *= self.action_scale
                 action = torch.clamp(action.squeeze(), self.action_min, self.action_max).cpu()
-            actions.append(action.numpy())
+            actions.append(action.tolist())
 
         assert len(actions) == self.num_workers
         return actions

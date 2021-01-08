@@ -4,18 +4,19 @@ import torch
 import torch.nn as nn
 
 from ai_traineree import DEVICE
+from ai_traineree.agents import AgentBase
 from ai_traineree.agents.utils import hard_update, soft_update
 from ai_traineree.buffers import PERBuffer
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import DoubleCritic
 from ai_traineree.policies import MultivariateGaussianPolicy
-from ai_traineree.types import AgentType, FeatureType
+from ai_traineree.types import FeatureType
 from ai_traineree.utils import to_tensor
 from torch import optim, Tensor
 from typing import List, Sequence, Tuple
 
 
-class SACAgent(AgentType):
+class SACAgent(AgentBase):
     """
     Soft Actor-Critic.
 
@@ -55,6 +56,7 @@ class SACAgent(AgentType):
             device: Defaults to CUDA if available.
 
         """
+        super().__init__()
         self.device = kwargs.get("device", DEVICE)
         self.state_size = (state_size,) if isinstance(state_size, int) else state_size
         self.action_size = (action_size,) if isinstance(action_size, int) else action_size

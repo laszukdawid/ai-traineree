@@ -1,21 +1,22 @@
 import copy
 import pytest
 
-from ai_traineree.agents.ppo import PPOAgent
+from ai_traineree.agents.td3 import TD3Agent
 from conftest import deterministic_interactions
 
 
-def test_ppo_seed():
+def test_td3_seed():
     # Assign
-    agent_0 = PPOAgent(4, 2, device='cpu')  # Reference
-    agent_1 = PPOAgent(4, 2, device='cpu')
+    agent_0 = TD3Agent(4, 2, device='cpu')
+    agent_1 = TD3Agent(4, 2, device='cpu')
     agent_2 = copy.deepcopy(agent_1)
 
     # Act
     # Make sure agents have the same networks
-    assert any([sum(sum(l1.weight - l2.weight)) != 0 for l1, l2 in zip(agent_0.actor.layers, agent_1.actor.layers)])
-    assert all([sum(sum(l1.weight - l2.weight)) == 0 for l1, l2 in zip(agent_1.actor.layers, agent_2.actor.layers)])
-    assert all([sum(sum(l1.weight - l2.weight)) == 0 for l1, l2 in zip(agent_1.critic.layers, agent_2.critic.layers)])
+    zip_agent_actors = zip(agent_1.actor.layers, agent_2.actor.layers)
+    zip_agent_critics = zip(agent_1.critic.critic_1.layers, agent_2.critic.critic_1.layers)
+    assert all([sum(sum(l1.weight - l2.weight)) == 0 for l1, l2 in zip_agent_actors])
+    assert all([sum(sum(l1.weight - l2.weight)) == 0 for l1, l2 in zip_agent_critics])
 
     agent_0.seed(32167)
     actions_0 = deterministic_interactions(agent_0)

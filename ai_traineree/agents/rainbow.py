@@ -1,10 +1,10 @@
-from ai_traineree.types import AgentType
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 
 from ai_traineree import DEVICE
+from ai_traineree.agents import AgentBase
 from ai_traineree.agents.utils import soft_update
 from ai_traineree.buffers import NStepBuffer, PERBuffer
 from ai_traineree.networks.heads import RainbowNet
@@ -12,7 +12,7 @@ from ai_traineree.utils import to_tensor
 from typing import Callable, Dict, List, Optional, Sequence, Union
 
 
-class RainbowAgent(AgentType):
+class RainbowAgent(AgentBase):
     """Rainbow agent as described in [1].
 
     Rainbow is a DQN agent with some improvments that were suggested before 2017.
@@ -57,6 +57,7 @@ class RainbowAgent(AgentType):
             tau (default: 0.002): Soft-copy factor.
 
         """
+        super().__init__()
         self.device = self._register_param(kwargs, "device", DEVICE)
         self.input_shape: Sequence[int] = input_shape if not isinstance(input_shape, int) else (input_shape,)
 
