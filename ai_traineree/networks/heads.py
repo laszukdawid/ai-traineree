@@ -187,7 +187,7 @@ class CategoricalNet(NetworkType):
         return self.net(*args).view((-1,) + self.out_features)
 
     @lru_cache(maxsize=5)
-    def _offset(self, batch_size):
+    def _offset(self, batch_size, device=None):
         offset = torch.linspace(0, ((batch_size - 1) * self.num_atoms), batch_size, device=self.device)
         return offset.unsqueeze(1).expand(batch_size, self.num_atoms)
 

@@ -26,6 +26,8 @@ def layer_init(layer: nn.Module, range_value: Optional[Tuple[float, float]]=None
 
     nn.init.xavier_uniform_(layer.weight)
 
+def dummy_pass(x):
+    return x
 
 class ScaleNet(NetworkType):
     def __init__(self, scale: Union[float, int]) -> None:
@@ -166,8 +168,8 @@ class FcNet(NetworkType):
         self.layers = nn.ModuleList(layers)
         self.reset_parameters()
 
-        self.gate = gate if gate is not None else lambda x: x
-        self.gate_out = gate_out if gate_out is not None else lambda x: x
+        self.gate = gate if gate is not None else dummy_pass
+        self.gate_out = gate_out if gate_out is not None else dummy_pass
         self.to(device=device)
 
     def reset_parameters(self):
@@ -212,7 +214,7 @@ class CriticBody(NetworkType):
             gate: Activation function for each layer, expect the last.
             gate_out: Activation function after the last layer.
         """
-        super(CriticBody, self).__init__()
+        super().__init__()
 
         self.in_features: int = in_features if isinstance(in_features, int) else in_features[0]
         self.out_features = out_features
@@ -232,8 +234,8 @@ class CriticBody(NetworkType):
         self.layers = nn.ModuleList(layers)
         self.reset_parameters()
 
-        self.gate = gate if gate is not None else lambda x: x
-        self.gate_out = gate_out if gate_out is not None else lambda x: x
+        self.gate = gate if gate is not None else dummy_pass
+        self.gate_out = gate_out if gate_out is not None else dummy_pass
         self.to(kwargs.get("device"))
 
     def reset_parameters(self):
@@ -352,8 +354,8 @@ class NoisyNet(NetworkType):
         layers = [NoisyLayer(dim_in, dim_out, sigma=sigma, factorised=factorised) for dim_in, dim_out in zip(num_layers[:-1], num_layers[1:])]
         self.layers = nn.ModuleList(layers)
 
-        self.gate = gate if gate is not None else lambda x: x
-        self.gate_out = gate_out if gate_out is not None else lambda x: x
+        self.gate = gate if gate is not None else dummy_pass
+        self.gate_out = gate_out if gate_out is not None else dummy_pass
         self.to(device=device)
 
     def reset_noise(self):
