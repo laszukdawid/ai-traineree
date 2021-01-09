@@ -1,5 +1,4 @@
 import numpy as np
-import random
 import torch
 import torch.nn as nn
 
@@ -32,7 +31,7 @@ class TD3Agent(AgentBase):
         noise_scale: float=0.2, noise_sigma: float=0.1,
         device=None, **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.device = device if device is not None else DEVICE
 
         # Reason sequence initiation.
@@ -104,7 +103,7 @@ class TD3Agent(AgentBase):
         When the training_mode is True (default) a noise is added to each action. 
         """
         # Epsilon greedy
-        if epsilon > 0 and random.random() < epsilon:
+        if self._rng.random() < epsilon:
             rnd_actions = torch.rand(self.action_size)*(self.action_max - self.action_min) - self.action_min
             return rnd_actions.tolist()
 

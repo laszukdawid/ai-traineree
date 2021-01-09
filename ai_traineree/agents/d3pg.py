@@ -2,7 +2,6 @@ import itertools
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import random
 
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
@@ -33,7 +32,7 @@ class D3PGAgent(AgentBase):
     name = "D3PG"
 
     def __init__(self, state_size: int, action_size: int, hidden_layers: Sequence[int]=(128, 128), **kwargs):
-        super().__init__()
+        super().__init__(**kwargs)
         self.device = self._register_param(kwargs, "device", DEVICE)
         self.state_size = state_size
         self.action_size = action_size
@@ -139,7 +138,7 @@ class D3PGAgent(AgentBase):
 
         """
         state = to_tensor(state).float().to(self.device)
-        if random.random() < epsilon:
+        if self._rng.random() < epsilon:
             action = self.action_scale*(torch.rand(self.action_size) - 0.5)
 
         else:

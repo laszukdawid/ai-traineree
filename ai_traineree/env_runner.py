@@ -6,8 +6,9 @@ import torch.multiprocessing as mp
 import os
 import sys
 
-from ai_traineree.types import ActionType, AgentType, DoneType, MultiAgentType, RewardType, StateType, TaskType
-from ai_traineree.types import MultiAgentTaskType
+from ai_traineree.agents import AgentBase
+from ai_traineree.types import ActionType, DoneType, RewardType, StateType, TaskType
+from ai_traineree.types import MultiAgentType, MultiAgentTaskType
 from collections import deque
 from pathlib import Path
 from typing import Any, Iterable, List, Optional, Tuple
@@ -44,9 +45,9 @@ class EnvRunner:
 
     logger = logging.getLogger("EnvRunner")
 
-    def __init__(self, task: TaskType, agent: AgentType, max_iterations: int=int(1e5), **kwargs):
+    def __init__(self, task: TaskType, agent: AgentBase, max_iterations: int=int(1e5), **kwargs):
         """
-        Expects the environment to come as the TaskType and the agent as the AgentType.
+        Expects the environment to come as the TaskType and the agent as the AgentBase.
 
         Keyword parameters:
             window_len (int): Length of the score averaging window.
@@ -75,8 +76,15 @@ class EnvRunner:
         self._rewards: List[Any] = []
         self._dones: List[Any] = []
 
+        self.seed(kwargs.get('seed'))
+
     def __str__(self) -> str:
         return f"EnvRunner<{self.task.name}, {self.agent.name}>"
+
+    def seed(self, seed):
+        if isinstance(seed, (int, float)):
+            self.agent.seed(seed)
+            self.task.seed(seed)
 
     def reset(self):
         """Resets the EnvRunner. The task env and the agent are preserved."""
@@ -357,9 +365,9 @@ class MultiSyncEnvRunner:
 
     logger = logging.getLogger("MultiSyncEnvRunner")
 
-    def __init__(self, tasks: List[TaskType], agent: AgentType, max_iterations: int=int(1e5), **kwargs):
+    def __init__(self, tasks: List[TaskType], agent: AgentBase, max_iterations: int=int(1e5), **kwargs):
         """
-        Expects the environment to come as the TaskType and the agent as the AgentType.
+        Expects the environment to come as the TaskType and the agent as the AgentBase.
 
         Keyword parameters:
             window_len (int): Length of the score averaging window.
@@ -769,6 +777,10 @@ class MultiAgentEnvRunner:
 
     def __str__(self) -> str:
         return f"EnvRunner<{self.task.name}, {self.multi_agent.name}>"
+
+    def seed(self, seed: int):
+        self.mutli_agent.seed(seed)
+        self.task.seed(seed)
 
     def reset(self):
         """Resets the EnvRunner. The task env and the agent are preserved."""

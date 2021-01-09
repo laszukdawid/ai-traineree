@@ -51,7 +51,7 @@ class PPOAgent(AgentBase):
             value_loss_weight: (default: 0.005) Weight of the entropy term in the loss.
 
         """
-        super().__init__()
+        super().__init__(**kwargs)
 
         self.device = device if device is not None else DEVICE
 

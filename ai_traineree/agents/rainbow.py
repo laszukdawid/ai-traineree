@@ -57,7 +57,7 @@ class RainbowAgent(AgentBase):
             tau (default: 0.002): Soft-copy factor.
 
         """
-        super().__init__()
+        super().__init__(**kwargs)
         self.device = self._register_param(kwargs, "device", DEVICE)
         self.input_shape: Sequence[int] = input_shape if not isinstance(input_shape, int) else (input_shape,)
 
@@ -158,8 +158,8 @@ class RainbowAgent(AgentBase):
 
         """
         # Epsilon-greedy action selection
-        if np.random.random() < eps:
-            return np.random.randint(self.out_features)
+        if self._rng.random() < eps:
+            return self._rng.randint(0, self.out_features-1)
 
         state = to_tensor(self.state_transform(state)).float().unsqueeze(0).to(self.device)
         # state = to_tensor(self.state_transform(state)).float().to(self.device)

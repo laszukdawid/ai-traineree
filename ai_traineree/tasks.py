@@ -1,7 +1,6 @@
 import gym
 import logging
 import numpy as np
-import random
 import torch
 
 from ai_traineree.types import ActionType, MultiAgentTaskType, StateType, TaskType
@@ -37,6 +36,7 @@ class GymTask(TaskType):
         can_render=True,
         stack_frames: int= 1,
         skip_start_frames: int= 0,
+        **kwargs,
     ):
         """
         Parameters:
@@ -86,6 +86,8 @@ class GymTask(TaskType):
         self.stacked_frames = deque(maxlen=stack_frames)
         self.skip_start_frames = skip_start_frames
 
+        self.seed(kwargs.get('seed'))
+
     @staticmethod
     def __determine_action_size(action_space):
         if "Discrete" in str(type(action_space)):
@@ -97,8 +99,9 @@ class GymTask(TaskType):
     def actual_state_size(self) -> Sequence[int]:
         return self.reset().shape
 
-    def seed(self, seed: int):
-        return self.env.seed(seed)
+    def seed(self, seed):
+        if isinstance(seed, (int, float)):
+            return self.env.seed(seed)
 
     def reset(self) -> StateType:
         state = self.env.reset()

@@ -1,4 +1,3 @@
-import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -54,7 +53,7 @@ class DQNAgent(AgentBase):
             n_steps: (int: 1) N steps reward lookahead
 
         """
-        super().__init__()
+        super().__init__(**kwargs)
 
         self.device = kwargs.get("device", DEVICE)
         self.input_shape: Sequence[int] = input_shape if not isinstance(input_shape, int) else (input_shape,)
@@ -153,7 +152,7 @@ class DQNAgent(AgentBase):
         """
         # Epsilon-greedy action selection
         if self._rng.random() < eps:
-            return random.randint(0, self.out_features-1)
+            return self._rng.randint(0, self.out_features-1)
 
         state = to_tensor(self.state_transform(state)).float()
         state = state.unsqueeze(0).to(self.device)

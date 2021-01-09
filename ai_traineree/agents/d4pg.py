@@ -2,7 +2,6 @@ import itertools
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import random
 
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
@@ -42,7 +41,7 @@ class D4PGAgent(AgentBase):
             n_steps: Number of steps (N-steps) for the TD. Defualt 3.
             num_workers: Number of workers that will assume this agent.
         """
-        super().__init__()
+        super().__init__(**kwargs)
         self.device = self._register_param(kwargs, "device", DEVICE)
         self.state_size: int = state_size
         self.action_size = action_size
@@ -150,7 +149,7 @@ class D4PGAgent(AgentBase):
         actions = []
         state = to_tensor(state).view(self.num_workers, self.state_size).float().to(self.device)
         for worker in range(self.num_workers):
-            if random.random() < epsilon:
+            if self._rng.random() < epsilon:
                 action = self.action_scale*(torch.rand(self.action_size) - 0.5)
             else:
                 action_seed = self.actor.act(state[worker].view(1, -1))

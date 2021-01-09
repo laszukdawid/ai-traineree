@@ -1,5 +1,4 @@
 import numpy as np
-import random
 import torch
 import torch.nn as nn
 
@@ -34,10 +33,7 @@ class SACAgent(AgentBase):
         actor_lr: float=2e-3, critic_lr: float=2e-3, action_clip: Tuple[float, float]=(-1, 1),
         alpha: float=0.2, **kwargs
     ):
-        """Initi.
-
-        Another.
-
+        """
         Parameters:
             hidden_layers: (default: (128, 128)) Shape of the hidden layers that are fully connected networks.
             gamma: (default: 0.99) Discount value.
@@ -56,7 +52,7 @@ class SACAgent(AgentBase):
             device: Defaults to CUDA if available.
 
         """
-        super().__init__()
+        super().__init__(**kwargs)
         self.device = kwargs.get("device", DEVICE)
         self.state_size = (state_size,) if isinstance(state_size, int) else state_size
         self.action_size = (action_size,) if isinstance(action_size, int) else action_size
@@ -138,8 +134,9 @@ class SACAgent(AgentBase):
         return (self.actor.state_dict(), self.double_critic.state_dict(), self.target_double_critic.state_dict())
 
     def act(self, state, epsilon: float=0.0, deterministic=False) -> List[float]:
-        if random.random() < epsilon:
-            return np.clip(self.action_scale*np.random.random(size=self.action_size), self.action_min, self.action_max)
+        if self._rng.random() < epsilon:
+            random_action = torch.rand(self.action_size) * (self.action_max + self.action_min) - self.action_min
+            return random_action.cpu().tolist()
 
         state = to_tensor(state).view(1, -1).float().to(self.device)
         action = self.actor.act(state)

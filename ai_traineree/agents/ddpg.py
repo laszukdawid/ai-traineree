@@ -33,7 +33,7 @@ class DDPGAgent(AgentBase):
         noise_sigma: float=0.1,
         **kwargs
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.device = device = self._register_param(kwargs, "device", DEVICE)
         self.state_size = state_size
         self.action_size = action_size
