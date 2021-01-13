@@ -7,7 +7,7 @@ import torch.optim as optim
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.utils import EPS, compute_gae, normalize, revert_norm_returns
-from ai_traineree.buffers import ReplayBuffer
+from ai_traineree.buffers import RolloutBuffer
 from ai_traineree.networks.bodies import ActorBody
 from ai_traineree.policies import MultivariateGaussianPolicySimple, MultivariateGaussianPolicy
 from ai_traineree.utils import to_tensor
@@ -36,13 +36,14 @@ class PPOAgent(AgentBase):
             is_discrete: (default: False) Whether return discrete action.
             kl_div: (default: False) Whether to use KL divergence in loss.
             using_gae: (default: True) Whether to use General Advantage Estimator.
-            gae_lambda: (default: 0.9) Value of \lambda in GAE.
+            gae_lambda: (default: 0.96) Value of \lambda in GAE.
             actor_lr: (default: 0.0003) Learning rate for the actor (policy).
             critic_lr: (default: 0.001) Learning rate for the critic (value function).
             actor_betas: (default: (0.9, 0.999) Adam's betas for actor optimizer.
             critic_betas: (default: (0.9, 0.999) Adam's betas for critic optimizer.
             gamma: (default: 0.99) Discount value.
             ppo_ratio_clip: (default: 0.25) Policy ratio clipping value.
+            num_epochs: (default: 1) Number of time to learn from samples.
             rollout_length: (default: 48) Number of actions to take before update.
             batch_size: (default: rollout_length) Number of samples used in learning.
             actor_number_updates: (default: 20) Number of times policy losses are propagated.
@@ -62,7 +63,7 @@ class PPOAgent(AgentBase):
 
         self.is_discrete = bool(self._register_param(kwargs, "is_discrete", False))
         self.using_gae = bool(self._register_param(kwargs, "using_gae", True))
-        self.gae_lambda = float(self._register_param(kwargs, "gae_lambda", 0.95))
+        self.gae_lambda = float(self._register_param(kwargs, "gae_lambda", 0.96))
 
         self.actor_lr = float(self._register_param(kwargs, 'actor_lr', 3e-4))
         self.actor_betas: Tuple[float, float] = self._register_param(kwargs, 'actor_betas', (0.9, 0.999))
@@ -77,6 +78,7 @@ class PPOAgent(AgentBase):
         self.kl_div = float('inf')
 
         self.num_workers = int(self._register_param(kwargs, "num_workers", 1))
+        self.num_epochs = int(self._register_param(kwargs, "num_epochs", 1))
         self.rollout_length = int(self._register_param(kwargs, "rollout_length", 48))  # "Much less than the episode length"
         self.batch_size = int(self._register_param(kwargs, "batch_size", self.rollout_length))
         self.actor_number_updates = int(self._register_param(kwargs, "actor_number_updates", 10))
@@ -98,8 +100,8 @@ class PPOAgent(AgentBase):
         else:
             self.policy = MultivariateGaussianPolicy(self.action_size, device=self.device)
 
-        self.buffer = ReplayBuffer(batch_size=self.rollout_length, buffer_size=self.rollout_length)
-        self.actor = ActorBody(state_size, self.policy.param_dim*action_size, gate_out=None, hidden_layers=self.hidden_layers, device=self.device)
+        self.buffer = RolloutBuffer(batch_size=self.batch_size, buffer_size=self.rollout_length)
+        self.actor = ActorBody(state_size, self.policy.param_dim*action_size, gate_out=torch.tanh, hidden_layers=self.hidden_layers, device=self.device)
         self.critic = ActorBody(state_size, 1, gate_out=None, hidden_layers=self.hidden_layers, device=self.device)
         self.actor_params = list(self.actor.parameters()) + list(self.policy.parameters())
         self.critic_params = list(self.critic.parameters())
@@ -145,9 +147,7 @@ class PPOAgent(AgentBase):
             if self.is_discrete:  # *Technically* it's the max of Softmax but that's monotonic.
                 action = int(torch.argmax(action))
             else:
-                # TODO: This *makes sense* but seems that some environments work better without.
-                #       Should we leave min/scale/max to the policy learning?
-                # action = torch.clamp(action*self.action_scale, self.action_min, self.action_max)
+                action = torch.clamp(action*self.action_scale, self.action_min, self.action_max)
                 action = action.cpu().numpy().flatten().tolist()
             actions.append(action)
 
@@ -169,14 +169,15 @@ class PPOAgent(AgentBase):
         )
 
         if self.iteration % self.rollout_length == 0:
-            self.train()
+            for _ in range(self.num_epochs):
+                for experiences in self.buffer.sample():
+                    self.train(experiences=experiences)
             self.__clear_memory()
 
-    def train(self):
+    def train(self, experiences):
         """
         Main loop that initiates the training.
         """
-        experiences = self.buffer.sample()
         rewards = to_tensor(experiences['reward']).to(self.device)
         dones = to_tensor(experiences['done']).type(torch.int).to(self.device)
         states = to_tensor(experiences['state']).to(self.device)
@@ -184,16 +185,12 @@ class PPOAgent(AgentBase):
         values = to_tensor(experiences['value']).to(self.device)
         logprobs = to_tensor(experiences['logprob']).to(self.device)
         assert rewards.shape == dones.shape == values.shape == logprobs.shape
-        assert states.shape == (self.rollout_length, self.num_workers, self.state_size), f"Wrong state shape: {states.shape}"
-        assert actions.shape == (self.rollout_length, self.num_workers, self.action_size), f"Wrong action shape: {actions.shape}"
-
-        # Normalize values. Keep mean and std to update next_value estimate.
-        values_mean, values_std = values.mean(dim=0), values.std(dim=0)
-        values = (values - values_mean) / torch.clamp(values_std, EPS)
+        assert states.shape == (self.batch_size, self.num_workers, self.state_size), f"Wrong state shape: {states.shape}"
+        assert actions.shape == (self.batch_size, self.num_workers, self.action_size), f"Wrong action shape: {actions.shape}"
 
         with torch.no_grad():
             if self.using_gae:
-                next_value = (self.critic.act(states[-1]) - values_mean) / torch.clamp(values_std, EPS)
+                next_value = self.critic.act(states[-1])
                 advantages = compute_gae(rewards, dones, values, next_value, self.gamma, self.gae_lambda)
                 advantages = normalize(advantages)
                 returns = advantages + values

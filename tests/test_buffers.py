@@ -1,7 +1,7 @@
 import copy
 import numpy as np
 
-from ai_traineree.buffers import Experience, PERBuffer, ReplayBuffer
+from ai_traineree.buffers import Experience, PERBuffer, ReplayBuffer, RolloutBuffer
 from typing import Dict, List
 
 
@@ -361,3 +361,130 @@ def test_per_buffer_seed():
         assert samples_0 != samples_1
         assert samples_0 != samples_2
         assert samples_1 == samples_2
+
+
+def test_rollout_buffer_length():
+    # Assign
+    buffer_size = 10
+    buffer = RolloutBuffer(batch_size=5, buffer_size=buffer_size)
+
+    # Act
+    for (state, action, reward, next_state, done) in generate_sample_SARS(buffer_size+1):
+        buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
+
+    # Assert
+    assert len(buffer) == buffer_size
+
+
+def test_rollout_buffer_sample_batch_equal_buffer():
+    # Assign
+    buffer_size = batch_size = 20
+    buffer = RolloutBuffer(batch_size=batch_size, buffer_size=buffer_size)
+
+    # Act
+    for (state, action, reward, next_state, done) in generate_sample_SARS(buffer_size+1):
+        buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
+
+    # Assert
+    num_samples = 0
+    for samples in buffer.sample():
+        num_samples += 1
+        for value in samples.values():
+            assert len(value) == batch_size
+    assert num_samples == 1
+
+
+def test_rollout_buffer_size_multiple_of_minibatch():
+    # Assign
+    batch_size = 10
+    buffer_size = 50
+    buffer = RolloutBuffer(batch_size=batch_size, buffer_size=buffer_size)
+
+    # Act
+    for (state, action, reward, next_state, done) in generate_sample_SARS(buffer_size+1):
+        buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
+
+    # Assert
+    num_samples = 0
+    for samples in buffer.sample():
+        num_samples += 1
+        for value in samples.values():
+            assert len(value) == batch_size
+    assert num_samples == 5  # buffer_size / batch_size
+
+
+def test_rollout_buffer_size_not_multiple_of_minibatch():
+    # Assign
+    batch_size = 10
+    buffer_size = 55
+    buffer = RolloutBuffer(batch_size=batch_size, buffer_size=buffer_size)
+
+    # Act
+    reward = -1
+    for (state, action, _, next_state, done) in generate_sample_SARS(buffer_size):
+        reward += 1
+        buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
+
+    # Assert
+    num_samples = 0
+    for idx, samples in enumerate(buffer.sample()):
+        num_samples += 1
+        rewards = samples['reward']
+        if idx != 5:
+            assert len(rewards) == batch_size
+            assert rewards == list(range(idx*10, (idx+1)*10))
+        else:
+            assert len(rewards) == 5
+            assert rewards == [50, 51, 52, 53, 54]
+    assert num_samples == 6  # ceil(buffer_size / batch_size)
+
+
+def test_rollout_buffer_travers_buffer_twice():
+    # Assign
+    batch_size = 10
+    buffer_size = 30
+    buffer = RolloutBuffer(batch_size=batch_size, buffer_size=buffer_size)
+
+    # Act
+    reward = -1
+    for (state, action, _, next_state, done) in generate_sample_SARS(buffer_size):
+        reward += 1
+        buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
+
+    # Assert
+    num_samples = 0
+
+    # First pass
+    for idx, samples in enumerate(buffer.sample()):
+        num_samples += 1
+        rewards = samples['reward']
+        assert rewards == list(range(idx*10, (idx+1)*10))
+
+    # Second pass
+    for idx, samples in enumerate(buffer.sample()):
+        num_samples += 1
+        rewards = samples['reward']
+        assert rewards == list(range(idx*10, (idx+1)*10))
+
+    assert num_samples == 6  # 2 * ceil(buffer_size / batch_size)
+
+
+def test_rollout_buffer_clear_buffer():
+    # Assign
+    batch_size = 10
+    buffer_size = 30
+    buffer = RolloutBuffer(batch_size=batch_size, buffer_size=buffer_size)
+
+    # Act
+    reward = -1
+    for (state, action, _, next_state, done) in generate_sample_SARS(buffer_size):
+        reward += 1
+        buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
+
+    # Assert
+    for idx, samples in enumerate(buffer.sample()):
+        rewards = samples['reward']
+        assert rewards == list(range(idx*10, (idx+1)*10))
+
+    buffer.clear()
+    assert len(buffer) == 0
