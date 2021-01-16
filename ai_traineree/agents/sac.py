@@ -6,6 +6,7 @@ from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.utils import hard_update, soft_update
 from ai_traineree.buffers import PERBuffer
+from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import DoubleCritic
 from ai_traineree.policies import MultivariateGaussianPolicy
@@ -235,10 +236,10 @@ class SACAgent(AgentBase):
 
         soft_update(self.target_double_critic, self.double_critic, self.tau)
 
-    def log_writer(self, writer, episode):
-        writer.add_scalar("loss/actor", self._loss_actor, episode)
-        writer.add_scalar("loss/critic", self._loss_critic, episode)
-        writer.add_scalar("loss/alpha", self.alpha, episode)
+    def log_metrics(self, data_logger: DataLogger, step: int):
+        data_logger.log_value("loss/actor", self._loss_actor, step)
+        data_logger.log_value("loss/critic", self._loss_critic, step)
+        data_logger.log_value("loss/alpha", self.alpha, step)
 
     def save_state(self, path: str):
         agent_state = dict(

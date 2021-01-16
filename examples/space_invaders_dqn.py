@@ -2,10 +2,10 @@ import torch
 import numpy as np
 import pylab as plt
 from collections import deque
-from torch.utils.tensorboard import SummaryWriter
 
 from ai_traineree.agents.dqn import DQNAgent
 from ai_traineree.env_runner import EnvRunner
+from ai_traineree.loggers import TensorboardLogger
 from ai_traineree.networks.heads import NetChainer
 from ai_traineree.networks.bodies import ConvNet, FlattenNet, FcNet, ScaleNet
 from ai_traineree.tasks import GymTask
@@ -35,7 +35,7 @@ def network_fn(state_dim, output_dim, device):
 
 
 env_name = 'SpaceInvaders-v0'
-writer = SummaryWriter()
+data_logger = TensorboardLogger()
 task = GymTask(env_name, state_transform=state_transform)
 config = {
     "network_fn": lambda: network_fn(task.actual_state_size, task.action_size, "cuda"),
@@ -52,7 +52,7 @@ for _ in range(prev_states):
     task.reset()
 
 agent = DQNAgent(task.state_size, task.action_size, **config)
-env_runner = EnvRunner(task, agent, writer=writer)
+env_runner = EnvRunner(task, agent, data_logger=data_logger)
 
 # env_runner.interact_episode(0, render=True)
 scores = env_runner.run(
@@ -61,6 +61,7 @@ scores = env_runner.run(
     force_new=True,
 )
 # env_runner.interact_episode(render=True)
+data_logger.close()
 
 # plot scores
 fig = plt.figure()

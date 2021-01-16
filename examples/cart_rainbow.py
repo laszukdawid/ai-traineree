@@ -3,8 +3,8 @@ import numpy as np
 
 from ai_traineree.agents.rainbow import RainbowAgent as Agent
 from ai_traineree.env_runner import EnvRunner
+from ai_traineree.loggers import TensorboardLogger
 from ai_traineree.tasks import GymTask
-from torch.utils.tensorboard import SummaryWriter
 
 
 def running_mean(x, N):
@@ -12,15 +12,16 @@ def running_mean(x, N):
     return (cumsum[N:] - cumsum[:-N]) / float(N)
 
 
-writer = SummaryWriter()
 env_name = 'CartPole-v1'
 task = GymTask(env_name)
+data_logger = TensorboardLogger()
 
 agent = Agent(task.state_size, task.action_size, device='cpu')
-env_runner = EnvRunner(task, agent, writer=writer)
+env_runner = EnvRunner(task, agent, data_logger=data_logger)
 
 scores = env_runner.run(reward_goal=100, max_episodes=500, eps_decay=0.9, force_new=True)
 env_runner.interact_episode(render=True)
+data_logger.close()
 
 
 avg_length = 100

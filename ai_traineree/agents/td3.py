@@ -6,6 +6,7 @@ from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.utils import hard_update, soft_update
 from ai_traineree.buffers import ReplayBuffer
+from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import DoubleCritic
 from ai_traineree.noise import OUProcess
@@ -188,9 +189,9 @@ class TD3Agent(AgentBase):
         """
         return (self.actor.state_dict(), self.target_actor.state_dict(), self.critic.state_dict(), self.target_critic())
 
-    def log_writer(self, writer, episode):
-        writer.add_scalar("loss/actor", self._loss_actor, episode)
-        writer.add_scalar("loss/critic", self._loss_critic, episode)
+    def log_metrics(self, data_logger: DataLogger, step: int):
+        data_logger.log_value("loss/actor", self._loss_actor, step)
+        data_logger.log_value("loss/critic", self._loss_critic, step)
 
     def save_state(self, path: str):
         agent_state = dict(

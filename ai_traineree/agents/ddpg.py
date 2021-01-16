@@ -5,6 +5,7 @@ from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.utils import hard_update, soft_update
 from ai_traineree.buffers import ReplayBuffer
+from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.noise import GaussianNoise
 from ai_traineree.utils import to_tensor
@@ -168,22 +169,22 @@ class DDPGAgent(AgentBase):
         """
         return (self.actor.state_dict(), self.target_actor.state_dict(), self.critic.state_dict(), self.target_critic())
 
-    def log_writer(self, writer, step: int, full_log: bool=False):
-        writer.add_scalar("loss/actor", self._loss_actor, step)
-        writer.add_scalar("loss/critic", self._loss_critic, step)
+    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
+        data_logger.log_value("loss/actor", self._loss_actor, step)
+        data_logger.log_value("loss/critic", self._loss_critic, step)
 
         if full_log:
             for idx, layer in enumerate(self.actor.layers):
                 if hasattr(layer, "weight"):
-                    writer.add_histogram(f"actor/layer_weights_{idx}", layer.weight, step)
+                    data_logger.create_histogram(f"actor/layer_weights_{idx}", layer.weight, step)
                 if hasattr(layer, "bias") and layer.bias is not None:
-                    writer.add_histogram(f"actor/layer_bias_{idx}", layer.bias, step)
+                    data_logger.create_histogram(f"actor/layer_bias_{idx}", layer.bias, step)
 
             for idx, layer in enumerate(self.critic.layers):
                 if hasattr(layer, "weight"):
-                    writer.add_histogram(f"critic/layer_weights_{idx}", layer.weight, step)
+                    data_logger.create_histogram(f"critic/layer_weights_{idx}", layer.weight, step)
                 if hasattr(layer, "bias") and layer.bias is not None:
-                    writer.add_histogram(f"critic/layer_bias_{idx}", layer.bias, step)
+                    data_logger.create_histogram(f"critic/layer_bias_{idx}", layer.bias, step)
 
     def save_state(self, path: str):
         agent_state = dict(

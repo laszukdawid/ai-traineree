@@ -71,6 +71,12 @@ This is just a beginning and there will be more work on these interactions.
 | RAINBOW | [Implemented](ai_traineree/agents/rainbow.py) | [arXiv](https://arxiv.org/abs/1710.02298) | DQN with a few improvements |[Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#rainbow)
 | MADDPG | [Implemented](ai_traineree/multi_agents/maddpg.py) | [arXiv](https://arxiv.org/abs/1706.02275) | Multi agent DDPG |[Doc](https://ai-traineree.readthedocs.io/en/latest/multi_agents.html#maddpg)
 
+### Loggers
+
+Supports using Tensorboard (via PyTorch's [SummaryWriter](https://pytorch.org/docs/stable/tensorboard.html)) and [Neptune](https://neptune.ai) to display metrics. Wrappers are provided as `TensorboardLogger` and `NeptuneLogger`.
+
+*Note*: In order to use Neptune one needs to install [neptune-client](https://pypi.org/project/neptune-client/) (`pip install neptune-client`).
+
 ### Environments
 
 | Name | Progress | Link | Doc |
@@ -85,10 +91,10 @@ This is just a beginning and there will be more work on these interactions.
 
 | Name | Progress |
 |------|----------|
-| Gif creation support | Done |
-| Tensorboard support | Implemented |
 | Pip package | Not started |
-| Test coverage > 80% | Tested ~20%, Covered 80% |
+| CD | Not started |
+| More multi agent methods | Research |
+| Test coverage > 80% | Tested ~40%, Covered 85% |
 
 There are other potential things on the roadmap but haven't dedicated to them yet. 
 

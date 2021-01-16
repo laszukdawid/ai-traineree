@@ -196,7 +196,7 @@ class MADDPGAgent(MultiAgentType):
             soft_update(ddpg_agent.target_actor, ddpg_agent.actor, self.tau)
         soft_update(self.target_critic, self.critic, self.tau)
 
-    def log_writer(self, writer, episode):
+    def log_metrics(self, writer, episode):
         writer.add_scalar("loss/actor", self._loss_actor, episode)
         writer.add_scalar("loss/critic", self._loss_critic, episode)
 

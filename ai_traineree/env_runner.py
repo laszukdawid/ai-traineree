@@ -7,6 +7,7 @@ import os
 import sys
 
 from ai_traineree.agents import AgentBase
+from ai_traineree.loggers import DataLogger
 from ai_traineree.types import ActionType, DoneType, RewardType, StateType, TaskType
 from ai_traineree.types import MultiAgentType, MultiAgentTaskType
 from collections import deque
@@ -34,7 +35,7 @@ def save_gif(path, images: List[np.ndarray]) -> None:
 
 class EnvRunner:
     """
-    EnvRunner, shorter for Environment Runner, is meant to be used as module that runs your experiments.
+    EnvRunner, short for Environment Runner, is meant to be used as module that runs your experiments.
     It's expected that the environments are wrapped in a Task which has typical step and act methods.
     The agent can be any agent which *makes sense* as there aren't any checks like whether the output is discrete.
 
@@ -51,7 +52,7 @@ class EnvRunner:
 
         Keyword parameters:
             window_len (int): Length of the score averaging window.
-            writer: Tensorboard writer.
+            data_logger: An instance of Data Logger, e.g. TensorboardLogger.
         """
         self.task = task
         self.agent = agent
@@ -67,10 +68,10 @@ class EnvRunner:
         self.scores_window = deque(maxlen=self.window_len)
         self.__images = []
 
-        self.writer = kwargs.get("writer")
-        self.logger.info("writer: %s", str(self.writer))
-        if self.writer:
-            self.writer.add_hparams(self.agent.hparams, {})
+        self.data_logger: Optional[DataLogger] = kwargs.get("data_logger")
+        self.logger.info("DataLogger: %s", str(self.data_logger))
+        if self.data_logger:
+            self.data_logger.set_hparams(self.agent.hparams, {})
 
         self._actions: List[Any] = []
         self._rewards: List[Any] = []
@@ -227,23 +228,26 @@ class EnvRunner:
                 self.save_state(self.model_path)
 
         # Store hyper parameters and experiment metrics in logger so that it's easier to compare runs
-        if self.writer:
+        if self.data_logger:
             end_metrics = {
                 "hparam/total_iterations": sum(self.all_iterations),
                 "hparam/total_episodes": len(self.all_iterations),
                 "hparam/score": mean_scores[-1],
             }
-            self.writer.add_hparams(self.agent.hparams, end_metrics, run_name="hparams")
+            self.data_logger.set_hparams(self.agent.hparams, end_metrics, run_name="hparams")
 
         return self.all_scores
 
     def info(self, **kwargs):
         """
         Writes out current state into provided loggers.
-        Currently supports stdout logger (default on) and Tensorboard SummaryWriter initiated through EnvRun(writer=...)).
+        Writting to stdout is done through Python's logger, whereas all metrics
+        are supposed to be handled via DataLogger. Currently supported are Tensorboard
+        and Neptune (neptune.ai). To use one of these `data_logger` is expected.
         """
-        if self.writer is not None:
-            self.log_writer(**kwargs)
+        if self.data_logger is not None:
+            self.log_episode_metrics(**kwargs)
+            self.log_data_interaction(**kwargs)
         if self.logger is not None:
             self.log_logger(**kwargs)
 
@@ -264,44 +268,43 @@ class EnvRunner:
         line = "\t".join(line_chunks)
         self.logger.info(line.format(**kwargs))
 
-    def log_writer(self, **kwargs):
-        """Uses writer, e.g. Tensorboard, to store env metrics."""
+    def log_episode_metrics(self, **kwargs):
+        """Uses DataLogger, e.g. TensorboardLogger, to store env metrics."""
         episodes: List[int] = kwargs.get('episodes', [])
         for episode, epsilon in zip(episodes, kwargs.get('epsilons', [])):
-            self.writer.add_scalar("episode/epsilon", epsilon, episode)
+            self.data_logger.log_value("episode/epsilon", epsilon, episode)
 
         for episode, mean_score in zip(episodes, kwargs.get('mean_scores', [])):
-            self.writer.add_scalar("episode/avg_score", mean_score, episode)
+            self.data_logger.log_value("episode/avg_score", mean_score, episode)
 
         for episode, score in zip(episodes, kwargs.get('scores', [])):
-            self.writer.add_scalar("episode/score", score, episode)
+            self.data_logger.log_value("episode/score", score, episode)
 
         for episode, iteration in zip(episodes, kwargs.get('iterations', [])):
-            self.writer.add_scalar("episode/iterations", iteration, episode)
-        self.log_interaction(**kwargs)
+            self.data_logger.log_value("episode/iterations", iteration, episode)
 
-    def log_interaction(self, **kwargs):
-        if self.writer is None:
+    def log_data_interaction(self, **kwargs):
+        if self.data_logger is None:
             return
 
-        if hasattr(self.agent, 'log_writer'):
-            self.agent.log_writer(self.writer, self.iteration)
+        if hasattr(self.agent, 'log_metrics'):
+            self.agent.log_metrics(self.data_logger, self.iteration)
         else:
             for loss_name, loss_value in kwargs.get('loss', {}).items():
-                self.writer.add_scalar(f"loss/{loss_name}", loss_value, self.iteration)
+                self.data_logger.log_value(f"loss/{loss_name}", loss_value, self.iteration)
 
         while(self._actions):
-            step, actions = self._actions.pop()
+            step, actions = self._actions.pop(0)
             actions = actions if isinstance(actions, Iterable) else [actions]
-            self.writer.add_scalars("env/action", {str(i): a for i, a in enumerate(actions)}, step)
+            self.data_logger.log_values_dict("env/action", {str(i): a for i, a in enumerate(actions)}, step)
 
         while(self._rewards):
-            step, rewards = self._rewards.pop()
-            self.writer.add_scalar("env/reward", float(rewards), step)
+            step, rewards = self._rewards.pop(0)
+            self.data_logger.log_value("env/reward", float(rewards), step)
 
         while(self._dones):
-            step, dones = self._dones.pop()
-            self.writer.add_scalar("env/done", int(dones), step)
+            step, dones = self._dones.pop(0)
+            self.data_logger.log_value("env/done", int(dones), step)
 
     def save_state(self, state_name: str):
         """Saves the current state of the runner and the agent.
@@ -371,7 +374,7 @@ class MultiSyncEnvRunner:
 
         Keyword parameters:
             window_len (int): Length of the score averaging window.
-            writer: Tensorboard writer.
+            data_logger: An instance of Data Logger, e.g. TensorboardLogger.
         """
         self.tasks = tasks
         self.task_num = len(tasks)
@@ -392,8 +395,8 @@ class MultiSyncEnvRunner:
         self.window_len = kwargs.get('window_len', 100)
         self.scores_window = deque(maxlen=self.window_len)
 
-        self.writer = kwargs.get("writer")
-        self.logger.info("writer: %s", str(self.writer))
+        self.data_logger: Optional[DataLogger] = kwargs.get("data_logger")
+        self.logger.info("DataLogger: %s", str(self.data_logger))
 
     def __str__(self) -> str:
         return f"MultiSyncEnvRunner<{[t.name for t in self.tasks]}, {self.agent.name}>"
@@ -617,23 +620,26 @@ class MultiSyncEnvRunner:
 
     def close_all(self):
         while(self.parent_conns):
-            self.parent_conns.pop().close()
+            self.parent_conns.pop(0).close()
 
         while(self.child_conns):
-            self.child_conns.pop().close()
+            self.child_conns.pop(0).close()
 
         while(self.processes):
-            p = self.processes.pop()
+            p = self.processes.pop(0)
             p.terminate()
             p.join()
 
     def info(self, **kwargs):
         """
         Writes out current state into provided loggers.
-        Currently supports stdout logger (default on) and Tensorboard SummaryWriter initiated through EnvRun(writer=...)).
+        Writting to stdout is done through Python's logger, whereas all metrics
+        are supposed to be handled via DataLogger. Currently supported are Tensorboard
+        and Neptune (neptune.ai). To use one of these `data_logger` is expected.
         """
-        if self.writer is not None:
-            self.log_writer(**kwargs)
+        if self.data_logger is not None:
+            self.log_episode_metrics(**kwargs)
+            self.log_data_interaction(**kwargs)
         if self.logger is not None:
             self.log_logger(**kwargs)
 
@@ -654,25 +660,24 @@ class MultiSyncEnvRunner:
         line = "\t".join(line_chunks)
         self.logger.info(line.format(**kwargs))
 
-    def log_writer(self, **kwargs):
-        """Uses writer, e.g. Tensorboard, to store env metrics."""
+    def log_episode_metrics(self, **kwargs):
+        """Uses data_logger, e.g. Tensorboard, to store env metrics."""
         episodes: List[int] = kwargs.get('episodes', [])
         for episode, epsilon in zip(episodes, kwargs.get('epsilons', [])):
-            self.writer.add_scalar("episode/epsilon", epsilon, episode)
+            self.data_logger.log_value("episode/epsilon", epsilon, episode)
 
         for episode, mean_score in zip(episodes, kwargs.get('mean_scores', [])):
-            self.writer.add_scalar("episode/avg_score", mean_score, episode)
+            self.data_logger.log_value("episode/avg_score", mean_score, episode)
 
         for episode, score in zip(episodes, kwargs.get('scores', [])):
-            self.writer.add_scalar("episode/score", score, episode)
+            self.data_logger.log_value("episode/score", score, episode)
 
         for episode, iteration in zip(episodes, kwargs.get('iterations', [])):
-            self.writer.add_scalar("episode/iterations", iteration, episode)
-        self.log_interaction(**kwargs)
+            self.data_logger.log_value("episode/iterations", iteration, episode)
 
-    def log_interaction(self, **kwargs):
-        if self.writer and hasattr(self.agent, 'log_writer'):
-            self.agent.log_writer(self.writer, self.iteration)
+    def log_data_interaction(self, **kwargs):
+        if self.data_logger and hasattr(self.agent, 'log_metrics'):
+            self.agent.log_metrics(self.data_logger, self.iteration)
 
     def save_state(self, state_name: str):
         """Saves the current state of the runner and the agent.
@@ -740,7 +745,7 @@ class MultiAgentEnvRunner:
     """
 
     def __init__(self, task: MultiAgentTaskType, multi_agent: MultiAgentType, mode: str ='coop', max_iterations: int=int(1e5), **kwargs):
-        """Expects the environment to come as the TaskType and the agent as the AgentType.
+        """Expects the environment to come as the TaskType and the agent as the MultiAgentBase.
 
         Parameters:
             task: An OpenAI gym API compatible task.
@@ -751,7 +756,7 @@ class MultiAgentEnvRunner:
 
         Keyword Arguments:
             window_len (int): Length of the averaging window for average reward.
-            writer: Tensorboard writer.
+            data_logger: An instance of Data Logger, e.g. TensorboardLogger.
 
         """
         self.logger = logging.getLogger("MAEnvRunner")
@@ -772,8 +777,8 @@ class MultiAgentEnvRunner:
         self._rewards = []
         self._dones = []
 
-        self.writer = kwargs.get("writer")
-        self.logger.info("writer: %s", str(self.writer))
+        self.data_logger = kwargs.get("data_logger")
+        self.logger.info("DataLogger: %s", str(self.data_logger))
 
     def __str__(self) -> str:
         return f"EnvRunner<{self.task.name}, {self.multi_agent.name}>"
@@ -834,7 +839,7 @@ class MultiAgentEnvRunner:
 
             self.multi_agent.step(states, actions, rewards, next_states, dones)
             if log_interaction_freq is not None and (iterations % log_interaction_freq) == 0:
-                self.log_interaction()
+                self.log_data_interaction()
             states = next_states
             if any(dones):
                 break
@@ -914,10 +919,13 @@ class MultiAgentEnvRunner:
     def info(self, **kwargs):
         """
         Writes out current state into provided loggers.
-        Currently supports stdout logger (default on) and Tensorboard SummaryWriter initiated through EnvRun(writer=...)).
+        Writting to stdout is done through Python's logger, whereas all metrics
+        are supposed to be handled via DataLogger. Currently supported are Tensorboard
+        and Neptune (neptune.ai). To use one of these `data_logger` is expected.
         """
-        if self.writer is not None:
-            self.log_writer(**kwargs)
+        if self.data_logger is not None:
+            self.log_episode_metrics(**kwargs)
+            self.log_data_interaction(**kwargs)
         if self.logger is not None:
             self.log_logger(**kwargs)
 
@@ -942,43 +950,42 @@ class MultiAgentEnvRunner:
             print("Line: ", line)
             print("kwargs: ", kwargs)
 
-    def log_writer(self, **kwargs):
-        """Uses writer, e.g. Tensorboard, to store env metrics."""
+    def log_episode_metrics(self, **kwargs):
+        """Uses data_logger, e.g. Tensorboard, to store env metrics."""
         episodes: List[int] = kwargs.get('episodes', [])
         for episode, epsilon in zip(episodes, kwargs.get('epsilons', [])):
-            self.writer.add_scalar("episode/epsilon", epsilon, episode)
+            self.data_logger.log_value("episode/epsilon", epsilon, episode)
 
         for episode, mean_score in zip(episodes, kwargs.get('mean_scores', [])):
-            self.writer.add_scalar("episode/avg_score", mean_score, episode)
+            self.data_logger.log_value("episode/avg_score", mean_score, episode)
 
         for episode, score in zip(episodes, kwargs.get('scores', [])):
-            self.writer.add_scalar("episode/score", score, episode)
+            self.data_logger.log_value("episode/score", score, episode)
 
         for episode, iteration in zip(episodes, kwargs.get('iterations', [])):
-            self.writer.add_scalar("episode/iterations", iteration, episode)
-        self.log_interaction(**kwargs)
+            self.data_logger.log_value("episode/iterations", iteration, episode)
 
-    def log_interaction(self, **kwargs):
-        if hasattr(self.multi_agent, 'log_writer'):
-            self.multi_agent.log_writer(self.writer, self.iteration)
+    def log_data_interaction(self, **kwargs):
+        if hasattr(self.multi_agent, 'log_metrics'):
+            self.multi_agent.log_metrics(self.data_logger, self.iteration)
         else:
             for loss_name, loss_value in kwargs.get('loss', {}).items():
-                self.writer.add_scalar(f"loss/{loss_name}", loss_value, self.iteration)
+                self.data_logger.log_value(f"loss/{loss_name}", loss_value, self.iteration)
 
         while(self._actions):
-            step, actions = self._actions.pop()
+            step, actions = self._actions.pop(0)
             actions = actions if isinstance(actions, Iterable) else [actions]
-            self.writer.add_scalars("env/action", {str(i): a for i, a in enumerate(actions)}, step)
+            self.data_logger.log_values_dict("env/action", {str(i): a for i, a in enumerate(actions)}, step)
 
         while(self._rewards):
-            step, rewards = self._rewards.pop()
+            step, rewards = self._rewards.pop(0)
             rewards = rewards if isinstance(rewards, Iterable) else [rewards]
-            self.writer.add_scalars("env/reward", {str(i): r for i, r in enumerate(rewards)}, step)
+            self.data_logger.log_values_dict("env/reward", {str(i): r for i, r in enumerate(rewards)}, step)
 
         while(self._dones):
-            step, dones = self._dones.pop()
+            step, dones = self._dones.pop(0)
             dones = dones if isinstance(dones, Iterable) else [dones]
-            self.writer.add_scalars("env/done", {str(i): d for i, d in enumerate(dones)}, step)
+            self.data_logger.log_values_dict("env/done", {str(i): d for i, d in enumerate(dones)}, step)
 
     def save_state(self, state_name: str):
         """Saves the current state of the runner and the multi_agent.

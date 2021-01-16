@@ -2,13 +2,13 @@ import pylab as plt
 
 from ai_traineree.agents.ppo import PPOAgent as Agent
 from ai_traineree.env_runner import EnvRunner
+from ai_traineree.loggers import TensorboardLogger
 from ai_traineree.tasks import GymTask
 from ai_traineree.types import TaskType
-from torch.utils.tensorboard import SummaryWriter
 
 
 env_name = 'LunarLanderContinuous-v2'
-writer = SummaryWriter()
+data_logger = TensorboardLogger()
 task: TaskType = GymTask(env_name)
 config = {
     'rollout_length': 60,
@@ -25,12 +25,13 @@ config = {
     "critic_lr": 0.001,
     "actor_lr": 0.0004,
 }
-agent = Agent(task.state_size, task.action_size, hidden_layers=(80, 80), **config)
-env_runner = EnvRunner(task, agent, writer=writer)
+agent = Agent(task.state_size, task.action_size, hidden_layers=(100, 100, 50), **config)
+env_runner = EnvRunner(task, agent, data_logger=data_logger)
 # env_runner.interact_episode(0, render=True)
-scores = env_runner.run(80, 8000, force_new=True, eps_decay=0.99)
+scores = env_runner.run(80, 2000, eps_decay=0.99, force_new=True, checkpoint_every=20)
 env_runner.interact_episode(0, render=True)
 
+data_logger.close()
 # plot the scores
 fig = plt.figure()
 ax = fig.add_subplot(111)

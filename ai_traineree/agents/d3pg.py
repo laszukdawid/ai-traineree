@@ -1,3 +1,4 @@
+from ai_traineree.loggers import DataLogger
 import itertools
 import torch
 import torch.nn as nn
@@ -112,7 +113,9 @@ class D3PGAgent(AgentBase):
         self.iteration = 0
         self._loss_actor = float('nan')
         self._loss_critic = float('nan')
-        self._display_dist = torch.empty(self.critic.z_atoms.shape)
+        self._display_dist = torch.zeros(self.critic.z_atoms.shape)
+        self._metric_batch_error = torch.zeros(self.batch_size)
+        self._metric_batch_value_dist = torch.zeros(self.batch_size)
 
     @property
     def loss(self) -> Dict[str, float]:
@@ -212,7 +215,7 @@ class D3PGAgent(AgentBase):
         pred_actions = self.policy(pred_action_seeds).rsample()
         # Negative because the optimizer minimizes, but we want to maximize the value
         value_dist = self.critic(states, pred_actions)
-        self._batch_value_dist_metric = value_dist.detach()
+        self._metric_batch_value_dist = value_dist.detach()
         # Estimate on Z support
         return -torch.mean(value_dist*self.critic.z_atoms)
 
@@ -258,19 +261,19 @@ class D3PGAgent(AgentBase):
         """
         return (self.actor.state_dict(), self.target_actor.state_dict(), self.critic.state_dict(), self.target_critic())
 
-    def log_writer(self, writer, step):
-        writer.add_scalar("loss/actor", self._loss_actor, step)
-        writer.add_scalar("loss/critic", self._loss_critic, step)
+    def log_metrics(self, data_logger: DataLogger, step):
+        data_logger.log_value("loss/actor", self._loss_actor, step)
+        data_logger.log_value("loss/critic", self._loss_critic, step)
         policy_params = {str(i): v for i, v in enumerate(itertools.chain.from_iterable(self.policy.parameters()))}
-        writer.add_scalars("policy/param", policy_params, step)
+        data_logger.log_values_dict("policy/param", policy_params, step)
 
-        writer.add_histogram('metric/batch_errors', self._metric_batch_error.sum(-1), step)
-        writer.add_histogram('metric/batch_value_dist', self._batch_value_dist_metric, step)
+        data_logger.create_histogram('metric/batch_errors', self._metric_batch_error, step)
+        data_logger.create_histogram('metric/batch_value_dist', self._metric_batch_value_dist, step)
 
         dist = self._display_dist
         z_atoms = self.critic.z_atoms
         z_delta = self.critic.z_delta
-        writer.add_histogram_raw(
+        data_logger.add_histogram(
             'dist/dist_value', min=z_atoms[0], max=z_atoms[-1], num=self.num_atoms,
             sum=dist.sum(), sum_squares=dist.pow(2).sum(), bucket_limits=z_atoms+z_delta,
             bucket_counts=dist, global_step=step

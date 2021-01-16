@@ -7,6 +7,7 @@ from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.utils import soft_update
 from ai_traineree.buffers import NStepBuffer, PERBuffer
+from ai_traineree.loggers import DataLogger
 from ai_traineree.networks import NetworkType, NetworkTypeClass
 from ai_traineree.networks.heads import DuelingNet
 from ai_traineree.utils import to_tensor
@@ -203,14 +204,14 @@ class DQNAgent(AgentBase):
         """
         return self.net.state_dict()
 
-    def log_writer(self, writer, step: int):
-        """Uses provided (TensorBoard) writer to provide agent's metrics.
+    def log_metrics(self, data_logger: DataLogger, step: int):
+        """Uses provided DataLogger to provide agent's metrics.
 
         Parameters:
-            writer (TensorBoard): Instance of the SummaryView, e.g. torch.utils.tensorboard.SummaryWritter.
-            step_num (int): Ordering value, e.g. episode number.
+            data_logger (DataLogger): Instance of the SummaryView, e.g. torch.utils.tensorboard.SummaryWritter.
+            step (int): Ordering value, e.g. episode number.
         """
-        writer.add_scalar("loss/agent", self._loss, step)
+        data_logger.log_value("loss/agent", self._loss, step)
 
     def save_state(self, path: str) -> None:
         """Saves agent's state into a file.

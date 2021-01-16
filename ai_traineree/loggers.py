@@ -10,6 +10,17 @@ except ImportError:
 
 class DataLogger(abc.ABC):
 
+    def __dell__(self):
+        self.close()
+
+    @abc.abstractmethod
+    def close(self) -> None:
+        pass
+
+    @abc.abstractmethod
+    def set_hparams(self, *args, **kwargs) -> None:
+        pass
+
     @abc.abstractmethod
     def log_value(self, name, value, step) -> None:
         pass
@@ -19,7 +30,12 @@ class DataLogger(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def add_histogram(self, *args, **kwargs) -> None:
+        pass
+
+    @abc.abstractmethod
     def create_histogram(self, name, values, step) -> None:
+        """Creates a histogram out of provided data."""
         pass
 
 
@@ -29,15 +45,31 @@ class TensorboardLogger(DataLogger):
     Wrapper around the torch.utils.tensorboard.SummaryWriter.
     """
 
-    def __init__(self, writer=None):
+    name = "TensorboardLogger"
+
+    def __init__(self, writer=None, *args, **kwargs):
+        """
+        If no SummaryWriter writer is proved then one is intiatied with provided parameters.
+
+        Parameters:
+            writer: (Optional) SummaryWriter instance.
+                If not provided then one is created using `torch.utils.tensorboard.SummaryWriter`.
+
+        """
         if writer is None:
-            writer = SummaryWriter()
+            writer = SummaryWriter(*args, **kwargs)
         if not isinstance(writer, SummaryWriter):
             raise ValueError("Only `SummaryWriter` class is allowed for the Tensorboard logger")
         self.writer = writer
 
+    def __str__(self):
+        return self.name
+
     def close(self):
         self.writer.close()
+
+    def set_hparams(self, *args, **kwargs):
+        self.writer.add_hparams(*args, **kwargs)
 
     def log_value(self, name: str, value, step: int) -> None:
         self.writer.add_scalar(name, value, step)
@@ -45,7 +77,12 @@ class TensorboardLogger(DataLogger):
     def log_values_dict(self, name: str, values: Dict[str, float], step: int) -> None:
         self.writer.add_scalars(name, values, step)
 
+    def add_histogram(self, *args, **kwargs):
+        """Logs provided histogram with all its parameters. Note that the input is alread a histogram."""
+        self.writer.add_histogram_raw(*args, **kwargs)
+
     def create_histogram(self, name: str, values, step: int) -> None:
+        """Creates a histogram out of provided data."""
         self.writer.add_histogram(name, values, step)
 
 
@@ -55,12 +92,20 @@ class NeptuneLogger(DataLogger):
     Wrapper around the Neptune.ai logger.
     """
 
-    def __init__(self, project_name: str):
-        self.project = neptune.init(project_name)
-        pass
+    name = "NeptuneLogger"
+
+    def __init__(self, project_name: str, **kwargs):
+        self.project = neptune.init(project_name, **kwargs)
+        neptune.create_experiment()
+
+    def __str__(self) -> str:
+        return self.name
 
     def close(self):
         neptune.stop()
+
+    def set_hparams(self, *args, **kwargs):
+        pass
 
     def log_value(self, name: str, value, step: int) -> None:
         neptune.log_metric(name, x=step, y=value)
@@ -68,6 +113,9 @@ class NeptuneLogger(DataLogger):
     def log_values_dict(self, name: str, values, step: int) -> None:
         for _name, _value in values.items():
             self.log_value(f"{name}/{_name}", _value, step)
+
+    def add_histogram(self, *args, **kwargs) -> None:
+        return
 
     def create_histogram(self, name, values, step) -> None:
         return

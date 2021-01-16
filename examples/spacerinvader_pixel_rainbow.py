@@ -1,13 +1,13 @@
-from ai_traineree.agents.rainbow import RainbowAgent
-from ai_traineree.networks.bodies import ConvNet, FcNet
-from ai_traineree.networks.heads import NetChainer, RainbowNet
-from ai_traineree.env_runner import EnvRunner
-from ai_traineree.tasks import GymTask
-from torch.utils.tensorboard import SummaryWriter
-
-import numpy as np
+import datetime
 import pylab as plt
 import torch.nn as nn
+
+from ai_traineree.agents.rainbow import RainbowAgent
+from ai_traineree.loggers import TensorboardLogger
+from ai_traineree.networks.bodies import ConvNet, FcNet
+from ai_traineree.networks.heads import NetChainer
+from ai_traineree.env_runner import EnvRunner
+from ai_traineree.tasks import GymTask
 
 
 def state_transform(state):
@@ -32,7 +32,6 @@ def network_fn(state_dim, output_dim, device=None):
 
 env_name = 'SpaceInvaders-v0'
 task = GymTask(env_name, state_transform=state_transform)
-writer = SummaryWriter()
 
 device = "cuda"
 config = {
@@ -49,7 +48,8 @@ config = {
 }
 state_size = task.actual_state_size
 agent = RainbowAgent(state_size, task.action_size, **config)
-env_runner = EnvRunner(task, agent, max_iterations=2000, writer=writer)
+data_logger = TensorboardLogger(f'runs/{env_name}_{agent.name}_{datetime.datetime.now().strftime("%b%d_%H-%m-%s")}')
+env_runner = EnvRunner(task, agent, max_iterations=10000, data_logger=data_logger)
 
 scores = env_runner.run(reward_goal=1000, max_episodes=1000, log_every=1, eps_start=0.99, gif_every_episodes=100, force_new=True)
 env_runner.interact_episode(render=True)

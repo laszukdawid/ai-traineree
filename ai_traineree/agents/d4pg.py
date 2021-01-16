@@ -7,6 +7,7 @@ from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.utils import hard_update, soft_update
 from ai_traineree.buffers import NStepBuffer, PERBuffer
+from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import CategoricalNet
 from ai_traineree.policies import MultivariateGaussianPolicySimple, MultivariateGaussianPolicy
@@ -279,29 +280,29 @@ class D4PGAgent(AgentBase):
         """
         return (self.actor.state_dict(), self.target_actor.state_dict(), self.critic.state_dict(), self.target_critic())
 
-    def log_writer(self, writer, step, full_log=False):
-        writer.add_scalar("loss/actor", self._loss_actor, step)
-        writer.add_scalar("loss/critic", self._loss_critic, step)
+    def log_metrics(self, data_logger: DataLogger, step, full_log=False):
+        data_logger.log_value("loss/actor", self._loss_actor, step)
+        data_logger.log_value("loss/critic", self._loss_critic, step)
         policy_params = {str(i): v for i, v in enumerate(itertools.chain.from_iterable(self.policy.parameters()))}
-        writer.add_scalars("policy/param", policy_params, step)
+        data_logger.log_values_dict("policy/param", policy_params, step)
 
-        writer.add_histogram('metric/batch_errors', self._metric_batch_error.sum(-1), step)
-        writer.add_histogram('metric/batch_value_dist', self._batch_value_dist_metric, step)
+        data_logger.create_histogram('metric/batch_errors', self._metric_batch_error.sum(-1), step)
+        data_logger.create_histogram('metric/batch_value_dist', self._batch_value_dist_metric, step)
 
-        # This method, `log_writer`, isn't executed on every iteration but just in case we delay plotting weights.
+        # This method, `log_metrics`, isn't executed on every iteration but just in case we delay plotting weights.
         # It simply might be quite costly. Thread wisely.
         if full_log:
             for idx, layer in enumerate(self.actor.layers):
                 if hasattr(layer, "weight"):
-                    writer.add_histogram(f"actor/layer_weights_{idx}", layer.weight, step)
+                    data_logger.create_histogram(f"actor/layer_weights_{idx}", layer.weight, step)
                 if hasattr(layer, "bias") and layer.bias is not None:
-                    writer.add_histogram(f"actor/layer_bias_{idx}", layer.bias, step)
+                    data_logger.create_histogram(f"actor/layer_bias_{idx}", layer.bias, step)
 
             for idx, layer in enumerate(self.critic.net.layers):
                 if hasattr(layer, "weight"):
-                    writer.add_histogram(f"critic/layer_{idx}", layer.weight, step)
+                    data_logger.create_histogram(f"critic/layer_{idx}", layer.weight, step)
                 if hasattr(layer, "bias") and layer.bias is not None:
-                    writer.add_histogram(f"critic/layer_bias_{idx}", layer.bias, step)
+                    data_logger.create_histogram(f"critic/layer_bias_{idx}", layer.bias, step)
 
     def save_state(self, path: str):
         agent_state = dict(

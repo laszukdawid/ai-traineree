@@ -8,6 +8,7 @@ from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.utils import compute_gae, normalize, revert_norm_returns
 from ai_traineree.buffers import RolloutBuffer
+from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody
 from ai_traineree.policies import MultivariateGaussianPolicySimple, MultivariateGaussianPolicy
 from ai_traineree.utils import to_tensor
@@ -184,7 +185,7 @@ class PPOAgent(AgentBase):
         values = to_tensor(experiences['value']).to(self.device)
         logprobs = to_tensor(experiences['logprob']).to(self.device)
         assert rewards.shape == dones.shape == values.shape == logprobs.shape
-        assert states.shape == (self.rollout_length, self.num_workers, self.action_size), f"Wrong states shape: {states.shape}"
+        assert states.shape == (self.rollout_length, self.num_workers, self.state_size), f"Wrong states shape: {states.shape}"
         assert actions.shape == (self.rollout_length, self.num_workers, self.action_size), f"Wrong action shape: {actions.shape}"
 
         with torch.no_grad():
@@ -282,26 +283,26 @@ class PPOAgent(AgentBase):
             self.critic_opt.step()
             self._loss_critic = float(loss_critic.item())
 
-    def log_writer(self, writer, step):
-        writer.add_scalar("loss/actor", self._loss_actor, step)
-        writer.add_scalar("loss/critic", self._loss_critic, step)
+    def log_metrics(self, data_logger: DataLogger, step: int):
+        data_logger.log_value("loss/actor", self._loss_actor, step)
+        data_logger.log_value("loss/critic", self._loss_critic, step)
         for metric_name, metric_value in self._metrics.items():
-            writer.add_scalar(metric_name, metric_value, step)
+            data_logger.log_value(metric_name, metric_value, step)
 
         policy_params = {str(i): v for i, v in enumerate(itertools.chain.from_iterable(self.policy.parameters()))}
-        writer.add_scalars("policy/param", policy_params, step)
+        data_logger.log_values_dict("policy/param", policy_params, step)
 
         for idx, layer in enumerate(self.actor.layers):
             if hasattr(layer, "weight"):
-                writer.add_histogram(f"actor/layer_weights_{idx}", layer.weight, step)
+                data_logger.create_histogram(f"actor/layer_weights_{idx}", layer.weight, step)
             if hasattr(layer, "bias") and layer.bias is not None:
-                writer.add_histogram(f"actor/layer_bias_{idx}", layer.bias, step)
+                data_logger.create_histogram(f"actor/layer_bias_{idx}", layer.bias, step)
 
         for idx, layer in enumerate(self.critic.layers):
             if hasattr(layer, "weight"):
-                writer.add_histogram(f"critic/layer_weights_{idx}", layer.weight, step)
+                data_logger.create_histogram(f"critic/layer_weights_{idx}", layer.weight, step)
             if hasattr(layer, "bias") and layer.bias is not None:
-                writer.add_histogram(f"critic/layer_bias_{idx}", layer.bias, step)
+                data_logger.create_histogram(f"critic/layer_bias_{idx}", layer.bias, step)
 
     def save_state(self, path: str):
         agent_state = dict(

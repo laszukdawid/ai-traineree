@@ -4,8 +4,8 @@ import sneks  # noqa
 
 from ai_traineree.agents.rainbow import RainbowAgent
 from ai_traineree.env_runner import EnvRunner
+from ai_traineree.loggers import TensorboardLogger
 from ai_traineree.tasks import GymTask
-from torch.utils.tensorboard import SummaryWriter
 
 
 def running_mean(x, N):
@@ -24,7 +24,7 @@ def reward_transform(reward) -> float:
         return reward
 
 
-writer = SummaryWriter()
+data_logger = TensorboardLogger()
 env_name = 'hungrysnek-raw-16-v1'
 task = GymTask(env_name, state_transform=state_transform, reward_transform=reward_transform)
 state_size = np.array(task.reset()).shape
@@ -44,7 +44,7 @@ config = {
 
 
 agent = RainbowAgent(state_size, task.action_size, **config)
-env_runner = EnvRunner(task, agent, max_iterations=2000, writer=writer)
+env_runner = EnvRunner(task, agent, max_iterations=2000, data_logger=data_logger)
 
 scores = env_runner.run(
     reward_goal=0.75,
@@ -54,6 +54,7 @@ scores = env_runner.run(
     force_new=True
 )
 env_runner.interact_episode(render=True)
+data_logger.close()
 
 
 avg_length = 100
