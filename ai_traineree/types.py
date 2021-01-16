@@ -56,7 +56,7 @@ class AgentType(abc.ABC):
     @property
     def hparams(self):
         def make_strings_out_of_things_that_are_not_obvious_numbers(v):
-            return str(v) if v is not isinstance(v, (int, float)) else v
+            return str(v) if not isinstance(v, (int, float)) else v
         return {k: make_strings_out_of_things_that_are_not_obvious_numbers(v) for (k, v) in self._config.items()}
 
     def _register_param(self, source: Dict[str, Any], name: str, default_value=None, drop=False) -> Any:
