@@ -261,6 +261,14 @@ class RolloutBuffer(BufferBase):
 
             yield all_experiences
 
+    def all_samples(self):
+        all_experiences = defaultdict(lambda: [])
+        for sample in self.exp:
+            for key, value in sample.get_dict().items():
+                all_experiences[key].append(value)
+
+        return all_experiences
+
     def dump_buffer(self, serialize: bool=False) -> Generator[Dict[str, List], None, None]:
         for exp in self.exp:
             yield exp.get_dict(serialize=serialize)

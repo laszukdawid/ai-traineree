@@ -6,7 +6,7 @@ import torch.optim as optim
 
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
-from ai_traineree.agents.utils import EPS, compute_gae, normalize, revert_norm_returns
+from ai_traineree.agents.utils import compute_gae, normalize, revert_norm_returns
 from ai_traineree.buffers import RolloutBuffer
 from ai_traineree.networks.bodies import ActorBody
 from ai_traineree.policies import MultivariateGaussianPolicySimple, MultivariateGaussianPolicy
@@ -46,8 +46,8 @@ class PPOAgent(AgentBase):
             num_epochs: (default: 1) Number of time to learn from samples.
             rollout_length: (default: 48) Number of actions to take before update.
             batch_size: (default: rollout_length) Number of samples used in learning.
-            actor_number_updates: (default: 20) Number of times policy losses are propagated.
-            critic_number_updates: (default: 20) Number of times value losses are propagated.
+            actor_number_updates: (default: 10) Number of times policy losses are propagated.
+            critic_number_updates: (default: 10) Number of times value losses are propagated.
             entropy_weight: (default: 0.005) Weight of the entropy term in the loss.
             value_loss_weight: (default: 0.005) Weight of the entropy term in the loss.
 
@@ -95,8 +95,7 @@ class PPOAgent(AgentBase):
         self.max_grad_norm_critic = float(self._register_param(kwargs, "max_grad_norm_critic", 100.0))
 
         if kwargs.get("simple_policy", False):
-            std_init = kwargs.get("std_init", 1.0)
-            self.policy = MultivariateGaussianPolicySimple(self.action_size, std_init=std_init, device=self.device)
+            self.policy = MultivariateGaussianPolicySimple(self.action_size, device=self.device, **kwargs)
         else:
             self.policy = MultivariateGaussianPolicy(self.action_size, device=self.device)
 
@@ -110,6 +109,7 @@ class PPOAgent(AgentBase):
         self.critic_opt = optim.Adam(self.critic_params, lr=self.critic_lr, betas=self.critic_betas)
         self._loss_actor: float = float('nan')
         self._loss_critic: float = float('nan')
+        self._metrics: Dict[str, float] = {}
 
     @property
     def loss(self) -> Dict[str, float]:
@@ -169,15 +169,14 @@ class PPOAgent(AgentBase):
         )
 
         if self.iteration % self.rollout_length == 0:
-            for _ in range(self.num_epochs):
-                for experiences in self.buffer.sample():
-                    self.train(experiences=experiences)
+            self.train()
             self.__clear_memory()
 
-    def train(self, experiences):
+    def train(self):
         """
         Main loop that initiates the training.
         """
+        experiences = self.buffer.all_samples()
         rewards = to_tensor(experiences['reward']).to(self.device)
         dones = to_tensor(experiences['done']).type(torch.int).to(self.device)
         states = to_tensor(experiences['state']).to(self.device)
@@ -185,8 +184,8 @@ class PPOAgent(AgentBase):
         values = to_tensor(experiences['value']).to(self.device)
         logprobs = to_tensor(experiences['logprob']).to(self.device)
         assert rewards.shape == dones.shape == values.shape == logprobs.shape
-        assert states.shape == (self.batch_size, self.num_workers, self.state_size), f"Wrong state shape: {states.shape}"
-        assert actions.shape == (self.batch_size, self.num_workers, self.action_size), f"Wrong action shape: {actions.shape}"
+        assert states.shape == (self.rollout_length, self.num_workers, self.action_size), f"Wrong states shape: {states.shape}"
+        assert actions.shape == (self.rollout_length, self.num_workers, self.action_size), f"Wrong action shape: {actions.shape}"
 
         with torch.no_grad():
             if self.using_gae:
@@ -202,15 +201,24 @@ class PPOAgent(AgentBase):
                 advantages = normalize(returns - values)
                 assert advantages.shape == returns.shape == values.shape
 
-        # Flatten all evaluation to pretend that they're independent samples
-        states = states.view(-1, self.state_size)
-        actions = actions.view(-1, self.action_size)
-        logprobs = logprobs.view(-1, 1)
-        returns = returns.view(-1, 1)
-        dones = dones.view(-1, 1)
-        advantages = advantages.view(-1, 1)
+        for _ in range(self.num_epochs):
+            idx = 0
+            self.kl_div = 0
+            while idx < self.rollout_length:
+                _states = states[idx:idx+self.batch_size].view(-1, self.state_size).detach()
+                _actions = actions[idx:idx+self.batch_size].view(-1, self.action_size).detach()
+                _logprobs = logprobs[idx:idx+self.batch_size].view(-1, 1).detach()
+                _returns = returns[idx:idx+self.batch_size].view(-1, 1).detach()
+                _advantages = advantages[idx:idx+self.batch_size].view(-1, 1).detach()
+                idx += self.batch_size
+                self.learn((_states, _actions, _logprobs, _returns, _advantages))
 
-        self.learn((states, actions, logprobs, returns, advantages))
+            self.kl_div = abs(self.kl_div) / (self.actor_number_updates * self.rollout_length / self.batch_size)
+            if self.kl_div > self.target_kl * 1.75:
+                self.kl_beta = min(2 * self.kl_beta, 1e2)  # Max 100
+            if self.kl_div < self.target_kl / 1.75:
+                self.kl_beta = max(0.5 * self.kl_beta, 1e-6)  # Min 0.000001
+            self._metrics['policy/kl_beta'] = self.kl_beta
 
     def compute_policy_loss(self, samples):
         states, actions, old_log_probs, _, advantages = samples
@@ -231,10 +239,6 @@ class PPOAgent(AgentBase):
         if self.using_kl_div:
             # Ratio threshold for updates is 1.75 (although it should be configurable)
             policy_loss = -torch.mean(r_theta * advantages) + self.kl_beta * approx_kl_div
-            if approx_kl_div > self.target_kl * 1.75:
-                self.kl_beta = min(2 * self.kl_beta, 1e2)  # Max 100
-            if approx_kl_div < self.target_kl / 1.75:
-                self.kl_beta = max(0.5 * self.kl_beta, 1e-6)  # Min 0.000001
         else:
             joint_theta_adv = torch.stack((r_theta * advantages, r_theta_clip * advantages))
             assert joint_theta_adv.shape[0] == 2
@@ -242,11 +246,16 @@ class PPOAgent(AgentBase):
         entropy_loss = -self.entropy_weight * entropy.mean()
 
         loss = policy_loss + entropy_loss
+        self._metrics['policy/kl_div'] = approx_kl_div
+        self._metrics['policy/policy_ratio'] = float(r_theta.mean())
+        self._metrics['policy/policy_ratio_clip_mean'] = float(r_theta_clip.mean())
         return loss, approx_kl_div
 
     def compute_value_loss(self, samples):
         states, _, _, returns, _ = samples
         values = self.critic(states)
+        self._metrics['value/value_mean'] = values.mean()
+        self._metrics['value/value_std'] = values.std()
         return F.mse_loss(values, returns)
 
     def learn(self, samples):
@@ -254,8 +263,9 @@ class PPOAgent(AgentBase):
 
         for _ in range(self.actor_number_updates):
             self.actor_opt.zero_grad()
-            loss_actor, self.kl_div = self.compute_policy_loss(samples)
-            if self.kl_div > 1.5 * self.target_kl:
+            loss_actor, kl_div = self.compute_policy_loss(samples)
+            self.kl_div += kl_div
+            if kl_div > 1.5 * self.target_kl:
                 # Early break
                 # print(f"Iter: {i:02} Early break")
                 break
@@ -275,12 +285,11 @@ class PPOAgent(AgentBase):
     def log_writer(self, writer, step):
         writer.add_scalar("loss/actor", self._loss_actor, step)
         writer.add_scalar("loss/critic", self._loss_critic, step)
-        writer.add_scalar("policy/kl_div", self.kl_div, step)
+        for metric_name, metric_value in self._metrics.items():
+            writer.add_scalar(metric_name, metric_value, step)
+
         policy_params = {str(i): v for i, v in enumerate(itertools.chain.from_iterable(self.policy.parameters()))}
         writer.add_scalars("policy/param", policy_params, step)
-
-        if self.using_kl_div:
-            writer.add_scalar('policy/kl_beta', self.kl_beta, step)
 
         for idx, layer in enumerate(self.actor.layers):
             if hasattr(layer, "weight"):
