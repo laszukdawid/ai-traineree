@@ -23,8 +23,16 @@ setup_params = dict(
     license="Apache-2.0",
     keywords="AI RL DeRL ML Deep Reinforcment Learning Machine",
     packages=["ai_traineree"],
-    install_requires=required,
     python_requires='>3.5,<4',
+    install_requires=required,
+    extras_require={
+        "doc": ["sphinx"],
+        "test": ["mock", "pytest", "pytest-cov", "pytest-mock", "flake8"],
+        "tensorboard": ["tensorboard"],
+        "neptune": ["neptune-client", "psutil"],
+        # "sneks": ["git+https://github.com/laszukdawid/Sneks.git"],
+        "mlagents": ["mlagents"],
+    },
     test_suite="ai_traineree.tests",
 )
 
