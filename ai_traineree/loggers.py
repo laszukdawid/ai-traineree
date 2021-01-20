@@ -95,20 +95,21 @@ class NeptuneLogger(DataLogger):
     name = "NeptuneLogger"
 
     def __init__(self, project_name: str, **kwargs):
+        params = kwargs.pop("params", None)
         self.project = neptune.init(project_name, **kwargs)
-        neptune.create_experiment()
+        self.experiment = neptune.create_experiment(params=params)
 
     def __str__(self) -> str:
         return self.name
 
     def close(self):
-        neptune.stop()
+        self.experiment.stop()
 
     def set_hparams(self, *args, **kwargs):
         pass
 
     def log_value(self, name: str, value, step: int) -> None:
-        neptune.log_metric(name, x=step, y=value)
+        self.experiment.log_metric(name, x=step, y=value)
 
     def log_values_dict(self, name: str, values, step: int) -> None:
         for _name, _value in values.items():
