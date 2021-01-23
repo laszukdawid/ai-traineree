@@ -1,13 +1,16 @@
+import math
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import random
 
 from ai_traineree.networks import NetworkType
+from ai_traineree.networks.bodies import FcNet
 from functools import lru_cache
 from torch.distributions import Beta, Dirichlet, MultivariateNormal, Normal
 from torch.distributions.distribution import Distribution
+from typing import Optional, Tuple
 
-from typing import Tuple
 
 
 class PolicyType(NetworkType):
@@ -144,30 +147,62 @@ class MultivariateGaussianPolicy(PolicyType):
 class GaussianPolicy(PolicyType):
     """
     Univariate Gaussian (Normal) Distribution.
+    Has two heads; one for location estimate and one for standard deviation.
     """
 
-    param_dim = 2
-
-    def __init__(self, size: int):
+    def __init__(self, in_features: int, out_features: int, out_scale: float=1, **kwargs):
         """
         Parameters:
             size: Observation's dimensionality upon sampling.
 
         """
         super(GaussianPolicy, self).__init__()
-        self.action_size = size
+
+        self.in_features: int = in_features
+        self.out_features: int = out_features
+        self.out_scale = out_scale
+
+        hidden_layers = kwargs.get("hidden_layers")
         self.dist = Normal
-        self.std_min = 0.001
-        self.std_max = 5
+        self.mu = FcNet(in_features, out_features, hidden_layers=hidden_layers, **kwargs)
+        self.log_std = FcNet(in_features, out_features, hidden_layers=hidden_layers, **kwargs)
 
-    def forward(self, x) -> Distribution:
-        x = x.view(-1, self.action_size, self.param_dim)
-        mu = x[..., 0]
-        std = torch.clamp(x[..., 1], self.std_min, self.std_max)
-        return self.dist(mu, std)
+        self.log_std_min = -10
+        self.log_std_max = 2
 
-    def log_prob(self, dist: Normal, samples: torch.Tensor) -> torch.Tensor:
-        return dist.log_prob(samples).mean(dim=-1)
+        self._last_dist: Optional[Distribution] = None
+        self._last_samples: Optional[torch.Tensor] = None
+
+    @property
+    def logprob(self) -> Optional[torch.Tensor]:
+        if self._last_dist is None or self._last_samples is None:
+            return None
+
+        # *Note*: The note below is borrowed from the SpinningUp implementation.
+        #         Please return once not needed.
+        # Compute logprob from Gaussian, and then apply correction for Tanh squashing.
+        # NOTE: The correction formula is a little bit magic. To get an understanding
+        # of where it comes from, check out the original SAC paper (arXiv 1801.01290) 
+        # and look in appendix C. This is a more numerically-stable equivalent to Eq 21.
+        # Try deriving it yourself as a (very difficult) exercise. :)
+        actions = self._last_samples
+        logprob = self._last_dist.log_prob(actions).sum(axis=-1)
+        logprob -= 2*(math.log(2) - actions - F.softplus(-2*actions)).sum(axis=1)
+        return logprob.view(-1, 1)
+
+    def forward(self, x, deterministic=False) -> torch.Tensor:
+        mu = self.mu(x)
+        log_std = self.log_std(x)
+        log_std = torch.clamp(log_std, self.log_std_min, self.log_std_max)
+        std = torch.exp(log_std)
+
+        if deterministic:
+            self._last_dist, self._last_samples = (None, None)
+            return mu
+
+        self._last_dist = dist = self.dist(mu, std)
+        self._last_samples = actions = dist.rsample()
+        return self.out_scale * torch.tanh(actions)
 
 
 class BetaPolicy(PolicyType):
