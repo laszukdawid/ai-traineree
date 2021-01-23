@@ -1,6 +1,7 @@
 import abc
-from abc import abstractmethod
 import torch
+
+from ai_traineree.loggers import DataLogger
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 ActionType = torch.Tensor
@@ -21,26 +22,26 @@ class TaskType(abc.ABC):
     state_size: int
     is_discrete: bool
 
-    @abstractmethod
+    @abc.abstractmethod
     def seed(self, seed):
         pass
 
-    @abstractmethod
+    @abc.abstractmethod
     def step(self, action: ActionType, **kwargs) -> TaskStepType:
         pass
 
-    @abstractmethod
+    @abc.abstractmethod
     def render(self, mode: Optional[str]=None) -> None:
         pass
 
-    @abstractmethod
+    @abc.abstractmethod
     def reset(self) -> StateType:
         pass
 
 
 class MultiAgentTaskType(TaskType):
 
-    @abstractmethod
+    @abc.abstractmethod
     def reset(self) -> List[StateType]:
         pass
 
@@ -48,7 +49,8 @@ class MultiAgentTaskType(TaskType):
 class AgentType(abc.ABC):
 
     name: str
-    state_size: Union[Sequence[int], int]
+    in_features: Tuple[int]
+    state_size: int
     action_size: int
     loss: Dict[str, float]
     _config: Dict = {}
@@ -65,20 +67,24 @@ class AgentType(abc.ABC):
             del source[name]
         return value
 
-    @abstractmethod
+    @abc.abstractmethod
     def act(self, state: StateType, noise: Any):
         pass
 
-    @abstractmethod
+    @abc.abstractmethod
     def step(self, state: StateType, action: ActionType, reward: RewardType, next_state: StateType, done: DoneType):
         pass
 
-    @abstractmethod
+    @abc.abstractmethod
+    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
+        pass
+
+    @abc.abstractmethod
     def save_state(self, path: str):
         """Saves the whole agent state into a local file."""
         pass
 
-    @abstractmethod
+    @abc.abstractmethod
     def load_state(self, path: str):
         """Reads the whole agent state from a local file."""
         pass
@@ -87,7 +93,8 @@ class AgentType(abc.ABC):
 class MultiAgentType(abc.ABC):
 
     name: str
-    state_size: Union[Sequence[int], int]
+    in_features: Tuple[int]
+    state_size: int
     action_size: int
     loss: Dict[str, float]
     agents: List[AgentType]
@@ -109,24 +116,24 @@ class MultiAgentType(abc.ABC):
     def act(self, states: List[StateType], noise: Any) -> List[ActionType]:
         raise NotImplementedError
 
-    @abstractmethod
+    @abc.abstractmethod
     def step(
         self, states: List[StateType], actions: List[ActionType], rewards: List[RewardType],
         next_states: List[StateType], dones: List[DoneType]
     ):
         pass
 
-    @abstractmethod
+    @abc.abstractmethod
     def describe_agent(self) -> Dict[str, Any]:
         """Returns description of all agent's components."""
         pass
 
-    @abstractmethod
+    @abc.abstractmethod
     def save_state(self, path: str):
         """Saves the whole agent state into a local file."""
         pass
 
-    @abstractmethod
+    @abc.abstractmethod
     def load_state(self, path: str):
         """Reads the whole agent state from a local file."""
         pass

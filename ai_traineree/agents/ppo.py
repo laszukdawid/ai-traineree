@@ -283,7 +283,7 @@ class PPOAgent(AgentBase):
             self.critic_opt.step()
             self._loss_critic = float(loss_critic.item())
 
-    def log_metrics(self, data_logger: DataLogger, step: int):
+    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
         data_logger.log_value("loss/actor", self._loss_actor, step)
         data_logger.log_value("loss/critic", self._loss_critic, step)
         for metric_name, metric_value in self._metrics.items():
@@ -292,17 +292,18 @@ class PPOAgent(AgentBase):
         policy_params = {str(i): v for i, v in enumerate(itertools.chain.from_iterable(self.policy.parameters()))}
         data_logger.log_values_dict("policy/param", policy_params, step)
 
-        for idx, layer in enumerate(self.actor.layers):
-            if hasattr(layer, "weight"):
-                data_logger.create_histogram(f"actor/layer_weights_{idx}", layer.weight, step)
-            if hasattr(layer, "bias") and layer.bias is not None:
-                data_logger.create_histogram(f"actor/layer_bias_{idx}", layer.bias, step)
+        if full_log:
+            for idx, layer in enumerate(self.actor.layers):
+                if hasattr(layer, "weight"):
+                    data_logger.create_histogram(f"actor/layer_weights_{idx}", layer.weight, step)
+                if hasattr(layer, "bias") and layer.bias is not None:
+                    data_logger.create_histogram(f"actor/layer_bias_{idx}", layer.bias, step)
 
-        for idx, layer in enumerate(self.critic.layers):
-            if hasattr(layer, "weight"):
-                data_logger.create_histogram(f"critic/layer_weights_{idx}", layer.weight, step)
-            if hasattr(layer, "bias") and layer.bias is not None:
-                data_logger.create_histogram(f"critic/layer_bias_{idx}", layer.bias, step)
+            for idx, layer in enumerate(self.critic.layers):
+                if hasattr(layer, "weight"):
+                    data_logger.create_histogram(f"critic/layer_weights_{idx}", layer.weight, step)
+                if hasattr(layer, "bias") and layer.bias is not None:
+                    data_logger.create_histogram(f"critic/layer_bias_{idx}", layer.bias, step)
 
     def save_state(self, path: str):
         agent_state = dict(

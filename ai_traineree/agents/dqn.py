@@ -204,12 +204,13 @@ class DQNAgent(AgentBase):
         """
         return self.net.state_dict()
 
-    def log_metrics(self, data_logger: DataLogger, step: int):
+    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
         """Uses provided DataLogger to provide agent's metrics.
 
         Parameters:
             data_logger (DataLogger): Instance of the SummaryView, e.g. torch.utils.tensorboard.SummaryWritter.
             step (int): Ordering value, e.g. episode number.
+            full_log (bool): Whether to all available information. Useful to log with lesser frequency.
         """
         data_logger.log_value("loss/agent", self._loss, step)
 

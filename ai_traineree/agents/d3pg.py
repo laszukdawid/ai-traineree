@@ -261,7 +261,7 @@ class D3PGAgent(AgentBase):
         """
         return (self.actor.state_dict(), self.target_actor.state_dict(), self.critic.state_dict(), self.target_critic())
 
-    def log_metrics(self, data_logger: DataLogger, step):
+    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
         data_logger.log_value("loss/actor", self._loss_actor, step)
         data_logger.log_value("loss/critic", self._loss_critic, step)
         policy_params = {str(i): v for i, v in enumerate(itertools.chain.from_iterable(self.policy.parameters()))}
@@ -270,14 +270,15 @@ class D3PGAgent(AgentBase):
         data_logger.create_histogram('metric/batch_errors', self._metric_batch_error, step)
         data_logger.create_histogram('metric/batch_value_dist', self._metric_batch_value_dist, step)
 
-        dist = self._display_dist
-        z_atoms = self.critic.z_atoms
-        z_delta = self.critic.z_delta
-        data_logger.add_histogram(
-            'dist/dist_value', min=z_atoms[0], max=z_atoms[-1], num=self.num_atoms,
-            sum=dist.sum(), sum_squares=dist.pow(2).sum(), bucket_limits=z_atoms+z_delta,
-            bucket_counts=dist, global_step=step
-        )
+        if full_log:
+            dist = self._display_dist
+            z_atoms = self.critic.z_atoms
+            z_delta = self.critic.z_delta
+            data_logger.add_histogram(
+                'dist/dist_value', min=z_atoms[0], max=z_atoms[-1], num=self.num_atoms,
+                sum=dist.sum(), sum_squares=dist.pow(2).sum(), bucket_limits=z_atoms+z_delta,
+                bucket_counts=dist, global_step=step
+            )
 
     def save_state(self, path: str):
         agent_state = dict(

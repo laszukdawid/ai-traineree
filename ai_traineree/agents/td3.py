@@ -189,7 +189,7 @@ class TD3Agent(AgentBase):
         """
         return (self.actor.state_dict(), self.target_actor.state_dict(), self.critic.state_dict(), self.target_critic())
 
-    def log_metrics(self, data_logger: DataLogger, step: int):
+    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
         data_logger.log_value("loss/actor", self._loss_actor, step)
         data_logger.log_value("loss/critic", self._loss_critic, step)
 

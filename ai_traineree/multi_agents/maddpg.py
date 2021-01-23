@@ -7,6 +7,7 @@ from ai_traineree import DEVICE
 from ai_traineree.buffers import ReplayBuffer
 from ai_traineree.agents.ddpg import DDPGAgent
 from ai_traineree.agents.utils import hard_update, soft_update
+from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import CriticBody
 from ai_traineree.types import ActionType, MultiAgentType, StateType
 from ai_traineree.utils import to_tensor
@@ -196,9 +197,9 @@ class MADDPGAgent(MultiAgentType):
             soft_update(ddpg_agent.target_actor, ddpg_agent.actor, self.tau)
         soft_update(self.target_critic, self.critic, self.tau)
 
-    def log_metrics(self, writer, episode):
-        writer.add_scalar("loss/actor", self._loss_actor, episode)
-        writer.add_scalar("loss/critic", self._loss_critic, episode)
+    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
+        data_logger.log_value("loss/actor", self._loss_actor, step)
+        data_logger.log_value("loss/critic", self._loss_critic, step)
 
     def save_state(self, path: str):
         agents_state = {}

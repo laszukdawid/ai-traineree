@@ -74,6 +74,7 @@ class EnvRunner:
             self.data_logger.set_hparams(self.agent.hparams, {})
 
         self._actions: List[Any] = []
+        self._states: List[Any] = []
         self._rewards: List[Any] = []
         self._dones: List[Any] = []
 
@@ -100,7 +101,8 @@ class EnvRunner:
         max_iterations: Optional[int]=None,
         render: bool=False,
         render_gif: bool=False,
-        log_interaction_freq: Optional[int]=1,
+        log_interaction_freq: Optional[int]=10,
+        full_log_interaction_freq: Optional[int]=1000,
     ) -> Tuple[RewardType, int]:
         score = 0
         state = self.task.reset()
@@ -120,6 +122,7 @@ class EnvRunner:
 
             action = self.agent.act(state, eps)
             self._actions.append((self.iteration, action))
+            self._states.append((self.iteration, state))
 
             next_state, reward, done, _ = self.task.step(action)
             self._rewards.append((self.iteration, reward))
@@ -133,8 +136,10 @@ class EnvRunner:
 
             self.agent.step(state, action, reward, next_state, done)
 
-            if log_interaction_freq is not None and (iterations % log_interaction_freq) == 0:
-                self.log_interaction()
+            if (log_interaction_freq and (iterations % log_interaction_freq) == 0) \
+               or (full_log_interaction_freq and (self.iteration % full_log_interaction_freq) == 0):
+                full_log = full_log_interaction_freq and (iterations % full_log_interaction_freq) == 0
+                self.log_data_interaction(full_log=full_log)
             state = next_state
             if done:
                 break
@@ -147,7 +152,8 @@ class EnvRunner:
         eps_start: float=1.0,
         eps_end: float=0.01,
         eps_decay: float=0.995,
-        log_every: int=10,
+        log_episode_freq: int=1,
+        log_interaction_freq: int=10,
         gif_every_episodes: Optional[int]=None,
         checkpoint_every=200,
         force_new: bool=False,
@@ -170,7 +176,7 @@ class EnvRunner:
             eps_start: Epsilon-greedy starting value.
             eps_end: Epislon-greeedy lowest value.
             eps_decay: Epislon-greedy decay value, eps[i+1] = eps[i] * eps_decay.
-            log_every: Number of episodes between state logging.
+            log_episode_freq: Number of episodes between state logging.
             gif_every_episodes: Number of episodes between storing last episode as a gif.
             checkpoint_every: Number of episodes between storing the whole state, so that
                 in case of failure it can be safely resumed from it.
@@ -191,7 +197,7 @@ class EnvRunner:
         while (self.episode < max_episodes):
             self.episode += 1
             render_gif = gif_every_episodes is not None and (self.episode % gif_every_episodes) == 0
-            score, iterations = self.interact_episode(self.epsilon, render_gif=render_gif, log_interaction_freq=10)
+            score, iterations = self.interact_episode(self.epsilon, render_gif=render_gif, log_interaction_freq=log_interaction_freq)
 
             self.scores_window.append(score)
             self.all_iterations.append(iterations)
@@ -202,14 +208,14 @@ class EnvRunner:
 
             self.epsilon = max(eps_end, eps_decay * self.epsilon)
 
-            if self.episode % log_every == 0:
-                last_episodes = [self.episode - i for i in range(log_every)[::-1]]
+            if self.episode % log_episode_freq == 0:
+                last_episodes = [self.episode - i for i in range(log_episode_freq)[::-1]]
                 self.info(
                     episodes=last_episodes,
-                    iterations=self.all_iterations[-log_every:],
-                    scores=self.all_scores[-log_every:],
-                    mean_scores=mean_scores[-log_every:],
-                    epsilons=epsilons[-log_every:],
+                    iterations=self.all_iterations[-log_episode_freq:],
+                    scores=self.all_scores[-log_episode_freq:],
+                    mean_scores=mean_scores[-log_episode_freq:],
+                    epsilons=epsilons[-log_episode_freq:],
                     loss=self.agent.loss,
                 )
 
@@ -288,10 +294,15 @@ class EnvRunner:
             return
 
         if hasattr(self.agent, 'log_metrics'):
-            self.agent.log_metrics(self.data_logger, self.iteration)
+            self.agent.log_metrics(self.data_logger, self.iteration, full_log=kwargs.get("full_log", False))
         else:
             for loss_name, loss_value in kwargs.get('loss', {}).items():
                 self.data_logger.log_value(f"loss/{loss_name}", loss_value, self.iteration)
+
+        while(self._states):
+            step, states = self._states.pop(0)
+            states = states if isinstance(states, Iterable) else [states]
+            self.data_logger.log_values_dict("env/states", {str(i): a for i, a in enumerate(states)}, step)
 
         while(self._actions):
             step, actions = self._actions.pop(0)
@@ -462,7 +473,7 @@ class MultiSyncEnvRunner:
         eps_start: float=1.0,
         eps_end: float=0.01,
         eps_decay: float=0.995,
-        log_every: int=10,
+        log_episode_freq: int=1,
         checkpoint_every=200,
         force_new=False,
     ):
@@ -480,7 +491,7 @@ class MultiSyncEnvRunner:
             eps_start: Epsilon-greedy starting value.
             eps_end: Epislon-greeedy lowest value.
             eps_decay: Epislon-greedy decay value, eps[i+1] = eps[i] * eps_decay.
-            log_every: Number of episodes between state logging.
+            log_episode_freq: Number of episodes between state logging.
             checkpoint_every: Number of episodes between storing the whole state, so that
                 in case of failure it can be safely resumed from it.
             force_new: Flag whether to resume from previously stored state (False), or to
@@ -501,7 +512,7 @@ class MultiSyncEnvRunner:
             return self._run(
                 reward_goal, max_episodes, max_iterations,
                 eps_start, eps_end, eps_decay,
-                log_every, checkpoint_every, force_new,
+                log_episode_freq, checkpoint_every, force_new,
             )
 
         finally:
@@ -517,7 +528,7 @@ class MultiSyncEnvRunner:
         eps_start: float=1.0,
         eps_end: float=0.01,
         eps_decay: float=0.995,
-        log_every: int=10,
+        log_episode_freq: int=1,
         checkpoint_every=200,
         force_new=False,
     ):
@@ -555,8 +566,7 @@ class MultiSyncEnvRunner:
             actions = self.agent.act(states, self.epsilon)
 
             for t_idx in range(self.task_num):
-                action = actions[t_idx].cpu().numpy().flatten()
-                self.parent_conns[t_idx].send((t_idx, states[t_idx], action))
+                self.parent_conns[t_idx].send((t_idx, states[t_idx], actions[t_idx]))
 
             for t_idx in range(self.task_num):
                 obj = self.parent_conns[t_idx].recv()            
@@ -593,14 +603,14 @@ class MultiSyncEnvRunner:
                 epsilons.append(self.epsilon)
 
                 # Log only once per evaluation, and outside s
-                if self.episode % log_every == 0:
-                    last_episodes = [self.episode - i for i in range(log_every)[::-1]]
+                if self.episode % log_episode_freq == 0:
+                    last_episodes = [self.episode - i for i in range(log_episode_freq)[::-1]]
                     self.info(
                         episodes=last_episodes,
-                        iterations=self.all_iterations[-log_every:],
-                        scores=self.all_scores[-log_every:],
-                        mean_scores=mean_scores[-log_every:],
-                        epsilons=epsilons[-log_every:],
+                        iterations=self.all_iterations[-log_episode_freq:],
+                        scores=self.all_scores[-log_episode_freq:],
+                        mean_scores=mean_scores[-log_episode_freq:],
+                        epsilons=epsilons[-log_episode_freq:],
                         loss=self.agent.loss,
                     )
 
@@ -849,7 +859,7 @@ class MultiAgentEnvRunner:
         self,
         reward_goal: float=100.0, max_episodes: int=2000,
         eps_start=1.0, eps_end=0.01, eps_decay=0.995,
-        log_every=10, gif_every_episodes: Optional[int]=None,
+        log_episode_freq=1, gif_every_episodes: Optional[int]=None,
         checkpoint_every=200, force_new=False,
     ) -> List[List[RewardType]]:
         """
@@ -889,14 +899,14 @@ class MultiAgentEnvRunner:
 
             self.epsilon = max(eps_end, eps_decay * self.epsilon)
 
-            if self.episode % log_every == 0:
-                last_episodes = [self.episode - i for i in range(log_every)[::-1]]
+            if self.episode % log_episode_freq == 0:
+                last_episodes = [self.episode - i for i in range(log_episode_freq)[::-1]]
                 self.info(
                     episodes=last_episodes,
-                    iterations=self.all_iterations[-log_every:],
-                    scores=self.all_scores[-log_every:],
-                    mean_score=mean_scores[-log_every:],
-                    epsilon=epsilons[-log_every:],
+                    iterations=self.all_iterations[-log_episode_freq:],
+                    scores=self.all_scores[-log_episode_freq:],
+                    mean_score=mean_scores[-log_episode_freq:],
+                    epsilon=epsilons[-log_episode_freq:],
                     loss=self.multi_agent.loss,
                 )
 
