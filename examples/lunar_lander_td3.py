@@ -19,7 +19,7 @@ agent = Agent(task.state_size, task.action_size, **config)
 env_runner = EnvRunner(task, agent)
 
 # interact_episode(task, agent, 0, render=True)
-scores = env_runner.run(reward_goal=80, max_episodes=2000, log_every=1, force_new=True)
+scores = env_runner.run(reward_goal=80, max_episodes=2000, log_episode_freq=1, force_new=True)
 env_runner.interact_episode(0, render=True)
 
 # plot the scores

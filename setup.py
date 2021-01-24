@@ -28,8 +28,10 @@ setup_params = dict(
     extras_require={
         "doc": ["sphinx"],
         "test": ["mock", "pytest", "pytest-cov", "pytest-mock", "flake8"],
+        # Loggers
         "tensorboard": ["tensorboard"],
         "neptune": ["neptune-client", "psutil"],
+        # Envs
         # "sneks": ["git+https://github.com/laszukdawid/Sneks.git"],
         "mlagents": ["mlagents"],
     },

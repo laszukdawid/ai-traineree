@@ -26,8 +26,6 @@ def layer_init(layer: nn.Module, range_value: Optional[Tuple[float, float]]=None
 
     nn.init.xavier_uniform_(layer.weight)
 
-def dummy_pass(x):
-    return x
 
 class ScaleNet(NetworkType):
     def __init__(self, scale: Union[float, int]) -> None:
@@ -168,13 +166,13 @@ class FcNet(NetworkType):
         self.layers = nn.ModuleList(layers)
         self.reset_parameters()
 
-        self.gate = gate if gate is not None else dummy_pass
-        self.gate_out = gate_out if gate_out is not None else dummy_pass
+        self.gate = gate if gate is not None else nn.Identity()
+        self.gate_out = gate_out if gate_out is not None else nn.Identity()
         self.to(device=device)
 
     def reset_parameters(self):
         for layer in self.layers[:-1]:
-            layer_init(layer, hidden_init(layer))
+            layer_init(layer, hidden_init(layer), remove_mean=True)
         layer_init(self.layers[-1], self.last_layer_range, remove_mean=True)
 
     def forward(self, x):
@@ -234,8 +232,8 @@ class CriticBody(NetworkType):
         self.layers = nn.ModuleList(layers)
         self.reset_parameters()
 
-        self.gate = gate if gate is not None else dummy_pass
-        self.gate_out = gate_out if gate_out is not None else dummy_pass
+        self.gate = gate if gate is not None else nn.Identity()
+        self.gate_out = gate_out if gate_out is not None else nn.Identity()
         self.to(kwargs.get("device"))
 
     def reset_parameters(self):
@@ -354,8 +352,8 @@ class NoisyNet(NetworkType):
         layers = [NoisyLayer(dim_in, dim_out, sigma=sigma, factorised=factorised) for dim_in, dim_out in zip(num_layers[:-1], num_layers[1:])]
         self.layers = nn.ModuleList(layers)
 
-        self.gate = gate if gate is not None else dummy_pass
-        self.gate_out = gate_out if gate_out is not None else dummy_pass
+        self.gate = gate if gate is not None else nn.Identity()
+        self.gate_out = gate_out if gate_out is not None else nn.Identity()
         self.to(device=device)
 
     def reset_noise(self):

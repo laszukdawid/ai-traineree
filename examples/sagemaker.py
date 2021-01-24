@@ -33,7 +33,7 @@ class SageMakerExecutor:
 
         self.max_iterations = int(hyperparameters.get("max_iterations", 10000))
         self.max_episodes = int(hyperparameters.get("max_episodes", 1000))
-        self.log_every = int(hyperparameters.get("log_every", 10))
+        self.log_episode_freq = int(hyperparameters.get("log_episode_freq", 10))
         self.score_goal = int(hyperparameters.get("score_goal", 100))
 
         self.eps_start: float = float(hyperparameters.get('eps_start', 1.0))
@@ -49,7 +49,7 @@ class SageMakerExecutor:
         self.env_runner.run(
             reward_goal=self.score_goal, max_episodes=self.max_episodes,
             eps_start=self.eps_start, eps_end=self.eps_end, eps_decay=self.eps_decay,
-            log_every=self.log_every,
+            log_episode_freq=self.log_episode_freq,
         )
 
     def save_results(self, path):

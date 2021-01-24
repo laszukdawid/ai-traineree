@@ -67,7 +67,7 @@ class DQNAgent(AgentBase):
         self.tau = float(self._register_param(kwargs, 'tau', 0.002))
 
         self.update_freq = int(self._register_param(kwargs, 'update_freq', 1))
-        self.batch_size = int(self._register_param(kwargs, 'batch_size', 32))
+        self.batch_size = int(self._register_param(kwargs, 'batch_size', 64))
         self.buffer_size = int(self._register_param(kwargs, 'buffer_size', 1e5))
         self.warm_up = int(self._register_param(kwargs, 'warm_up', 0))
         self.number_updates = int(self._register_param(kwargs, 'number_updates', 1))
@@ -92,7 +92,7 @@ class DQNAgent(AgentBase):
         else:
             self.net = DuelingNet(self.input_shape, self.output_shape, hidden_layers=hidden_layers, device=self.device)
             self.target_net = DuelingNet(self.input_shape, self.output_shape, hidden_layers=hidden_layers, device=self.device)
-        self.optimizer = optim.AdamW(self.net.parameters(), lr=self.lr)
+        self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
         self._loss: float = float('inf')
 
     @property
@@ -104,6 +104,11 @@ class DQNAgent(AgentBase):
         if isinstance(value, dict):
             value = value['loss']
         self._loss = value
+
+    def reset(self):
+        self.net.reset_parameters()
+        self.target_net.reset_parameters()
+        self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
 
     def step(self, state, action, reward, next_state, done) -> None:
         """Letting the agent to take a step.

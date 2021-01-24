@@ -37,7 +37,7 @@ config = {
 agent = Agent(task.state_size, task.action_size, hidden_layers=(100, 100), **config)
 env_runner = EnvRunner(task, agent, max_iterations=2000, data_logger=data_logger)
 # env_runner.interact_episode(render=True)
-scores = env_runner.run(300, 1000, log_freq=1, gif_every_episodes=500, force_new=True)
+scores = env_runner.run(300, 1000, log_episode_freq=1, gif_every_episodes=500, force_new=True)
 env_runner.interact_episode(render=True)
 
 # plot the scores

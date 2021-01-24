@@ -202,7 +202,7 @@ class SACAgent(AgentBase):
         Q1_diff = Q1_expected - Q_target
         error_1 = Q1_diff.pow(2)
         mse_loss_1 = error_1.mean()
-        self._metrics['value/critic1'] = {'mean': float(Q2_expected.mean()), 'std': float(Q2_expected.std())}
+        self._metrics['value/critic1'] = {'mean': float(Q1_expected.mean()), 'std': float(Q1_expected.std())}
         self._metrics['value/critic1_lse'] = float(mse_loss_1.item())
 
         Q2_diff = Q2_expected - Q_target
