@@ -105,22 +105,8 @@ class GymTask(TaskType):
 
     def reset(self) -> StateType:
         state = self.env.reset()
-
-        for _ in range(random.randint(0, self.skip_start_frames)):
-            if self.state_transform is not None:
-                state = self.state_transform(state)
-            if self.stacked_frames.maxlen > 1:
-                self.stacked_frames.append(state)
-            state, _, _, _ = self.step(torch.zeros(self.action_size))  # TODO: 0 should be "noaction" but that isn't necessary
-
         if self.state_transform is not None:
             state = self.state_transform(state)
-
-        # If need stacked frames and not enough skipped
-        if self.stacked_frames.maxlen > 1:
-            while(len(self.stacked_frames) < self.stacked_frames.maxlen):
-                self.stacked_frames.append(state)
-                return torch.tensor(self.stacked_frames).squeeze(1)  # TODO: Maybe there's some stacking?
 
         return state
 

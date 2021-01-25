@@ -277,7 +277,7 @@ class RolloutBuffer(BufferBase):
         for experience in buffer:
             self.add(**experience)
 
-    def dump_buffer(self, serialize: bool=False) -> Generator[Dict[str, List], None, None]:
+
 class PERBuffer(BufferBase):
     """Prioritized Experience Replay
 

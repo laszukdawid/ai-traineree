@@ -146,6 +146,7 @@ class DQNAgent(AgentBase):
             # Update networks only once - sync local & target
             soft_update(self.target_net, self.net, self.tau)
 
+    def act(self, state, eps: float = 0.) -> int:
         """Returns actions for given state as per current policy.
 
         Parameters:
