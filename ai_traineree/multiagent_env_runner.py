@@ -82,14 +82,14 @@ class MultiAgentEnvRunner:
         self._rewards = []
         self._dones = []
 
-        self.data_logger = kwargs.get("data_logger")
+        self.data_logger: Optional[DataLogger] = kwargs.get("data_logger")
         self.logger.info("DataLogger: %s", str(self.data_logger))
 
     def __str__(self) -> str:
         return f"EnvRunner<{self.task.name}, {self.multi_agent.name}>"
 
     def seed(self, seed: int):
-        self.mutli_agent.seed(seed)
+        self.multi_agent.seed(seed)
         self.task.seed(seed)
 
     def reset(self):
@@ -378,15 +378,15 @@ class MultiAgentCycleEnvRunner:
         self.state_dir = 'run_states'
 
         self.mode = mode
-        self.episode = 0
+        self.episode: float = 0
         self.iteration = 0
         self.all_scores: List[List[RewardType]] = []
         self.all_iterations: List[int] = []
         self.window_len = kwargs.get('window_len', 100)
         self.__images = []
-        self._actions = []
-        self._rewards = []
-        self._dones = []
+        self._actions = defaultdict(list)
+        self._rewards = defaultdict(list)
+        self._dones = defaultdict(list)
 
         self.data_logger = kwargs.get("data_logger")
         self.logger.info("DataLogger: %s", str(self.data_logger))
@@ -395,12 +395,12 @@ class MultiAgentCycleEnvRunner:
         return f"EnvRunner<{self.task.name}, {self.multi_agent.name}>"
 
     def seed(self, seed: int):
-        self.mutli_agent.seed(seed)
+        self.multi_agent.seed(seed)
         self.task.seed(seed)
 
     def reset(self):
         """Resets the EnvRunner. The task env and the agent are preserved."""
-        self.episode = 0
+        self.episode: float = 0
         self.all_scores: List[List[RewardType]] = []
         self.all_iterations = []
         self.scores_window = deque(maxlen=self.window_len)
@@ -409,12 +409,10 @@ class MultiAgentCycleEnvRunner:
         self, eps: float=0, max_iterations: Optional[int]=None,
         render: bool=False, render_gif: bool=False, log_interaction_freq: Optional[int]=None
     ) -> Tuple[Dict[str, RewardType], int]:
-        score = defaultdict(int)
-
-        self.task.reset()
-
+        score = defaultdict(float)
         iterations = 0
         max_iterations = max_iterations if max_iterations is not None else self.max_iterations
+        self.task.reset()
 
         # Only gifs require keeping (S, A, R) list
         if render_gif:
@@ -444,19 +442,21 @@ class MultiAgentCycleEnvRunner:
                 dones[agent_name] = done
                 score[agent_name] += float(reward)  # Score is
 
+                self._actions[agent_name].append((self.iteration, action))
+                self._dones[agent_name].append((self.iteration, done))
+                self._rewards[agent_name].append((self.iteration, reward))
+
             if render_gif:
                 # OpenAI gym still renders the image to the screen even though it shouldn't. Eh.
                 img = self.task.render(mode='rgb_array')
                 self.__images.append(img)
 
-            # self._actions.append((self.iteration, actions))
-            # self._dones.append((self.iteration, dones))
-            # self._rewards.append((self.iteration, rewards))
+            if log_interaction_freq is not None and (iterations % log_interaction_freq) == 0:
+                self.log_data_interaction()
 
-                if log_interaction_freq is not None and (iterations % log_interaction_freq) == 0:
-                    self.log_data_interaction()
             if any(dones.values()):
                 break
+
         return score, iterations
 
     def run(
@@ -574,7 +574,7 @@ class MultiAgentCycleEnvRunner:
             self.data_logger.log_value("episode/avg_score", mean_score, episode)
 
         for episode, score in zip(episodes, kwargs.get('scores', [])):
-            self.data_logger.log_value("episode/score", score, episode)
+            self.data_logger.log_values_dict("episode/score", score, episode)
 
         for episode, iteration in zip(episodes, kwargs.get('iterations', [])):
             self.data_logger.log_value("episode/iterations", iteration, episode)
@@ -586,20 +586,21 @@ class MultiAgentCycleEnvRunner:
             for loss_name, loss_value in kwargs.get('loss', {}).items():
                 self.data_logger.log_value(f"loss/{loss_name}", loss_value, self.iteration)
 
-        while(self._actions):
-            step, actions = self._actions.pop(0)
-            actions = actions if isinstance(actions, Iterable) else [actions]
-            self.data_logger.log_values_dict("env/action", {str(i): a for i, a in enumerate(actions)}, step)
+        for agent_name in self.multi_agent.agent_names:
+            while(self._actions[agent_name]):
+                step, actions = self._actions[agent_name].pop(0)
+                actions = actions if isinstance(actions, Iterable) else [actions]
+                self.data_logger.log_values_dict(f"{agent_name}/action", {str(i): a for i, a in enumerate(actions)}, step)
 
-        while(self._rewards):
-            step, rewards = self._rewards.pop(0)
-            rewards = rewards if isinstance(rewards, Iterable) else [rewards]
-            self.data_logger.log_values_dict("env/reward", {str(i): r for i, r in enumerate(rewards)}, step)
+            while(self._rewards[agent_name]):
+                step, rewards = self._rewards[agent_name].pop(0)
+                rewards = rewards if isinstance(rewards, Iterable) else [rewards]
+                self.data_logger.log_values_dict(f"{agent_name}/reward", {str(i): r for i, r in enumerate(rewards)}, step)
 
-        while(self._dones):
-            step, dones = self._dones.pop(0)
-            dones = dones if isinstance(dones, Iterable) else [dones]
-            self.data_logger.log_values_dict("env/done", {str(i): d for i, d in enumerate(dones)}, step)
+            while(self._dones[agent_name]):
+                step, dones = self._dones[agent_name].pop(0)
+                dones = dones if isinstance(dones, Iterable) else [dones]
+                self.data_logger.log_values_dict(f"{agent_name}/done", {str(i): d for i, d in enumerate(dones)}, step)
 
     def save_state(self, state_name: str):
         """Saves the current state of the runner and the multi_agent.

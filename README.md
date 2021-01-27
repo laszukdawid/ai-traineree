@@ -2,7 +2,16 @@
 [![DocStatus](https://readthedocs.org/projects/ai-traineree/badge/?version=latest)](https://ai-traineree.readthedocs.io/)
 
 The intention is to have a zoo of Deep Reinforcment Learning methods and showcasing their application on some environments.
-What will distinguish this repo from other DRL is the intention to have types and interfaces, for easier application and understanding, and having all components tested.
+
+## Why another?
+
+The main reason is the implemention philosophy.
+We strongly believe that agents should be emerged in the environment and not the other way round.
+Majority of the popular implementations pass environment instance to the agent as if the agent was the focus point.
+This might ease implementation of some algorithms but it isn't representative of the world;
+agents want to control the environment but that doesn't mean they can/should.
+
+That, and using PyTorch instead of Tensorflow or JAX.
 
 ## Quick start
 
@@ -69,6 +78,15 @@ This is just a beginning and there will be more work on these interactions.
 | SAC | [Implemented](ai_traineree/agents/sac.py) | [arXiv](https://arxiv.org/abs/1801.01290) | Soft Actor Critic |[Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#sac)
 | TRPO | | [arXiv](https://arxiv.org/abs/1502.05477) | Trust Region Policy Optimization |
 | RAINBOW | [Implemented](ai_traineree/agents/rainbow.py) | [arXiv](https://arxiv.org/abs/1710.02298) | DQN with a few improvements |[Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#rainbow)
+
+### Multi agents
+
+We provide both Multi Agents agents entities and means to execute them against supported (below) environements.
+However, that doesn't mean one can be used without the other.
+
+| Short | Progress | Link | Full name | Doc |
+|-------|----------|------|-----------|-----|
+| IQL | [Implemented](ai_traineree/multi_agents/iql.py) | | Independent Q-Learners|[Doc](https://ai-traineree.readthedocs.io/en/latest/multi_agents.html#iql)
 | MADDPG | [Implemented](ai_traineree/multi_agents/maddpg.py) | [arXiv](https://arxiv.org/abs/1706.02275) | Multi agent DDPG |[Doc](https://ai-traineree.readthedocs.io/en/latest/multi_agents.html#maddpg)
 
 ### Loggers
@@ -79,11 +97,12 @@ Supports using Tensorboard (via PyTorch's [SummaryWriter](https://pytorch.org/do
 
 ### Environments
 
-| Name | Progress | Link | Doc |
-|------|----------|------|-----|
-| OpenAI Gym - Classic | Done |  |
-| OpenAI Gym - Atari | Done |  |
-| OpenAI Gym - MuJoCo | Not interested. |  |
+| Name | Progress | Link |
+|------|----------|------|
+| OpenAI Gym - Classic | Done |
+| OpenAI Gym - Atari | Done |
+| OpenAI Gym - MuJoCo | Not interested. |
+| PettingZoo | Initial support | [Page](https://www.pettingzoo.ml/) / [GitHub](https://github.com/PettingZoo-Team/PettingZoo) |
 | Unity ML | Somehow supported. | [Page](https://unity3d.com/machine-learning)
 | MAME Linux emulator | Interested. | [Official page](https://www.mamedev.org/)
 

@@ -98,6 +98,7 @@ class MultiAgentType(abc.ABC):
     action_size: int
     loss: Dict[str, float]
     agents: List[AgentType]
+    agent_names: List[str]
     num_agents: int
     _config: Dict = {}
 

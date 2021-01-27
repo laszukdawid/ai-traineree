@@ -150,23 +150,23 @@ class GymTask(TaskType):
 class PettingZooTask(MultiAgentTaskType):
 
     def __init__(self, env) -> None:
-        """
+        """Wrapper around PettingZoo's envs to make it more compatible with EnvRunners.
+
+        *Note*: Direct access to wrapped env is through `self.env`. 
+
         Parameters:
             env: An instance of PettingZoo env.
 
         Example:
-        >>> from pettingzoo.butterfly import prison_v2 as prison
-        >>> env = prison.env()
-        >>> task = PettingZooTask(env)
+            >>> from pettingzoo.butterfly import prison_v2 as prison
+            >>> env = prison.env()
+            >>> task = PettingZooTask(env)
+            >>> assert env == task.env
         """
         super().__init__()
         self.env = env
         self.name = "CUSTOM"
-        # TODO: Pass by env and/or string?
-
         self.agent_iter = self.env.agent_iter
-        self.last = {}
-
 
     @property
     def state_size(self):
@@ -189,7 +189,7 @@ class PettingZooTask(MultiAgentTaskType):
         return self.env.dones
 
     def last(self, agent_name: str) -> Tuple[Any, float, bool, Any]:
-        return (self.env.observe[agent_name], self.env.rewards[agent_name], self.env.dones[agent_name], self.env.infos[agent_name])
+        return (self.env.observe(agent_name), self.env.rewards[agent_name], self.env.dones[agent_name], self.env.infos[agent_name])
 
     def reset(self):
         self.env.reset()

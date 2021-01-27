@@ -56,8 +56,8 @@ class IQLAgents(MultiAgentType):
         kwargs['number_updates'] = int(self._register_param(kwargs, 'number_updates', 1))
 
         self.agents: Dict[str, DQNAgent] = {
-            agent_name: DQNAgent(state_size, action_size, name=agent_name, **kwargs,
-            ) for agent_name in self.agent_names
+            agent_name: DQNAgent(state_size, action_size, name=agent_name, **kwargs)
+            for agent_name in self.agent_names
         }
 
         self.reset()
@@ -72,12 +72,8 @@ class IQLAgents(MultiAgentType):
 
     @loss.setter
     def loss(self, value):
-        if isinstance(value, dict):
-            self._loss_actor = value['actor']
-            self._loss_critic = value['critic']
-        else:
-            self._loss_actor = value
-            self._loss_critic = value
+        for agent in self.agents.values():
+            agent.loss = value
 
     def seed(self, seed: int):
         for agent in self.agents.values():
@@ -98,25 +94,25 @@ class IQLAgents(MultiAgentType):
         return self.agents[agent_name].act(state, noise)
 
     def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
-        for agent in self.agents.values():
-            agent.log_metrics(data_logger, step, full_log)
+        for agent_name, agent in self.agents.items():
+            data_logger.log_values_dict(f"{agent_name}/loss", agent.loss, step)
 
     def save_state(self, path: str):
         agents_state = {}
         agents_state['config'] = self._config
-        for agent_id, agent in enumerate(self.agents):
-            agents_state[f'agent_{agent_id}'] = agent.describe_agent()
-            agents_state[f'config_{agent_id}'] = agent.hparams
+        for agent_name, agent in self.agents.items():
+            agents_state[agent_name] = {'network': agent.describe_agent(), 'config': agent.hparams}
         torch.save(agents_state, path)
 
     def load_state(self, path: str):
-        agent_state = torch.load(path)
-        self._config = agent_state.get('config', {})
+        all_agent_state = torch.load(path)
+        self._config = all_agent_state.get('config', {})
         self.__dict__.update(**self._config)
-        for agent_id, agent in enumerate(self.agents):
-            agent.actor.load_state_dict(agent_state[f'actor_{agent_id}'])
-            agent._config = agent_state[f'config_{agent_id}'].get(f'config_{agent_id}', {})
+        for agent_name, agent in self.agents.items():
+            agent_state = all_agent_state[agent_name]
+            agent.load_state_dict(agent_state['network'])
+            agent._config = agent_state.get('config', {})
             agent.__dict__.update(**agent._config)
-    
+
     def describe_agent(self):
         return [agent.describe_agent() for agent in self.agents]
