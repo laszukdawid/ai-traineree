@@ -147,6 +147,64 @@ class GymTask(TaskType):
         return (state, reward, done, info)
 
 
+class PettingZooTask(MultiAgentTaskType):
+
+    def __init__(self, env) -> None:
+        """Wrapper around PettingZoo's envs to make it more compatible with EnvRunners.
+
+        *Note*: Direct access to wrapped env is through `self.env`. 
+
+        Parameters:
+            env: An instance of PettingZoo env.
+
+        Example:
+            >>> from pettingzoo.butterfly import prison_v2 as prison
+            >>> env = prison.env()
+            >>> task = PettingZooTask(env)
+            >>> assert env == task.env
+        """
+        super().__init__()
+        self.env = env
+        self.name = "CUSTOM"
+        self.agent_iter = self.env.agent_iter
+
+    @property
+    def state_size(self):
+        return self.env.observe(self.env.agents[0]).shape
+
+    @property
+    def action_size(self):
+        return self.env.action_spaces[self.env.agents[0]]
+
+    @property
+    def num_agents(self):
+        return self.env.num_agents
+
+    @property
+    def all_done(self):
+        return all(self.env.dones)
+
+    @property
+    def dones(self):
+        return self.env.dones
+
+    def last(self, agent_name: str) -> Tuple[Any, float, bool, Any]:
+        return (self.env.observe(agent_name), self.env.rewards[agent_name], self.env.dones[agent_name], self.env.infos[agent_name])
+
+    def reset(self):
+        self.env.reset()
+
+    def step(self, action):
+        self.env.step(action)
+        return self.env.last()
+
+    def render(self, mode: str):
+        self.env.render(mode)
+
+    def seed(self, seed: int) -> None:
+        self.env.seed(seed)
+
+
 class MultiAgentUnityTask(MultiAgentTaskType):
     """Based on UnityToGymWrapper from the Unity's ML-Toolkits (permalink [1]).
 
@@ -230,8 +288,8 @@ class MultiAgentUnityTask(MultiAgentTaskType):
         # Check for number of agents in scene.
         self._env.reset()
         decision_steps, _ = self._env.get_steps(agent_name)
-        # self.n_agents = len(decision_steps)  # NOTE: Worked with FoodCollector
-        self.n_agents = len(self._env.behavior_specs)
+        # self.num_agents = len(decision_steps)  # NOTE: Worked with FoodCollector
+        self.num_agents = len(self._env.behavior_specs)
         self._previous_decision_step = decision_steps
 
         # Set action spaces
@@ -280,7 +338,7 @@ class MultiAgentUnityTask(MultiAgentTaskType):
         """
         self._env.reset()
         states = []
-        for agent_id in range(self.n_agents):
+        for agent_id in range(self.num_agents):
             decision_step, _ = self._env.get_steps(self.agent_prefix+str(agent_id))
             self.game_over = False
 
@@ -330,9 +388,9 @@ class MultiAgentUnityTask(MultiAgentTaskType):
         """
         if self.termination_mode == TerminationMode.ANY and len(termianl_steps) > 0:
             return True
-        elif self.termination_mode == TerminationMode.MAJORITY and len(termianl_steps) > 0.5 * self.n_agents:
+        elif self.termination_mode == TerminationMode.MAJORITY and len(termianl_steps) > 0.5 * self.num_agents:
             return True
-        elif self.termination_mode == TerminationMode.ALL and len(termianl_steps) == self.n_agents:
+        elif self.termination_mode == TerminationMode.ALL and len(termianl_steps) == self.num_agents:
             return True
         else:
             return False

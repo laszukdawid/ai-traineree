@@ -1,0 +1,51 @@
+import pylab as plt
+
+from ai_traineree.loggers import TensorboardLogger
+from ai_traineree.multi_agents.iql import IQLAgents
+from ai_traineree.multiagent_env_runner import MultiAgentCycleEnvRunner
+from ai_traineree.tasks import PettingZooTask
+from collections import defaultdict
+from pettingzoo.butterfly import prison_v2 as prison
+
+env = prison.env(vector_observation=True)
+ma_task = PettingZooTask(env)
+ma_task.reset()
+
+state_size = ma_task.state_size
+action_size = ma_task.action_size.n
+agent_number = ma_task.num_agents
+config = {
+    'device': 'cpu',
+    'update_freq': 10,
+    'batch_size': 200,
+    'agent_names': env.agents,
+}
+ma_agent = IQLAgents(state_size, action_size, agent_number, **config)
+data_logger = TensorboardLogger(log_dir="runs/Prison-IQL")
+
+env_runner = MultiAgentCycleEnvRunner(ma_task, ma_agent, max_iterations=9000, data_logger=data_logger)
+scores = env_runner.run(reward_goal=20, max_episodes=50, eps_decay=0.95, log_episode_freq=1, force_new=True)
+
+parsed_scores = defaultdict(list)
+summed_score = []
+for score in scores:
+    summed_score.append(0)
+    for name, value in score.items():
+        parsed_scores[name].append(value)
+        summed_score[-1] += value
+
+# plot the scores
+fig = plt.figure()
+ax = fig.add_subplot(211)
+for label, values in parsed_scores.items():
+    plt.plot(range(len(scores)), values, label=label)
+plt.ylabel('Score')
+plt.xlabel('Episode #')
+
+ax = fig.add_subplot(212)
+plt.plot(range(len(scores)), summed_score)
+plt.ylabel('Summed score')
+plt.xlabel('Episode #')
+
+plt.savefig('prison.png', dpi=120)
+plt.show()

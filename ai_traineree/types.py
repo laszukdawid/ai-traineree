@@ -98,7 +98,8 @@ class MultiAgentType(abc.ABC):
     action_size: int
     loss: Dict[str, float]
     agents: List[AgentType]
-    agents_number: int
+    agent_names: List[str]
+    num_agents: int
     _config: Dict = {}
 
     @property
@@ -136,4 +137,8 @@ class MultiAgentType(abc.ABC):
     @abc.abstractmethod
     def load_state(self, path: str):
         """Reads the whole agent state from a local file."""
+        pass
+
+    @abc.abstractmethod
+    def seed(self, seed: int):
         pass

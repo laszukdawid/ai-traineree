@@ -23,18 +23,18 @@ ma_task.reset()
 
 state_size = ma_task.observation_space[0].shape[0]
 action_size = ma_task.action_space.shape[0]
-agent_number = ma_task.n_agents
+num_agents = ma_task.num_agents
 config = {
     'device': 'cpu',
     'warm_up': 0,
     'update_freq': 10,
     'batch_size': 200,
 }
-ma_agent = MADDPGAgent(state_size, action_size, agent_number, **config)
+ma_agent = MADDPGAgent(state_size, action_size, num_agents, **config)
 
 
 env_runner = MultiAgentEnvRunner(ma_task, ma_agent, max_iterations=200)
-scores = env_runner.run(reward_goal=5, max_episodes=500, log_every=1, force_new=True)
+scores = env_runner.run(reward_goal=5, max_episodes=50, force_new=True)
 
 # plot the scores
 fig = plt.figure()
