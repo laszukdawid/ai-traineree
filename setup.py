@@ -34,6 +34,7 @@ setup_params = dict(
         # Envs
         # "sneks": ["git+https://github.com/laszukdawid/Sneks.git"],
         "mlagents": ["mlagents"],
+        "pettingzoo": ["pettingzoo"],
     },
     test_suite="ai_traineree.tests",
 )
