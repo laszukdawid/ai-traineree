@@ -13,11 +13,26 @@ All buffers internally store data in as Experience but on sampling these are con
 .. autoclass:: ai_traineree.buffers.Experience
     :members:
 
-Replay experience buffer
-------------------------
+Replay Buffer
+-------------
 
 The most basic buffer. Supports uniform sampling.
 
 .. autoclass:: ai_traineree.buffers.ReplayBuffer
     :members:
     :special-members:
+
+Replay Experience Buffer (PER)
+------------------------------
+
+.. autoclass:: ai_traineree.buffers.PERBuffer
+    :members:
+    :special-members:
+    
+Rollout Buffer
+------------------------------
+
+.. autoclass:: ai_traineree.buffers.RolloutBuffer
+    :members:
+    :special-members:
+    

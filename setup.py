@@ -26,7 +26,7 @@ setup_params = dict(
     python_requires='>3.5,<4',
     install_requires=required,
     extras_require={
-        "doc": ["sphinx"],
+        "doc": ["sphinx", "sphinx-rtd-theme"],
         "test": ["mock", "pytest", "pytest-cov", "pytest-mock", "flake8"],
         # Loggers
         "tensorboard": ["tensorboard"],

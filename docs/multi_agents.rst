@@ -16,3 +16,11 @@ MADDPG
 .. autoclass:: ai_traineree.multi_agents.maddpg.MADDPGAgent
     :members:
     :undoc-members:
+
+IQL
+---
+
+.. autoclass:: ai_traineree.multi_agents.iql.IQLAgents
+    :members:
+    :undoc-members:
+

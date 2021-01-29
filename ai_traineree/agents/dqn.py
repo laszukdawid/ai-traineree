@@ -39,7 +39,7 @@ class DQNAgent(AgentBase):
         **kwargs
     ):
         """Initiates the DQN agent.
-        
+
         Parameters:
             lr: (default: 1e-3) learning rate
             gamma: (default: 0.99) discount factor
@@ -121,7 +121,7 @@ class DQNAgent(AgentBase):
             action: A(t)
             reward: R(t)
             nexxt_state: S(t+1)
-            done: (bool) Whether the state is terminal. 
+            done: (bool) Whether the state is terminal.
 
         """
         self.iteration += 1

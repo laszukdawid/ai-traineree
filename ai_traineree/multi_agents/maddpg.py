@@ -12,7 +12,7 @@ from ai_traineree.networks.bodies import CriticBody
 from ai_traineree.types import ActionType, MultiAgentType, StateType
 from ai_traineree.utils import to_tensor
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 
 class MADDPGAgent(MultiAgentType):
@@ -28,8 +28,8 @@ class MADDPGAgent(MultiAgentType):
             state_size (int): Dimensionality of the state.
             action_size (int): Dimensionality of the action.
             num_agents (int): Number of agents.
-        
-        Keyword parameters:
+
+        Keyword Arguments:
             hidden_layers (tuple of ints): Shape for fully connected hidden layers.
             noise_scale (float): Default: 1.0. Noise amplitude.
             noise_sigma (float): Default: 0.5. Noise variance.
