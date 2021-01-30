@@ -3,6 +3,8 @@
 
 The intention is to have a zoo of Deep Reinforcment Learning methods and showcasing their application on some environments.
 
+Read more in the doc: [ReadTheDocs AI-Traineree](https://ai-traineree.readthedocs.io/).
+
 ## Why another?
 
 The main reason is the implemention philosophy.
@@ -43,18 +45,10 @@ As usual with Python, the expectation is to have own virtual environment and the
 > python -m venv .venv
 > git clone git@github.com:laszukdawid/ai-traineree.git
 > source .venv/bin/activate
-> pip install -r requirements.txt
+> python setup.py install
 ```
 
-On Ubuntu you might also need to install `swig` (`sudo apt install -y swig`).
-
 ## Current state
-
-### Documentation
-Even though it's a work in progress, some might find it more useful than going through the code.
-As always, feel free to reach out with questions and requests. The best way is through Github issues.
-
-Documentation link: [ReadTheDocs AI-Traineree](https://ai-traineree.readthedocs.io/).
 
 ### Playing gym
 One way to improve learning speed is to simply show them how to play or, more researchy/creepy, provide a proper seed.
