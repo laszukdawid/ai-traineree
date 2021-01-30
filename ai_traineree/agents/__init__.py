@@ -19,6 +19,9 @@ class AgentBase(AgentType):
         1) please additionally set `torch.manual_seed()` manually,
         2) let us know of your circumenstances.
 
+        Parameters:
+            seed: (int) Seed value for random number generators.
+
         """
         if not isinstance(seed, (int, float)):
             return

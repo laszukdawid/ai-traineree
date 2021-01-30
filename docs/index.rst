@@ -11,11 +11,14 @@ Feel free to let me know if you have any questions or anything, and I'll sure tr
    :maxdepth: 2
    :caption: Current contents:
 
-   buffers
+   Getting started <intro>
+   examples
    agents
    multi_agents
+   buffers
    policies
    networks
+   environments
    tasks
 
 

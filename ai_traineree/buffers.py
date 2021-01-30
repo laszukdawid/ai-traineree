@@ -7,7 +7,7 @@ import torch
 from ai_traineree import to_list
 from collections import defaultdict, deque
 from copy import copy
-from typing import Any, Dict, Generator, Iterator, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple, Union
 
 
 class Experience(object):
@@ -187,7 +187,7 @@ class ReplayBuffer(BufferBase):
                 all_experiences[key].append(value)
         return all_experiences
 
-    def dump_buffer(self, serialize: bool=False) -> Generator[Dict[str, List], None, None]:
+    def dump_buffer(self, serialize: bool=False) -> Iterator[Dict[str, List]]:
         for exp in self.exp:
             yield exp.get_dict(serialize=serialize)
 
@@ -207,7 +207,7 @@ class RolloutBuffer(BufferBase):
             batch_size (int): Maximum number of samples to return in each batch.
             buffer_size (int): Number of samples to store in the buffer.
 
-        Keyword parameters:
+        Keyword Arguments:
             compress_state (bool): Default False. Whether to manage memory used by states.
                 Useful when states are "large" and frequently visited. Typical use case is
                 dealing with images.
@@ -269,7 +269,7 @@ class RolloutBuffer(BufferBase):
 
         return all_experiences
 
-    def dump_buffer(self, serialize: bool=False) -> Generator[Dict[str, List], None, None]:
+    def dump_buffer(self, serialize: bool=False) -> Iterator[Dict[str, List]]:
         for exp in self.exp:
             yield exp.get_dict(serialize=serialize)
 
@@ -281,8 +281,17 @@ class RolloutBuffer(BufferBase):
 class PERBuffer(BufferBase):
     """Prioritized Experience Replay
 
+    A buffer that holds previously seen sets of transitions, or memories.
+    Prioritization in the name means that each transition has some value (priority)
+    which refers to the probability of sampling that transition.
+    In short, the larger priority value the higher chances of sampling associated samples. 
+    Often these priority values are related to the error calculated when learning from
+    that associated sample. In such cases, sampling from the buffer will more often provide
+    values that are troublesome.
+
     Based on "Prioritized Experience Replay" (2016) T. Shaul, J. Quan, I. Antonoglou, D. Silver.
     https://arxiv.org/pdf/1511.05952.pdf
+
     """
 
     def __init__(self, batch_size: int, buffer_size: int=int(1e6), alpha=0.5, device=None, **kwargs):
@@ -387,7 +396,7 @@ class PERBuffer(BufferBase):
         priorities = [pow(self.tree[i], -old_alpha) for i in range(tree_len)]
         self.priority_update(range(tree_len), priorities)
 
-    def dump_buffer(self, serialize: bool=False) -> Generator[Dict[str, List], None, None]:
+    def dump_buffer(self, serialize: bool=False) -> Iterator[Dict[str, List]]:
         for exp in self.tree.data[:len(self.tree)]:
             yield Experience(**exp).get_dict(serialize=serialize)
 

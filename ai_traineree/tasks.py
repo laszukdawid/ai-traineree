@@ -206,7 +206,7 @@ class PettingZooTask(MultiAgentTaskType):
 
 
 class MultiAgentUnityTask(MultiAgentTaskType):
-    """Based on UnityToGymWrapper from the Unity's ML-Toolkits (permalink [1]).
+    """Based on `UnityToGymWrapper` from the Unity's ML-Toolkits (permalink_).
 
 
     At the time of writting the official package doesn't support multi agents.
@@ -214,7 +214,7 @@ class MultiAgentUnityTask(MultiAgentTaskType):
     and whether they plan on adding anything, we're keeping this version. When the fog of unknown
     has been blown away, we might consider doing a Pull Request to `ml-agents`.
 
-    [1] https://github.com/Unity-Technologies/ml-agents/blob/3e48be4e1304d8cbbb43d8ffc335f8037cfe6f1d/gym-unity/gym_unity/envs/__init__.py#L27
+    .. _permalink: https://github.com/Unity-Technologies/ml-agents/blob/3e48be4e1304d8cbbb43d8ffc335f8037cfe6f1d/gym-unity/gym_unity/envs/__init__.py#L27
     """
 
     logger = logging.getLogger(__name__)

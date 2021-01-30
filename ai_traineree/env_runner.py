@@ -49,7 +49,7 @@ class EnvRunner:
         """
         Expects the environment to come as the TaskType and the agent as the AgentBase.
 
-        Keyword parameters:
+        Keyword Arguments:
             window_len (int): Length of the score averaging window.
             data_logger: An instance of Data Logger, e.g. TensorboardLogger.
         """
@@ -382,7 +382,7 @@ class MultiSyncEnvRunner:
         """
         Expects the environment to come as the TaskType and the agent as the AgentBase.
 
-        Keyword parameters:
+        Keyword Arguments:
             window_len (int): Length of the score averaging window.
             data_logger: An instance of Data Logger, e.g. TensorboardLogger.
         """

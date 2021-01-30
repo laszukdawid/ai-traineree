@@ -30,6 +30,20 @@ DDPG
 .. autoclass:: ai_traineree.agents.ddpg.DDPGAgent
     :members:
     :undoc-members:
+
+D3PG
+----
+
+.. autoclass:: ai_traineree.agents.d3pg.D3PGAgent
+    :members:
+    :undoc-members:
+
+D4PG
+----
+
+.. autoclass:: ai_traineree.agents.d4pg.D4PGAgent
+    :members:
+    :undoc-members:
     
 SAC
 ---

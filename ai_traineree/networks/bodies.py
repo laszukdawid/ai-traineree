@@ -46,7 +46,7 @@ class ConvNet(NetworkType):
 
         Quick reminder from the PyTorch doc (https://pytorch.org/docs/stable/generated/torch.nn.Conv2d.html).
 
-        Keyword parameters:
+        Keyword Arguments:
             in_channels (int): Number of channels in the input image
             hidden_layers (tuple of ints): Number of channels in each hidden layer
             kernel_size (int or tuple): Size of the convolving kernel

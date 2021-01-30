@@ -22,8 +22,8 @@ class IQLAgents(MultiAgentType):
             state_size (int): Dimensionality of the state.
             action_size (int): Dimensionality of the action.
             num_agents (int): Number of agents.
-        
-        Keyword parameters:
+
+        Keyword Arguments:
             hidden_layers (tuple of ints): Shape for fully connected hidden layers.
             noise_scale (float): Default: 1.0. Noise amplitude.
             noise_sigma (float): Default: 0.5. Noise variance.
@@ -79,7 +79,8 @@ class IQLAgents(MultiAgentType):
         for agent in self.agents.values():
             agent.seed(seed)
 
-    def reset(self):
+    def reset(self) -> None:
+        """Resets all agents' states."""
         self.reset_agents()
 
     def reset_agents(self):
