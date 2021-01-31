@@ -222,14 +222,14 @@ class RainbowAgent(AgentBase):
         # Update networks - sync local & target
         soft_update(self.target_net, self.net, self.tau)
 
-    def describe_agent(self) -> Dict:
+    def state_dict(self) -> Dict[str, dict]:
         """Returns agent's state dictionary.
 
         Returns:
             State dicrionary for internal networks.
 
         """
-        return self.net.state_dict()
+        return {"net": self.net.state_dict(), "target_net": self.target_net.state_dict()}
 
     def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
         data_logger.log_value("loss/agent", self._loss, step)

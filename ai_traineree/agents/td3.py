@@ -182,12 +182,19 @@ class TD3Agent(AgentBase):
         self.actor_optimizer.step()
         self._loss_actor = loss_actor.item()
 
-    def describe_agent(self) -> Tuple[Any, Any, Any, Any]:
+    def state_dict(self) -> Dict[str, dict]:
+        """Describes agent's networks.
+
+        Returns:
+            state: (dict) Provides actors and critics states.
+
         """
-        Returns network's weights in order:
-        Actor, TargetActor, Critic, TargetCritic
-        """
-        return (self.actor.state_dict(), self.target_actor.state_dict(), self.critic.state_dict(), self.target_critic())
+        return {
+            "actor": self.actor.state_dict(),
+            "target_actor": self.target_actor.state_dict(),
+            "critic": self.critic.state_dict(),
+            "target_critic": self.target_critic()
+        }
 
     def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
         data_logger.log_value("loss/actor", self._loss_actor, step)

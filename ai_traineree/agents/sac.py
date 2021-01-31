@@ -142,17 +142,17 @@ class SACAgent(AgentBase):
         self.double_critic.reset_parameters()
         hard_update(self.target_double_critic, self.double_critic)
 
-    def describe_agent(self) -> Sequence[dict]:
+    def state_dict(self) -> Dict[str, dict]:
         """
         Returns network's weights in order:
         Actor, TargetActor, Critic, TargetCritic
         """
-        return (
-            self.actor.state_dict(),
-            self.policy.state_dict(),
-            self.double_critic.state_dict(),
-            self.target_double_critic.state_dict()
-        )
+        return {
+            "actor": self.actor.state_dict(),
+            "policy": self.policy.state_dict(),
+            "double_critic": self.double_critic.state_dict(),
+            "target_double_critic": self.target_double_critic.state_dict(),
+        }
 
     @torch.no_grad()
     def act(self, state, epsilon: float=0.0, deterministic=False) -> List[float]:

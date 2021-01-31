@@ -7,11 +7,12 @@ from ai_traineree.types import AgentType
 class AgentBase(AgentType):
 
     def __init__(self, *args, **kwargs):
+        self._config = {}
         self._rng = random.Random()
         if 'seed' in kwargs:
             self.seed(kwargs.get('seed'))
 
-    def seed(self, seed):
+    def seed(self, seed) -> None:
         """Sets a seed for all random number generators (RNG).
 
         Note that on top of local RNGs a global for the PyTorch is set.

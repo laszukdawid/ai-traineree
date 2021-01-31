@@ -254,12 +254,19 @@ class D3PGAgent(AgentBase):
         soft_update(self.target_actor, self.actor, self.tau)
         soft_update(self.target_critic, self.critic, self.tau)
 
-    def describe_agent(self) -> Tuple[Any, Any, Any, Any]:
+    def state_dict(self) -> Dict[str, dict]:
+        """Describes agent's networks.
+
+        Returns:
+            state: (dict) Provides actors and critics states.
+
         """
-        Returns network's weights in order:
-        Actor, TargetActor, Critic, TargetCritic
-        """
-        return (self.actor.state_dict(), self.target_actor.state_dict(), self.critic.state_dict(), self.target_critic())
+        return {
+            "actor": self.actor.state_dict(),
+            "target_actor": self.target_actor.state_dict(),
+            "critic": self.critic.state_dict(),
+            "target_critic": self.target_critic()
+        }
 
     def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
         data_logger.log_value("loss/actor", self._loss_actor, step)

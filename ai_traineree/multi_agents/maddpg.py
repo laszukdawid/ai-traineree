@@ -228,5 +228,5 @@ class MADDPGAgent(MultiAgentType):
         for agent in self.agents:
             agent.seed(seed)
 
-    def describe_agent(self) -> Dict[str, Any]:
-        return {f"agent_{idx}": agent.describe_agent() for (idx, agent) in enumerate(self.agents)}
+    def state_dict(self) -> Dict[str, Any]:
+        return {name: agent.state_dict() for (name, agent) in self.agents.items()}

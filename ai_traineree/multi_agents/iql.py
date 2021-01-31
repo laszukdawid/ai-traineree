@@ -115,5 +115,5 @@ class IQLAgents(MultiAgentType):
             agent._config = agent_state.get('config', {})
             agent.__dict__.update(**agent._config)
 
-    def describe_agent(self):
-        return [agent.describe_agent() for agent in self.agents]
+    def state_dict(self) -> Dict[str, dict]:
+        return {name: agent.state_dict() for (name, agent) in self.agents.items()}

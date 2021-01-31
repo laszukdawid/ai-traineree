@@ -201,14 +201,17 @@ class DQNAgent(AgentBase):
             assert any(~torch.isnan(error))
             self.buffer.priority_update(experiences['index'], error.abs())
 
-    def describe_agent(self) -> Dict:
-        """Returns agent's state dictionary.
+    def state_dict(self) -> Dict[str, dict]:
+        """Describes agent's networks.
 
         Returns:
-            State dicrionary for internal networks.
+            state: (dict) Provides actors and critics states.
 
         """
-        return self.net.state_dict()
+        return {
+            "net": self.net.state_dict(),
+            "target_net": self.target_net.state_dict(),
+        }
 
     def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
         """Uses provided DataLogger to provide agent's metrics.

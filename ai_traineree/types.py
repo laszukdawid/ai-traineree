@@ -125,7 +125,7 @@ class MultiAgentType(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def describe_agent(self) -> Dict[str, Any]:
+    def state_dict(self) -> Dict[str, Any]:
         """Returns description of all agent's components."""
         pass
 

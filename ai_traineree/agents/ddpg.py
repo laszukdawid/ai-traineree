@@ -107,7 +107,7 @@ class DDPGAgent(AgentBase):
         action = torch.clamp(action*self.action_scale, self.action_min, self.action_max)
         return action.cpu().numpy().tolist()
 
-    def step(self, state, action, reward, next_state, done):
+    def step(self, state, action, reward, next_state, done) -> None:
         self.iteration += 1
         self.buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
 
@@ -127,11 +127,16 @@ class DDPGAgent(AgentBase):
         assert Q_expected.shape == Q_target.shape == Q_target_next.shape
         return mse_loss(Q_expected, Q_target)
 
-    def compute_policy_loss(self, states):
+    def compute_policy_loss(self, states) -> None:
+        """Compute Policy loss based on provided states.
+
+        Loss = Mean(-Q(s, _a) ),
+        where _a is actor's estimate based on state, _a = Actor(s).
+        """
         pred_actions = self.actor(states)
         return -self.critic(states, pred_actions).mean()
 
-    def learn(self, experiences):
+    def learn(self, experiences) -> None:
         """Update critics and actors"""
         rewards = to_tensor(experiences['reward']).float().to(self.device).unsqueeze(1)
         dones = to_tensor(experiences['done']).type(torch.int).to(self.device).unsqueeze(1)
@@ -162,12 +167,19 @@ class DDPGAgent(AgentBase):
         soft_update(self.target_actor, self.actor, self.tau)
         soft_update(self.target_critic, self.critic, self.tau)
 
-    def describe_agent(self) -> Tuple[Any, Any, Any, Any]:
+    def state_dict(self) -> Dict[str, dict]:
+        """Describes agent's networks.
+
+        Returns:
+            state: (dict) Provides actors and critics states.
+
         """
-        Returns network's weights in order:
-        Actor, TargetActor, Critic, TargetCritic
-        """
-        return (self.actor.state_dict(), self.target_actor.state_dict(), self.critic.state_dict(), self.target_critic())
+        return {
+            "actor": self.actor.state_dict(),
+            "target_actor": self.target_actor.state_dict(),
+            "critic": self.critic.state_dict(),
+            "target_critic": self.target_critic.state_dict()
+        }
 
     def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
         data_logger.log_value("loss/actor", self._loss_actor, step)
