@@ -568,7 +568,7 @@ class MultiSyncEnvRunner:
                 self.parent_conns[t_idx].send((t_idx, states[t_idx], actions[t_idx]))
 
             for t_idx in range(self.task_num):
-                obj = self.parent_conns[t_idx].recv()            
+                obj = self.parent_conns[t_idx].recv()
 
                 idx = obj['idx']
                 rewards[idx] = obj['reward']

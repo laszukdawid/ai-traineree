@@ -4,7 +4,7 @@ import torch
 from ai_traineree.loggers import DataLogger
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-ActionType = torch.Tensor
+ActionType = Union[int, List]
 DoneType = bool
 RewardType = Union[int, float]
 StateType = torch.Tensor

@@ -67,8 +67,8 @@ class DQNAgent(AgentBase):
         self.tau = float(self._register_param(kwargs, 'tau', 0.002))
 
         self.update_freq = int(self._register_param(kwargs, 'update_freq', 1))
-        self.batch_size = int(self._register_param(kwargs, 'batch_size', 64))
-        self.buffer_size = int(self._register_param(kwargs, 'buffer_size', 1e5))
+        self.batch_size = int(self._register_param(kwargs, 'batch_size', 64, drop=True))
+        self.buffer_size = int(self._register_param(kwargs, 'buffer_size', 1e5, drop=True))
         self.warm_up = int(self._register_param(kwargs, 'warm_up', 0))
         self.number_updates = int(self._register_param(kwargs, 'number_updates', 1))
         self.max_grad_norm = float(self._register_param(kwargs, 'max_grad_norm', 10))
@@ -237,14 +237,17 @@ class DQNAgent(AgentBase):
         )
         torch.save(agent_state, path)
 
-    def load_state(self, path: str) -> None:
+    def load_state(self, *, path: Optional[str]=None, agent_state: Optional[dict]=None) -> None:
         """Loads state from a file under provided path.
 
         Parameters:
             path: String path indicating where the state is stored.
 
         """
-        agent_state = torch.load(path)
+        if path is None and agent_state is None:
+            raise ValueError("Either `path` or `agent_state` must be provided to load agent's state.")
+        if path is not None:
+            agent_state = torch.load(path)
         self._config = agent_state.get('config', {})
         self.__dict__.update(**self._config)
 

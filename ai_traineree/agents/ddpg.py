@@ -11,7 +11,7 @@ from ai_traineree.noise import GaussianNoise
 from ai_traineree.utils import to_tensor
 from torch.optim import Adam
 from torch.nn.functional import mse_loss
-from typing import Any, Dict, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence
 
 
 class DDPGAgent(AgentBase):
@@ -100,7 +100,12 @@ class DDPGAgent(AgentBase):
             self._loss_critic = value
 
     @torch.no_grad()
-    def act(self, obs, noise: float=0.0):
+    def act(self, obs, noise: float=0.0) -> List[float]:
+        """Acting on the observations. Returns action.
+
+        Returns:
+            action: (list float) Action values.
+        """
         obs = to_tensor(obs).float().to(self.device)
         action = self.actor(obs)
         action += noise*self.noise.sample()
@@ -206,8 +211,11 @@ class DDPGAgent(AgentBase):
         )
         torch.save(agent_state, path)
 
-    def load_state(self, path: str):
-        agent_state = torch.load(path)
+    def load_state(self, *, path: Optional[str]=None, agent_state: Optional[dict]=None):
+        if path is None and agent_state:
+            raise ValueError("Either `path` or `agent_state` must be provided to load agent's state.")
+        if path is not None and agent_state is None:
+            agent_state = torch.load(path)
         self._config = agent_state.get('config', {})
         self.__dict__.update(**self._config)
 

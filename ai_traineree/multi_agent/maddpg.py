@@ -1,3 +1,4 @@
+from collections import defaultdict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,7 +13,7 @@ from ai_traineree.networks.bodies import CriticBody
 from ai_traineree.types import ActionType, MultiAgentType, StateType
 from ai_traineree.utils import to_tensor
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, OrderedDict
 
 
 class MADDPGAgent(MultiAgentType):
@@ -46,29 +47,31 @@ class MADDPGAgent(MultiAgentType):
 
         """
 
-        self.device = self._register_param(kwargs, "device", DEVICE)
+        self.device = self._register_param(kwargs, "device", DEVICE, drop=True)
         self.state_size: int = state_size
         self.action_size = action_size
-        self.num_agents = num_agents
+        self.num_agents: int = num_agents
+        self.agent_names: List[str] = kwargs.get("agent_names", map(str, range(self.num_agents)))
 
-        hidden_layers = self._register_param(kwargs, 'hidden_layers', (256, 128))
+        hidden_layers = self._register_param(kwargs, 'hidden_layers', (100, 100), drop=True)
         noise_scale = float(self._register_param(kwargs, 'noise_scale', 0.5))
         noise_sigma = float(self._register_param(kwargs, 'noise_sigma', 1.0))
-        actor_lr = float(self._register_param(kwargs, 'actor_lr', 1e-3))
-        critic_lr = float(self._register_param(kwargs, 'critic_lr', 1e-3))
+        actor_lr = float(self._register_param(kwargs, 'actor_lr', 3e-4))
+        critic_lr = float(self._register_param(kwargs, 'critic_lr', 3e-4))
 
-        self.agents: List[DDPGAgent] = [
-            DDPGAgent(
-                num_agents*state_size, action_size, hidden_layers=hidden_layers,
+        self.agents: Dict[str, DDPGAgent] = OrderedDict({
+            agent_name: DDPGAgent(
+                state_size, action_size,
+                hidden_layers=hidden_layers,
                 actor_lr=actor_lr, critic_lr=critic_lr,
                 noise_scale=noise_scale, noise_sigma=noise_sigma,
                 device=self.device,
                 **kwargs,
-            ) for _ in range(num_agents)
-        ]
+            ) for agent_name in self.agent_names
+        })
 
         self.gamma: float = float(self._register_param(kwargs, 'gamma', 0.99))
-        self.tau: float = float(self._register_param(kwargs, 'tau', 0.002))
+        self.tau: float = float(self._register_param(kwargs, 'tau', 0.02))
         self.gradient_clip: Optional[float] = self._register_param(kwargs, 'gradient_clip')
 
         self.batch_size: int = int(self._register_param(kwargs, 'batch_size', 64))
@@ -84,47 +87,61 @@ class MADDPGAgent(MultiAgentType):
         self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=critic_lr)
         hard_update(self.target_critic, self.critic)
 
-        self._loss_actor: float = 0.
-        self._loss_critic: float = 0.
+        self._step_data = {}
+        self._loss_critic: float = float('inf')
+        self._loss_actor: Dict[str, float] = {name: float('inf') for name in self.agent_names}
         self.reset()
 
     @property
     def loss(self) -> Dict[str, float]:
-        return {'actor': self._loss_actor, 'critic': self._loss_critic}
-
-    @loss.setter
-    def loss(self, value):
-        if isinstance(value, dict):
-            self._loss_actor = value['actor']
-            self._loss_critic = value['critic']
-        else:
-            self._loss_actor = value
-            self._loss_critic = value
+        out = {}
+        for agent_name, agent in self.agents.items():
+            for loss_name, loss_value in agent.loss.items():
+                out[f"{agent_name}_{loss_name}"] = loss_value
+            out[f"{agent_name}_actor"] = self._loss_actor[agent_name]
+        out["critic"] = self._loss_critic
+        return out
 
     def reset(self):
         self.iteration = 0
         self.reset_agents()
 
     def reset_agents(self):
-        for agent in self.agents:
+        for agent in self.agents.values():
             agent.reset_agent()
         self.critic.reset_parameters()
         self.target_critic.reset_parameters()
 
-    def step(self, states: List[StateType], actions: List[ActionType], rewards, next_states, dones) -> None:
-        self.iteration += 1
-        self.buffer.add(state=states, action=actions, reward=rewards, next_state=next_states, done=dones)
+    def step(self, agent_name: str, state: StateType, action: ActionType, reward, next_state, done) -> None:
+        self._step_data[agent_name] = dict(
+            state=state, action=action, reward=reward, next_state=next_state, done=done,
+        )
 
+    def commit(self):
+        step_data = defaultdict(list)
+        for agent in self.agents:
+            agent_data = self._step_data[agent]
+            step_data['state'].append(agent_data['state'])
+            step_data['action'].append(agent_data['action'])
+            step_data['reward'].append(agent_data['reward'])
+            step_data['next_state'].append(agent_data['next_state'])
+            step_data['done'].append(agent_data['done'])
+
+        self.buffer.add(**step_data)
+        self._step_data = {}
+        self.iteration += 1
         if self.iteration < self.warm_up:
             return
 
         if len(self.buffer) > self.batch_size and (self.iteration % self.update_freq) == 0:
             for _ in range(self.number_updates):
-                for agent_number in range(self.num_agents):
-                    self.learn(self.buffer.sample(), agent_number)
+                samples = self.buffer.sample()
+                for agent_name in self.agents:
+                    self.learn(samples, agent_name)
             self.update_targets()
 
-    def act(self, states: List[StateType], noise: float=0.0) -> List[ActionType]:
+    @torch.no_grad()
+    def act(self, agent_name: str, states: List[StateType], noise: float=0.0) -> List[float]:
         """Get actions from all agents. Synchronized action.
 
         Parameters:
@@ -135,37 +152,37 @@ class MADDPGAgent(MultiAgentType):
             actions: List of actions that each agent wants to perform
 
         """
-        tensor_states = torch.tensor(states).reshape(1, -1)
-        with torch.no_grad():
-            actions = []
-            for agent in self.agents:
-                agent.actor.eval()
-                actions.append(agent.act(tensor_states, noise))
-                agent.actor.train()
-
-        # return torch.stack(actions)
-        return actions
+        tensor_states = torch.tensor(states).reshape(-1)
+        agent = self.agents[agent_name]
+        action = agent.act(tensor_states, noise)
+        return action
 
     def __flatten_actions(self, actions):
         return actions.view(-1, self.num_agents*self.action_size)
 
-    def learn(self, experiences, agent_number: int) -> None:
+    def learn(self, experiences, agent_name: str) -> None:
         """update the critics and actors of all the agents """
 
         # TODO: Just look at this mess.
-        agent_rewards = to_tensor(experiences['reward']).select(1, agent_number).float().to(self.device).unsqueeze(1).detach()
-        agent_dones = to_tensor(experiences['done']).select(1, agent_number).type(torch.int).to(self.device).unsqueeze(1)
-        states = to_tensor(experiences['state']).float().to(self.device).squeeze(2)
-        actions = to_tensor(experiences['action']).to(self.device).squeeze(2)
-        next_states = to_tensor(experiences['next_state']).float().to(self.device).squeeze(2)
+        agent_number = list(self.agents).index(agent_name)
+        agent_rewards = to_tensor(experiences['reward']).select(1, agent_number).unsqueeze(-1).float().to(self.device)
+        agent_dones = to_tensor(experiences['done']).select(1, agent_number).unsqueeze(-1).type(torch.int).to(self.device)
+        states = to_tensor(experiences['state']).to(self.device).view(self.batch_size, self.num_agents, self.state_size)
+        actions = to_tensor(experiences['action']).to(self.device)
+        next_states = to_tensor(experiences['next_state']).float().to(self.device).view(self.batch_size, self.num_agents, self.state_size)
         flat_states = states.view(-1, self.num_agents*self.state_size)
         flat_next_states = next_states.view(-1, self.num_agents*self.state_size)
         flat_actions = actions.view(-1, self.num_agents*self.action_size)
+        assert agent_rewards.shape == agent_dones.shape == (self.batch_size, 1)
+        assert states.shape == next_states.shape == (self.batch_size, self.num_agents, self.state_size)
+        assert actions.shape == (self.batch_size, self.num_agents, self.action_size)
+        assert flat_actions.shape == (self.batch_size, self.num_agents*self.action_size)
 
-        agent = self.agents[agent_number]
+        agent = self.agents[agent_name]
 
         next_actions = actions.detach().clone()
-        next_actions.data[:, agent_number] = agent.target_actor(flat_next_states)
+        next_actions.data[:, agent_number] = agent.target_actor(next_states[:, agent_number, :])
+        assert next_actions.shape == (self.batch_size, self.num_agents, self.action_size)
 
         # critic loss
         Q_target_next = self.target_critic(flat_next_states, self.__flatten_actions(next_actions))
@@ -183,49 +200,66 @@ class MADDPGAgent(MultiAgentType):
 
         # Compute actor loss
         pred_actions = actions.detach().clone()
-        pred_actions.data[:, agent_number] = agent.actor(flat_states)
+        # pred_actions.data[:, agent_number] = agent.actor(flat_states)
+        pred_actions.data[:, agent_number] = agent.actor(states[:, agent_number, :])
 
         loss_actor = -self.critic(flat_states, self.__flatten_actions(pred_actions)).mean()
         agent.actor_optimizer.zero_grad()
         loss_actor.backward()
         agent.actor_optimizer.step()
-        self._loss_actor = loss_actor.mean().item()
+        self._loss_actor[agent_name] = loss_actor.mean().item()
 
     def update_targets(self):
         """soft update targets"""
-        for ddpg_agent in self.agents:
-            soft_update(ddpg_agent.target_actor, ddpg_agent.actor, self.tau)
+        for agent in self.agents.values():
+            soft_update(agent.target_actor, agent.actor, self.tau)
         soft_update(self.target_critic, self.critic, self.tau)
 
     def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
-        data_logger.log_value("loss/actor", self._loss_actor, step)
-        data_logger.log_value("loss/critic", self._loss_critic, step)
+        data_logger.log_value('loss/critic', self._loss_critic, step)
+        for agent_name, agent in self.agents.items():
+            data_logger.log_values_dict(f"{agent_name}/loss", agent.loss, step)
 
     def save_state(self, path: str):
+        """Saves current state of the Multi Agent instance and all related agents.
+
+        All states are stored via PyTorch's :func:`save <torch.save>` function.
+
+        Parameters:
+            path: (str) String path to a location where the state is store.
+
+        """
         agents_state = {}
         agents_state['config'] = self._config
-        for agent_id, agent in enumerate(self.agents):
-            agents_state[f'actor_{agent_id}'] = agent.actor.state_dict()
-            agents_state[f'target_actor_{agent_id}'] = agent.target_actor.state_dict()
-            agents_state[f'critic_{agent_id}'] = agent.critic.state_dict()
-            agents_state[f'target_critic_{agent_id}'] = agent.target_critic.state_dict()
-            agents_state[f'config_{agent_id}'] = agent._config
+        for agent_name, agent in self.agents.items():
+            agents_state[agent_name] = {"state": agent.state_dict(), "config": agent._config}
         torch.save(agents_state, path)
 
-    def load_state(self, path: str):
-        agent_state = torch.load(path)
+    def load_state(self, *, path: Optional[str]=None, agent_state: Optional[dict]=None) -> None:
+        """Loads the state into the Multi Agent.
+
+        The state can be provided either via path to a file that contains the state,
+        see :meth:`save_state <self.save_state>`, or direclty via `state`.
+
+        Parameters:
+            path: (str) A path where the state was saved via `save_state`.
+            state: (dict) Already loaded state kept in memory.
+
+        """
+        if path is None and agent_state:
+            raise ValueError("Either `path` or `agent_state` must be provided to load agent's state.")
+        if path is not None and agent_state is None:
+            agent_state = torch.load(path)
         self._config = agent_state.get('config', {})
         self.__dict__.update(**self._config)
-        for agent_id, agent in enumerate(self.agents):
-            agent.actor.load_state_dict(agent_state[f'actor_{agent_id}'])
-            agent.critic.load_state_dict(agent_state[f'critic_{agent_id}'])
-            agent.target_actor.load_state_dict(agent_state[f'target_actor_{agent_id}'])
-            agent.target_critic.load_state_dict(agent_state[f'target_critic_{agent_id}'])
-            agent._config = agent_state[f'config_{agent_id}'].get(f'config_{agent_id}', {})
+        for agent_name, agent in self.agents.items():
+            _agent_state = agent_state[agent_name]
+            agent.load_state(agent_state=_agent_state["state"])
+            agent._config = _agent_state['config']
             agent.__dict__.update(**agent._config)
 
-    def seed(self, seed):
-        for agent in self.agents:
+    def seed(self, seed: int) -> None:
+        for agent in self.agents.values():
             agent.seed(seed)
 
     def state_dict(self) -> Dict[str, Any]:
