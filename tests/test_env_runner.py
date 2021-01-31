@@ -1,3 +1,7 @@
+# Don't run these tests for now
+import pytest
+pytestmark = pytest.mark.skip
+
 import random
 
 from ai_traineree.agents.ppo import PPOAgent

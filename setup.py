@@ -26,6 +26,7 @@ setup_params = dict(
     python_requires='>3.5,<4',
     install_requires=required,
     extras_require={
+        "plot": ["matplotlib"],
         "doc": ["sphinx", "sphinx-rtd-theme"],
         "test": ["mock", "pytest", "pytest-cov", "pytest-mock", "flake8"],
         # Loggers
@@ -33,6 +34,7 @@ setup_params = dict(
         "neptune": ["neptune-client", "psutil"],
         # Envs
         # "sneks": ["git+https://github.com/laszukdawid/Sneks.git"],
+        "gym": ["gym[all]"],
         "mlagents": ["mlagents"],
         "pettingzoo": ["pettingzoo"],
     },

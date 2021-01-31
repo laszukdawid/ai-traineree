@@ -1,0 +1,15 @@
+os: linux
+dist: xenial
+language: python
+python:
+  - 3.6
+  - 3.8
+# command to run tests
+before_install:
+  - pip install --upgrade pip setuptools wheel pytest codecov
+install:
+  - pip install -e .[test]
+script: 
+  - pytest
+after_success:
+  - codecov

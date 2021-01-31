@@ -1,7 +1,2 @@
 numpy>=1.13.3,<1.19
-matplotlib
 torch>=1.5.0
-
-gym[box2d]
-gym
-#gym[all]  # Problems installing on the SageMaker
