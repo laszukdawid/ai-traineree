@@ -114,11 +114,12 @@ class MultiAgentType(abc.ABC):
             del source[name]
         return value
 
-    def act(self, states: List[StateType], noise: Any) -> List[ActionType]:
+    def act(self, agent_name: str, states: List[StateType], noise: Any) -> List[ActionType]:
         raise NotImplementedError
 
     @abc.abstractmethod
     def step(
+        agent_name: str,
         self, states: List[StateType], actions: List[ActionType], rewards: List[RewardType],
         next_states: List[StateType], dones: List[DoneType]
     ):
@@ -141,4 +142,7 @@ class MultiAgentType(abc.ABC):
 
     @abc.abstractmethod
     def seed(self, seed: int):
+        pass
+
+    def commit(self):
         pass

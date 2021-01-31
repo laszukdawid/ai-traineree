@@ -80,8 +80,8 @@ However, that doesn't mean one can be used without the other.
 
 | Short | Progress | Link | Full name | Doc |
 |-------|----------|------|-----------|-----|
-| IQL | [Implemented](ai_traineree/multi_agents/iql.py) | | Independent Q-Learners|[Doc](https://ai-traineree.readthedocs.io/en/latest/multi_agents.html#iql)
-| MADDPG | [Implemented](ai_traineree/multi_agents/maddpg.py) | [arXiv](https://arxiv.org/abs/1706.02275) | Multi agent DDPG |[Doc](https://ai-traineree.readthedocs.io/en/latest/multi_agents.html#maddpg)
+| IQL | [Implemented](ai_traineree/multi_agent/iql.py) | | Independent Q-Learners|[Doc](https://ai-traineree.readthedocs.io/en/latest/multi_agent.html#iql)
+| MADDPG | [Implemented](ai_traineree/multi_agent/maddpg.py) | [arXiv](https://arxiv.org/abs/1706.02275) | Multi agent DDPG |[Doc](https://ai-traineree.readthedocs.io/en/latest/multi_agent.html#maddpg)
 
 ### Loggers
 

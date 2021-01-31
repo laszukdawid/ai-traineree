@@ -43,7 +43,7 @@ touch walls. To install the environment execute ``pip install pettingzoo[butterf
 
 .. code-block:: python
 
-    from ai_traineree.multi_agents.iql import IQLAgents
+    from ai_traineree.multi_agent.iql import IQLAgents
     from ai_traineree.multiagent_env_runner import MultiAgentCycleEnvRunner
     from ai_traineree.tasks import PettingZooTask
     from pettingzoo.butterfly import prison_v2 as prison

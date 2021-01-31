@@ -2,18 +2,16 @@ import json
 import logging
 import numpy as np
 import time
-import torch.multiprocessing as mp
 import os
 import sys
 
-from ai_traineree.agents import AgentBase
 from ai_traineree.loggers import DataLogger
-from ai_traineree.types import ActionType, DoneType, RewardType, StateType, TaskType
+from ai_traineree.types import ActionType, DoneType, RewardType, StateType
 from ai_traineree.types import MultiAgentType, MultiAgentTaskType
 from ai_traineree.tasks import PettingZooTask
 from collections import defaultdict, deque
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 
 FRAMES_PER_SEC = 45
@@ -45,7 +43,7 @@ class MultiAgentEnvRunner:
     >>> ma_env_runner.run()
 
     Example:
-        Check [examples/multi_agents](/examples/multi_agents) directory.
+        Check [examples/multi_agent](/examples/multi_agent) directory.
 
     """
 
@@ -103,7 +101,7 @@ class MultiAgentEnvRunner:
         self, eps: float=0, max_iterations: Optional[int]=None,
         render: bool=False, render_gif: bool=False, log_interaction_freq: Optional[int]=None
     ) -> Tuple[List[RewardType], int]:
-        score: List[RewardType] = [0.]*self.multi_agent.agents_number
+        score: List[RewardType] = [0.]*self.multi_agent.num_agents
         states: List[StateType] = self.task.reset()
 
         iterations = 0
@@ -120,12 +118,12 @@ class MultiAgentEnvRunner:
                 self.task.render("human")
                 time.sleep(1./FRAMES_PER_SEC)
 
-            actions: List[ActionType] = self.multi_agent.act(states, eps)
             next_states: List[StateType] = []
             rewards: List[RewardType] = []
             dones: List[DoneType] = []
+            for agent_id in range(self.multi_agent.num_agents):
+                actions: List[ActionType] = self.multi_agent.act(str(agent_id), states[agent_id], eps)
 
-            for agent_id in range(self.multi_agent.agents_number):
                 next_state, reward, done, _ = self.task.step(actions[agent_id], agent_id=agent_id)
                 next_states.append(next_state)
                 rewards.append(reward)
@@ -351,7 +349,7 @@ class MultiAgentCycleEnvRunner:
     >>> ma_env_runner.run()
 
     Example:
-        Check [examples/multi_agents](/examples/multi_agents) directory.
+        Check [examples/multi_agent](/examples/multi_agent) directory.
 
     """
 
@@ -429,7 +427,6 @@ class MultiAgentCycleEnvRunner:
             rewards: Dict[str, RewardType] = {}
             dones: Dict[str, DoneType] = {}
 
-            # for agent_id, agent in range(self.multi_agent.agents):
             for agent_name in self.task.agent_iter(max_iter=self.multi_agent.num_agents):
                 state, reward, done, info = self.task.last(agent_name)
                 action = self.multi_agent.act(agent_name, state, eps)
@@ -445,6 +442,9 @@ class MultiAgentCycleEnvRunner:
                 self._actions[agent_name].append((self.iteration, action))
                 self._dones[agent_name].append((self.iteration, done))
                 self._rewards[agent_name].append((self.iteration, reward))
+
+            # Commit last transitions and learn if it's the time
+            self.multi_agent.commit()
 
             if render_gif:
                 # OpenAI gym still renders the image to the screen even though it shouldn't. Eh.
@@ -467,7 +467,7 @@ class MultiAgentCycleEnvRunner:
         checkpoint_every=200, force_new=False,
     ) -> List[List[RewardType]]:
         """
-        Evaluates the multi_agent in the environment.
+        Evaluates the Multi Agent in the environment.
         The evaluation will stop when the agent reaches the `reward_goal` in the averaged last `self.window_len`, or
         when the number of episodes reaches the `max_episodes`.
 

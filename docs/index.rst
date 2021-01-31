@@ -14,7 +14,7 @@ Feel free to let me know if you have any questions or anything, and I'll sure tr
    Getting started <intro>
    examples
    agents
-   multi_agents
+   multi_agent
    buffers
    policies
    networks

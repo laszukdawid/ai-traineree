@@ -13,14 +13,14 @@ tries to capture a flag and the other tries to stop them.
 MADDPG
 ------
 
-.. autoclass:: ai_traineree.multi_agents.maddpg.MADDPGAgent
+.. autoclass:: ai_traineree.multi_agent.maddpg.MADDPGAgent
     :members:
     :undoc-members:
 
 IQL
 ---
 
-.. autoclass:: ai_traineree.multi_agents.iql.IQLAgents
+.. autoclass:: ai_traineree.multi_agent.iql.IQLAgents
     :members:
     :undoc-members:
 

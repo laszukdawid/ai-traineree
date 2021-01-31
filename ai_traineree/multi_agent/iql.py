@@ -14,7 +14,7 @@ class IQLAgents(MultiAgentType):
     def __init__(self, state_size: int, action_size: int, num_agents: int, **kwargs):
         """Independent Q-Learning
 
-        A set of independent Q-Learning agents (DQN implementation) that are organized
+        A set of independent Q-Learning agents (:py:class:`DQN <DQNAgent>` implementation) that are organized
         to work as an `Multi Agent` agent. These agents have defaults as per DQNAgent class.
         All keyword paramters are passed to each agent.
 
@@ -91,8 +91,15 @@ class IQLAgents(MultiAgentType):
         return self.agents[agent_name].step(state, action, reward, next_state, done)
 
     @torch.no_grad()
-    def act(self, agent_name: str, state: StateType, noise: float=0.0) -> ActionType:
+    def act(self, agent_name: str, state: StateType, noise: float=0.0) -> int:
         return self.agents[agent_name].act(state, noise)
+
+    def commit(self) -> None:
+        """This method does nothing.
+
+        Since all agents are completely independent there is no need for synchronizing them.
+        """
+        pass
 
     def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
         for agent_name, agent in self.agents.items():
@@ -102,7 +109,7 @@ class IQLAgents(MultiAgentType):
         agents_state = {}
         agents_state['config'] = self._config
         for agent_name, agent in self.agents.items():
-            agents_state[agent_name] = {'network': agent.describe_agent(), 'config': agent.hparams}
+            agents_state[agent_name] = {'network': agent.state_dict(), 'config': agent.hparams}
         torch.save(agents_state, path)
 
     def load_state(self, path: str):
@@ -111,7 +118,7 @@ class IQLAgents(MultiAgentType):
         self.__dict__.update(**self._config)
         for agent_name, agent in self.agents.items():
             agent_state = all_agent_state[agent_name]
-            agent.load_state_dict(agent_state['network'])
+            agent.load_state(agent_state=agent_state['network'])
             agent._config = agent_state.get('config', {})
             agent.__dict__.update(**agent._config)
 
