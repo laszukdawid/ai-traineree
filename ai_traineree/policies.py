@@ -2,7 +2,6 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import random
 
 from ai_traineree.networks import NetworkType
 from ai_traineree.networks.bodies import FcNet
@@ -10,7 +9,6 @@ from functools import lru_cache
 from torch.distributions import Beta, Dirichlet, MultivariateNormal, Normal
 from torch.distributions.distribution import Distribution
 from typing import Optional, Tuple
-
 
 
 class PolicyType(NetworkType):
@@ -48,12 +46,12 @@ class MultivariateGaussianPolicySimple(PolicyType):
         self.std = nn.Parameter(torch.full((self.size,), std_init, device=device))
 
     @staticmethod
-    @lru_cache
+    @lru_cache(maxsize=10)
     def _empty_std(batch_size: int, size: int, device):
         return torch.zeros((batch_size, size, size), device=device)
 
     @staticmethod
-    @lru_cache
+    @lru_cache(maxsize=10)
     def diag_idx(batch_size: int, size: int, device):
         return torch.arange(size, device=device).repeat((batch_size, 1, 1))
 
@@ -110,12 +108,12 @@ class MultivariateGaussianPolicy(PolicyType):
         self.std_max = std_max
 
     @staticmethod
-    @lru_cache
+    @lru_cache(maxsize=10)
     def _empty_std(batch_size: int, size: int, device):
         return torch.zeros((batch_size, size, size), device=device)
 
     @staticmethod
-    @lru_cache
+    @lru_cache(maxsize=10)
     def diag_idx(batch_size: int, size: int, device):
         return torch.arange(size, device=device).repeat((batch_size, 1, 1)).view(batch_size, size, 1)
 

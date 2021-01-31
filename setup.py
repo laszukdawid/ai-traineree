@@ -28,7 +28,7 @@ setup_params = dict(
     extras_require={
         "plot": ["matplotlib"],
         "doc": ["sphinx", "sphinx-rtd-theme"],
-        "test": ["mock", "pytest", "pytest-cov", "pytest-mock", "flake8"],
+        "test": ["mock", "pytest", "pytest-cov", "pytest-mock", "flake8", "gym[box2d]"],
         # Loggers
         "tensorboard": ["tensorboard"],
         "neptune": ["neptune-client", "psutil"],

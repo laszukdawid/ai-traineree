@@ -1,6 +1,10 @@
 import abc
-from torch.utils.tensorboard import SummaryWriter
 from typing import Dict
+
+try:
+    from torch.utils.tensorboard import SummaryWriter
+except ImportError:
+    pass
 
 try:
     import neptune

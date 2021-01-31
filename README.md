@@ -1,5 +1,7 @@
 # ai-traineree
 [![DocStatus](https://readthedocs.org/projects/ai-traineree/badge/?version=latest)](https://ai-traineree.readthedocs.io/)
+[![Build Status](https://travis-ci.com/laszukdawid/ai-traineree.svg?branch=master)](https://travis-ci.com/laszukdawid/ai-traineree)
+[![codecov](https://codecov.io/gh/laszukdawid/ai-traineree/branch/master/graph/badge.svg?token=S62DK7HPYA)](https://codecov.io/gh/laszukdawid/ai-traineree)
 
 The intention is to have a zoo of Deep Reinforcment Learning methods and showcasing their application on some environments.
 

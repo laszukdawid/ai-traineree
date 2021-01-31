@@ -1,4 +1,3 @@
-import gym
 import logging
 import numpy as np
 import torch
@@ -6,6 +5,11 @@ import torch
 from ai_traineree.types import ActionType, MultiAgentTaskType, StateType, TaskType
 from collections import deque
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+
+try:
+    import gym
+except ImportError:
+    logging.warning("Coulnd't import `gym`. Please install `pip install -e .[gym]` if you intend to use it.")
 
 try:
     from gym import spaces
