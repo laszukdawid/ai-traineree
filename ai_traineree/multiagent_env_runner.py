@@ -38,12 +38,9 @@ class MultiAgentEnvRunner:
     It's expected that the environments are wrapped in a Task which has typical step and act methods.
     The agent can be any agent which *makes sense* as there aren't any checks like whether the output is discrete.
 
-    Typicall run is
-    >>> ma_env_runner = MultiAgentEnvRunner(task, agent)
-    >>> ma_env_runner.run()
-
     Example:
-        Check [examples/multi_agent](/examples/multi_agent) directory.
+        >>> ma_env_runner = MultiAgentEnvRunner(task, agent)
+        >>> ma_env_runner.run()
 
     """
 

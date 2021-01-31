@@ -277,6 +277,9 @@ class RolloutBuffer(BufferBase):
         for experience in buffer:
             self.add(**experience)
 
+    def seed(self, seed: int) -> None:
+        pass
+
 
 class PERBuffer(BufferBase):
     """Prioritized Experience Replay

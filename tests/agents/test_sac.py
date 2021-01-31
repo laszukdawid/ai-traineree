@@ -5,7 +5,7 @@ from ai_traineree.agents.sac import SACAgent
 from conftest import deterministic_interactions
 
 
-def test_ppo_seed():
+def test_sac_seed():
     # Assign
     agent_0 = SACAgent(4, 2, device='cpu')  # Reference
     agent_1 = SACAgent(4, 2, device='cpu')

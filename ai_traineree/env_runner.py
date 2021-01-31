@@ -38,9 +38,9 @@ class EnvRunner:
     It's expected that the environments are wrapped in a Task which has typical step and act methods.
     The agent can be any agent which *makes sense* as there aren't any checks like whether the output is discrete.
 
-    Typicall run is
-    >>> env_runner = EnvRunner(task, agent)
-    >>> env_runner.run()
+    Examples:
+        >>> env_runner = EnvRunner(task, agent)
+        >>> env_runner.run()
     """
 
     logger = logging.getLogger("EnvRunner")
