@@ -2,6 +2,9 @@ import copy
 import mock
 import numpy as np
 import pytest
+import random
+
+from typing import Any, List, Sequence, Tuple
 
 
 class MockContinuousSpace:
@@ -19,7 +22,6 @@ class MockDiscreteSpace:
 
 @pytest.fixture
 def fix_env_discrete():
-    import random
     rnd_state = lambda: random.choices(range(10), k=5)  # noqa
     mock_env = mock.Mock()
     mock_env.reset.return_value = rnd_state()
@@ -31,7 +33,6 @@ def fix_env_discrete():
 
 @pytest.fixture
 def fix_env():
-    import random
     rnd_state = lambda: random.choices(range(10), k=5)  # noqa
     mock_env = mock.Mock()
     mock_env.reset.return_value = rnd_state()
@@ -56,3 +57,10 @@ def deterministic_interactions(agent, state_size=4, num_iters=50):
         agent.step(state, action, reward, next_state, done)
         state = copy.copy(next_state)
     return actions
+
+
+def fake_step(step_shape: Sequence[int]) -> Tuple[List[Any], float, bool]:
+    state = np.random.random(step_shape).tolist()
+    reward = random.random()
+    terminal = random.random() > 0.8
+    return state, reward, terminal

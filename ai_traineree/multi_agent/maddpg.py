@@ -47,13 +47,13 @@ class MADDPGAgent(MultiAgentType):
 
         """
 
-        self.device = self._register_param(kwargs, "device", DEVICE, drop=True)
+        self.device = self._register_param(kwargs, "device", DEVICE, update=True)
         self.state_size: int = state_size
         self.action_size = action_size
         self.num_agents: int = num_agents
         self.agent_names: List[str] = kwargs.get("agent_names", map(str, range(self.num_agents)))
 
-        hidden_layers = self._register_param(kwargs, 'hidden_layers', (100, 100), drop=True)
+        hidden_layers = self._register_param(kwargs, 'hidden_layers', (100, 100), update=True)
         noise_scale = float(self._register_param(kwargs, 'noise_scale', 0.5))
         noise_sigma = float(self._register_param(kwargs, 'noise_sigma', 1.0))
         actor_lr = float(self._register_param(kwargs, 'actor_lr', 3e-4))

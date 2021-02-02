@@ -56,7 +56,7 @@ class DQNAgent(AgentBase):
         """
         super().__init__(**kwargs)
 
-        self.device = kwargs.get("device", DEVICE)
+        self.device = self._register_param(kwargs, "device", DEVICE, update=True)
         self.input_shape: Sequence[int] = input_shape if not isinstance(input_shape, int) else (input_shape,)
         self.in_features: int = self.input_shape[0]
         self.output_shape: Sequence[int] = output_shape if not isinstance(output_shape, int) else (output_shape,)
@@ -67,14 +67,14 @@ class DQNAgent(AgentBase):
         self.tau = float(self._register_param(kwargs, 'tau', 0.002))
 
         self.update_freq = int(self._register_param(kwargs, 'update_freq', 1))
-        self.batch_size = int(self._register_param(kwargs, 'batch_size', 64, drop=True))
-        self.buffer_size = int(self._register_param(kwargs, 'buffer_size', 1e5, drop=True))
+        self.batch_size = int(self._register_param(kwargs, 'batch_size', 64, update=True))
+        self.buffer_size = int(self._register_param(kwargs, 'buffer_size', 1e5, update=True))
         self.warm_up = int(self._register_param(kwargs, 'warm_up', 0))
         self.number_updates = int(self._register_param(kwargs, 'number_updates', 1))
         self.max_grad_norm = float(self._register_param(kwargs, 'max_grad_norm', 10))
 
         self.iteration: int = 0
-        self.buffer = PERBuffer(batch_size=self.batch_size, buffer_size=self.buffer_size, **kwargs)
+        self.buffer = PERBuffer(**kwargs)
         self.using_double_q = bool(self._register_param(kwargs, "using_double_q", True))
 
         self.n_steps = self._register_param(kwargs, 'n_steps', 1)

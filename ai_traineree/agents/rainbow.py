@@ -58,7 +58,7 @@ class RainbowAgent(AgentBase):
 
         """
         super().__init__(**kwargs)
-        self.device = self._register_param(kwargs, "device", DEVICE)
+        self.device = self._register_param(kwargs, "device", DEVICE, update=True)
         self.input_shape: Sequence[int] = input_shape if not isinstance(input_shape, int) else (input_shape,)
 
         self.in_features: int = self.input_shape[0]
@@ -69,8 +69,8 @@ class RainbowAgent(AgentBase):
         self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))
         self.tau = float(self._register_param(kwargs, 'tau', 0.002))
         self.update_freq = int(self._register_param(kwargs, 'update_freq', 1))
-        self.batch_size = int(self._register_param(kwargs, 'batch_size', 80))
-        self.buffer_size = int(self._register_param(kwargs, 'buffer_size', 1e5))
+        self.batch_size = int(self._register_param(kwargs, 'batch_size', 80, update=True))
+        self.buffer_size = int(self._register_param(kwargs, 'buffer_size', int(1e5), update=True))
         self.warm_up = int(self._register_param(kwargs, 'warm_up', 0))
         self.number_updates = int(self._register_param(kwargs, 'number_updates', 1))
         self.max_grad_norm = float(self._register_param(kwargs, 'max_grad_norm', 10))
@@ -87,7 +87,7 @@ class RainbowAgent(AgentBase):
         self.z_atoms = torch.linspace(v_min, v_max, self.num_atoms, device=self.device)
         self.z_delta = self.z_atoms[1] - self.z_atoms[0]
 
-        self.buffer = PERBuffer(batch_size=self.batch_size, buffer_size=self.buffer_size)
+        self.buffer = PERBuffer(**kwargs)
         self.__batch_indices = torch.arange(self.batch_size, device=self.device)
 
         self.n_steps = self._register_param(kwargs, "n_steps", 3)
@@ -95,8 +95,8 @@ class RainbowAgent(AgentBase):
 
         # Note that in case a pre_network is provided, e.g. a shared net that extracts pixels values,
         # it should be explicitly passed in kwargs
-        self.net = RainbowNet(self.input_shape, self.output_shape, num_atoms=self.num_atoms, batch_size=self.batch_size, **kwargs)
-        self.target_net = RainbowNet(self.input_shape, self.output_shape, num_atoms=self.num_atoms, batch_size=self.batch_size, **kwargs)
+        self.net = RainbowNet(self.input_shape, self.output_shape, num_atoms=self.num_atoms, **kwargs)
+        self.target_net = RainbowNet(self.input_shape, self.output_shape, num_atoms=self.num_atoms, **kwargs)
 
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
         self.dist_probs = None
@@ -237,7 +237,7 @@ class RainbowAgent(AgentBase):
         if full_log and self.dist_probs is not None:
             for action_idx in range(self.out_features):
                 dist = self.dist_probs[0, action_idx]
-                data_logger.log_value(f'dist/expected_{action_idx}', (dist*self.z_atoms).sum(), step)
+                data_logger.log_value(f'dist/expected_{action_idx}', (dist*self.z_atoms).sum().item(), step)
                 data_logger.add_histogram(
                     f'dist/Q_{action_idx}', min=self.z_atoms[0], max=self.z_atoms[-1], num=len(self.z_atoms),
                     sum=dist.sum(), sum_squares=dist.pow(2).sum(), bucket_limits=self.z_atoms+self.z_delta,
@@ -249,14 +249,14 @@ class RainbowAgent(AgentBase):
         if full_log:
             for idx, layer in enumerate(self.net.value_net.layers):
                 if hasattr(layer, "weight"):
-                    data_logger.create_histogram(f"value_net/layer_weights_{idx}", layer.weight, step)
+                    data_logger.create_histogram(f"value_net/layer_weights_{idx}", layer.weight.cpu(), step)
                 if hasattr(layer, "bias") and layer.bias is not None:
-                    data_logger.create_histogram(f"value_net/layer_bias_{idx}", layer.bias, step)
+                    data_logger.create_histogram(f"value_net/layer_bias_{idx}", layer.bias.cpu(), step)
             for idx, layer in enumerate(self.net.advantage_net.layers):
                 if hasattr(layer, "weight"):
-                    data_logger.create_histogram(f"advantage_net/layer_{idx}", layer.weight, step)
+                    data_logger.create_histogram(f"advantage_net/layer_{idx}", layer.weight.cpu(), step)
                 if hasattr(layer, "bias") and layer.bias is not None:
-                    data_logger.create_histogram(f"advantage_net/layer_bias_{idx}", layer.bias, step)
+                    data_logger.create_histogram(f"advantage_net/layer_bias_{idx}", layer.bias.cpu(), step)
 
     def save_state(self, path: str) -> None:
         """Saves agent's state into a file.

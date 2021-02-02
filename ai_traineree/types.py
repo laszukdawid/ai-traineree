@@ -61,10 +61,12 @@ class AgentType(abc.ABC):
             return str(v) if not isinstance(v, (int, float)) else v
         return {k: make_strings_out_of_things_that_are_not_obvious_numbers(v) for (k, v) in self._config.items()}
 
-    def _register_param(self, source: Dict[str, Any], name: str, default_value=None, drop=False) -> Any:
+    def _register_param(self, source: Dict[str, Any], name: str, default_value=None, update=False, drop=False) -> Any:
         self._config[name] = value = source.get(name, default_value)
         if drop and name in source:
             del source[name]
+        elif update:
+            source[name] = value
         return value
 
     @abc.abstractmethod
@@ -108,10 +110,12 @@ class MultiAgentType(abc.ABC):
             return str(v) if v is not isinstance(v, (int, float)) else v
         return {k: make_strings_out_of_things_that_are_not_obvious_numbers(v) for (k, v) in self._config.items()}
 
-    def _register_param(self, source: Dict[str, Any], name: str, default_value=None, drop=False) -> Any:
+    def _register_param(self, source: Dict[str, Any], name: str, default_value=None, update=False, drop=False) -> Any:
         self._config[name] = value = source.get(name, default_value)
         if drop:
             del source[name]
+        elif update:
+            source[name] = value
         return value
 
     def act(self, agent_name: str, states: List[StateType], noise: Any) -> List[ActionType]:
