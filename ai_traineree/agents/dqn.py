@@ -68,7 +68,7 @@ class DQNAgent(AgentBase):
 
         self.update_freq = int(self._register_param(kwargs, 'update_freq', 1))
         self.batch_size = int(self._register_param(kwargs, 'batch_size', 64, update=True))
-        self.buffer_size = int(self._register_param(kwargs, 'buffer_size', 1e5, update=True))
+        self.buffer_size = int(self._register_param(kwargs, 'buffer_size', int(1e5), update=True))
         self.warm_up = int(self._register_param(kwargs, 'warm_up', 0))
         self.number_updates = int(self._register_param(kwargs, 'number_updates', 1))
         self.max_grad_norm = float(self._register_param(kwargs, 'max_grad_norm', 10))
