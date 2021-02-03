@@ -1,4 +1,3 @@
-from collections import defaultdict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,8 +11,8 @@ from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import CriticBody
 from ai_traineree.types import ActionType, MultiAgentType, StateType
 from ai_traineree.utils import to_tensor
-
-from typing import Any, Dict, List, Optional, OrderedDict
+from collections import defaultdict, OrderedDict
+from typing import Any, Dict, List, Optional
 
 
 class MADDPGAgent(MultiAgentType):
@@ -62,10 +61,8 @@ class MADDPGAgent(MultiAgentType):
         self.agents: Dict[str, DDPGAgent] = OrderedDict({
             agent_name: DDPGAgent(
                 state_size, action_size,
-                hidden_layers=hidden_layers,
                 actor_lr=actor_lr, critic_lr=critic_lr,
                 noise_scale=noise_scale, noise_sigma=noise_sigma,
-                device=self.device,
                 **kwargs,
             ) for agent_name in self.agent_names
         })

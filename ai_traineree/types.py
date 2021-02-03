@@ -130,6 +130,10 @@ class MultiAgentType(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
+        pass
+
+    @abc.abstractmethod
     def state_dict(self) -> Dict[str, Any]:
         """Returns description of all agent's components."""
         pass
