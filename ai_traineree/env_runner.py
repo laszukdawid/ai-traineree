@@ -8,28 +8,20 @@ import sys
 
 from ai_traineree.agents import AgentBase
 from ai_traineree.loggers import DataLogger
-from ai_traineree.types import ActionType, DoneType, RewardType, StateType, TaskType
+from ai_traineree.types import RewardType, TaskType
+from ai_traineree.utils import save_gif
 from collections import deque
 from pathlib import Path
 from typing import Any, Iterable, List, Optional, Tuple
 
-
 FRAMES_PER_SEC = 45
+
 logging.basicConfig(
     stream=sys.stdout,
     level=logging.INFO,
     format='%(asctime)s %(levelname)-8s %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
-
-
-def save_gif(path, images: List[np.ndarray]) -> None:
-    print(f"Saving as a gif to {path}")
-    from PIL import Image
-    imgs = [Image.fromarray(img[::2, ::2]) for img in images]  # Reduce /4 size; pick w/2 h/2 pix
-
-    Path(os.path.dirname(path)).mkdir(parents=True, exist_ok=True)
-    imgs[0].save(path, save_all=True, append_images=imgs[1:], optimize=True, quality=85)
 
 
 class EnvRunner:

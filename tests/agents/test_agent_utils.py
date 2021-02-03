@@ -1,8 +1,7 @@
 import pytest
 import torch
 
-from ai_traineree.agents import utils
-from ai_traineree.agents.utils import compute_gae, normalize
+from ai_traineree.agents.agent_utils import compute_gae, normalize, revert_norm_returns
 
 
 def test_normalize_1d():
@@ -63,7 +62,7 @@ def test_revert_norm_returns_default():
     expected = torch.tensor([-1.5628, -0.7166, 0.1382, 1.0015, 0.1382, 1.0015]).reshape(6, 1)  # Shape: (6, 1)
 
     # Act
-    returns = utils.revert_norm_returns(rewards, dones)
+    returns = revert_norm_returns(rewards, dones)
 
     # Assert
     assert isinstance(returns, torch.Tensor)
@@ -78,7 +77,7 @@ def test_revert_norm_returns_gamma():
     expected = torch.tensor([-0.6996, -0.9148, 0.3767, 1.2377]).reshape(4, 1)  # Shape: (4, 1)
 
     # Act
-    returns = utils.revert_norm_returns(rewards, dones, gamma=0.5)
+    returns = revert_norm_returns(rewards, dones, gamma=0.5)
 
     # Assert
     assert isinstance(returns, torch.Tensor)
@@ -93,7 +92,7 @@ def test_revert_norm_returns_two_dim():
     expected = torch.tensor([[0, -0.6996], [0, -0.9148], [0, 0.3767], [0, 1.2377]])  # Shape: (4, 2)
 
     # Act
-    returns = utils.revert_norm_returns(rewards, dones, gamma=0.5)
+    returns = revert_norm_returns(rewards, dones, gamma=0.5)
 
     # Assert
     assert isinstance(returns, torch.Tensor)

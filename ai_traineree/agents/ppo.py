@@ -6,7 +6,7 @@ import torch.optim as optim
 
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
-from ai_traineree.agents.utils import compute_gae, normalize, revert_norm_returns
+from ai_traineree.agents.agent_utils import compute_gae, normalize, revert_norm_returns
 from ai_traineree.buffers import RolloutBuffer
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody

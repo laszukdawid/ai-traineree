@@ -5,7 +5,7 @@ import torch.optim as optim
 
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
-from ai_traineree.agents.utils import soft_update
+from ai_traineree.agents.agent_utils import soft_update
 from ai_traineree.buffers import NStepBuffer, PERBuffer
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks import NetworkType, NetworkTypeClass
