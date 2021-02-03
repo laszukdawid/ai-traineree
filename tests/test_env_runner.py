@@ -242,7 +242,7 @@ def test_multi_sync_env_runner_run_single_step_single_task():
 
 def test_multi_sync_env_runner_run_single_step_multiple_task():
     # Assign
-    tasks = [test_task, test_task]
+    tasks: List[TaskType] = [test_task, test_task]
     agent = PPOAgent(test_task.state_size, test_task.action_size, num_workers=len(tasks))
     multi_sync_env_runner = MultiSyncEnvRunner(tasks, agent)
 
@@ -255,7 +255,7 @@ def test_multi_sync_env_runner_run_single_step_multiple_task():
 
 def test_multi_sync_env_runner_run_multiple_step_multiple_task():
     # Assign
-    tasks = [test_task, test_task]
+    tasks: List[TaskType] = [test_task, test_task]
     agent = PPOAgent(test_task.state_size, test_task.action_size, num_workers=len(tasks))
     multi_sync_env_runner = MultiSyncEnvRunner(tasks, agent)
 
@@ -264,7 +264,6 @@ def test_multi_sync_env_runner_run_multiple_step_multiple_task():
 
     # Assert
     assert len(scores) in (3, 4)  # On rare occasions two tasks can complete twice at the same time.
-
 
 
 @mock.patch("ai_traineree.env_runner.AgentBase")
@@ -403,6 +402,7 @@ def test_multi_sync_env_runner_save_state(mock_json, mock_path):
     assert state['episode'] == 10
     assert state['tot_iterations'] == 10 * 10
 
+
 @mock.patch("ai_traineree.env_runner.AgentBase")
 @mock.patch("ai_traineree.env_runner.TaskType")
 def test_multi_sync_env_runner_load_state_no_file(mock_task, mock_agent):
@@ -438,4 +438,3 @@ def test_multi_sync_env_runner_load_state(mock_task, mock_agent, mock_os):
     assert env_runner.epsilon == 0.2
     assert len(env_runner.all_scores) == 1
     assert env_runner.all_scores[0] == 0.3
-

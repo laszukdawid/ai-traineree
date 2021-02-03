@@ -16,10 +16,10 @@ Single agent
 Multi agent
 -----------
 
-.. autoclass:: ai_traineree.multiagent_env_runner.MultiAgentEnvRunner
+.. autoclass:: ai_traineree.multiagent_env_runner.MultiAgentCycleEnvRunner
     :members:
     :undoc-members:
 
-.. autoclass:: ai_traineree.multiagent_env_runner.MultiAgentCycleEnvRunner
+.. autoclass:: ai_traineree.multiagent_env_runner.MultiAgentEnvRunner
     :members:
     :undoc-members:
