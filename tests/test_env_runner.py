@@ -147,7 +147,8 @@ def test_env_runner_save_state(mock_task, mock_agent, mock_json, mock_path):
 
     # Act
     env_runner.run(max_episodes=10)
-    env_runner.save_state('saved_state.state')
+    with mock.patch('builtins.open'):
+        env_runner.save_state('saved_state.state')
 
     # Assert
     mock_agent.save_state.assert_called_once()
@@ -393,7 +394,8 @@ def test_multi_sync_env_runner_save_state(mock_json, mock_path):
 
     # Act
     env_runner.run(max_episodes=10, max_iterations=10)
-    env_runner.save_state('saved_state.state')
+    with mock.patch('builtins.open'):
+        env_runner.save_state('saved_state.state')
 
     # Assert
     test_agent.save_state.assert_called_once()
