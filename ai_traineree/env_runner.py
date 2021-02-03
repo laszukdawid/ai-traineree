@@ -64,6 +64,7 @@ class EnvRunner:
         if self.data_logger:
             self.data_logger.set_hparams(self.agent.hparams, {})
 
+        self._debug_log: bool = bool(kwargs.get("debug_log", False))
         self._actions: List[Any] = []
         self._states: List[Any] = []
         self._rewards: List[Any] = []
@@ -99,12 +100,13 @@ class EnvRunner:
         state = self.task.reset()
         iterations = 0
         max_iterations = max_iterations if max_iterations is not None else self.max_iterations
+        done = False
 
         # Only gifs require keeping (S, A, R) list
         if render_gif:
             self.__images = []
 
-        while(iterations < max_iterations):
+        while(iterations < max_iterations and not done):
             iterations += 1
             self.iteration += 1
             if render:
@@ -112,12 +114,14 @@ class EnvRunner:
                 time.sleep(1./FRAMES_PER_SEC)
 
             action = self.agent.act(state, eps)
-            self._actions.append((self.iteration, action))
-            self._states.append((self.iteration, state))
 
             next_state, reward, done, _ = self.task.step(action)
             self._rewards.append((self.iteration, reward))
-            self._dones.append((self.iteration, done))
+
+            if self._debug_log:
+                self._actions.append((self.iteration, action))
+                self._states.append((self.iteration, state))
+                self._dones.append((self.iteration, done))
 
             score += float(reward)
             if render_gif:
@@ -127,13 +131,16 @@ class EnvRunner:
 
             self.agent.step(state, action, reward, next_state, done)
 
+            # Plot interactions every `log_interaction_freq` iterations.
+            # Plot full log (including weights) every `full_log_interaction_freq` iterations.
             if (log_interaction_freq and (iterations % log_interaction_freq) == 0) \
                or (full_log_interaction_freq and (self.iteration % full_log_interaction_freq) == 0):
                 full_log = full_log_interaction_freq and (iterations % full_log_interaction_freq) == 0
                 self.log_data_interaction(full_log=full_log)
+
+            # n -> n+1  => S(n) <- S(n+1)
             state = next_state
-            if done:
-                break
+
         return score, iterations
 
     def run(
@@ -181,7 +188,7 @@ class EnvRunner:
         self.epsilon = eps_start
         self.reset()
         if not force_new:
-            self.load_state(self.model_path)
+            self.load_state(file_prefix=self.model_path)
         mean_scores = []
         epsilons = []
 
@@ -290,21 +297,21 @@ class EnvRunner:
             for loss_name, loss_value in kwargs.get('loss', {}).items():
                 self.data_logger.log_value(f"loss/{loss_name}", loss_value, self.iteration)
 
-        while(self._states):
+        while(self._debug_log and self._states):
             step, states = self._states.pop(0)
             states = states if isinstance(states, Iterable) else [states]
             self.data_logger.log_values_dict("env/states", {str(i): a for i, a in enumerate(states)}, step)
 
-        while(self._actions):
+        while(self._debug_log and self._actions):
             step, actions = self._actions.pop(0)
             actions = actions if isinstance(actions, Iterable) else [actions]
             self.data_logger.log_values_dict("env/action", {str(i): a for i, a in enumerate(actions)}, step)
 
-        while(self._rewards):
+        while(self._debug_log and self._rewards):
             step, rewards = self._rewards.pop(0)
             self.data_logger.log_value("env/reward", float(rewards), step)
 
-        while(self._dones):
+        while(self._debug_log and self._dones):
             step, dones = self._dones.pop(0)
             self.data_logger.log_value("env/done", int(dones), step)
 
@@ -328,18 +335,18 @@ class EnvRunner:
         with open(f'{self.state_dir}/{state_name}_e{self.episode}.json', 'w') as f:
             json.dump(state, f)
 
-    def load_state(self, state_prefix: str):
+    def load_state(self, file_prefix: str):
         """
         Loads state with the highest episode value for given agent and environment.
         """
         try:
-            state_files = list(filter(lambda f: f.startswith(state_prefix) and f.endswith('json'), os.listdir(self.state_dir)))
-            e = max([int(f[f.index('_e')+2:f.index('.')]) for f in state_files])
+            state_files = list(filter(lambda f: f.startswith(file_prefix) and f.endswith('json'), os.listdir(self.state_dir)))
+            recent_episode_num = max([int(f[f.index('_e')+2:f.index('.')]) for f in state_files])
+            state_name = [n for n in state_files if n.endswith(f"_e{recent_episode_num}.json")][0][:-5]
         except Exception:
             self.logger.warning("Couldn't load state. Forcing restart.")
             return
 
-        state_name = [n for n in state_files if n.endswith(f"_e{e}.json")][0][:-5]
         self.logger.info("Loading saved state under: %s/%s.json", self.state_dir, state_name)
         with open(f'{self.state_dir}/{state_name}.json', 'r') as f:
             state = json.load(f)
@@ -526,7 +533,7 @@ class MultiSyncEnvRunner:
         self.epsilon = eps_start
         self.reset()
         if not force_new:
-            self.load_state(self.model_path)
+            self.load_state(file_prefix=self.model_path)
 
         scores = np.zeros(self.task_num)
         iterations = np.zeros(self.task_num)
@@ -555,6 +562,7 @@ class MultiSyncEnvRunner:
             iterations += 1
 
             actions = self.agent.act(states, self.epsilon)
+            actions = actions if self.task_num != 1 else [actions]
 
             for t_idx in range(self.task_num):
                 self.parent_conns[t_idx].send((t_idx, states[t_idx], actions[t_idx]))
@@ -576,7 +584,7 @@ class MultiSyncEnvRunner:
             self.agent.step(states, actions, rewards, next_states, dones)
 
             for idx in range(self.task_num):
-                if not (dones[idx] or iterations[idx] > max_iterations):
+                if not (dones[idx] or iterations[idx] >= max_iterations):
                     continue
 
                 self.parent_conns[idx].send("RESET")
@@ -678,7 +686,7 @@ class MultiSyncEnvRunner:
 
     def log_data_interaction(self, **kwargs):
         if self.data_logger and hasattr(self.agent, 'log_metrics'):
-            self.agent.log_metrics(self.data_logger, self.iteration)
+            self.agent.log_metrics(self.data_logger, self.iteration, full_log=kwargs.get("full_log", False))
 
     def save_state(self, state_name: str):
         """Saves the current state of the runner and the agent.
@@ -700,18 +708,18 @@ class MultiSyncEnvRunner:
         with open(f'{self.state_dir}/{state_name}_e{self.episode}.json', 'w') as f:
             json.dump(state, f)
 
-    def load_state(self, state_prefix: str):
+    def load_state(self, file_prefix: str):
         """
         Loads state with the highest episode value for given agent and environment.
         """
         try:
-            state_files = list(filter(lambda f: f.startswith(state_prefix) and f.endswith('json'), os.listdir(self.state_dir)))
-            e = max([int(f[f.index('_e')+2:f.index('.')]) for f in state_files])
+            state_files = list(filter(lambda f: f.startswith(file_prefix) and f.endswith('json'), os.listdir(self.state_dir)))
+            recent_episode_num = max([int(f[f.index('_e')+2:f.index('.')]) for f in state_files])
+            state_name = [n for n in state_files if n.endswith(f"_e{recent_episode_num}.json")][0][:-5]
         except Exception:
             self.logger.warning("Couldn't load state. Forcing restart.")
             return
 
-        state_name = [n for n in state_files if n.endswith(f"_e{e}.json")][0][:-5]
         self.logger.info("Loading saved state under: %s/%s.json", self.state_dir, state_name)
         with open(f'{self.state_dir}/{state_name}.json', 'r') as f:
             state = json.load(f)
