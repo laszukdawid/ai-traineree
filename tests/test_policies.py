@@ -62,7 +62,7 @@ def test_multi_gauss_simple_statistic():
     assert dist.loc.shape == (batch_size, size)
     assert dist.covariance_matrix.shape == (batch_size, size, size)
     assert torch.all(torch.isclose(samples.std(dim=0), expected_std, atol=0.1))  # +/- 0.1
-    assert torch.all(torch.abs(samples.mean(dim=0) - expected_loc) < 0.05 * expected_std)
+    assert torch.all(torch.abs(samples.mean(dim=0) - expected_loc) < 0.2 * expected_std)
 
 
 def test_multi_gauss():
