@@ -8,7 +8,7 @@ from ai_traineree.agents.agent_utils import soft_update
 from ai_traineree.buffers import NStepBuffer, PERBuffer
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.heads import RainbowNet
-from ai_traineree.utils import to_tensor
+from ai_traineree.utils import to_numbers_seq, to_tensor
 from typing import Callable, Dict, List, Optional, Sequence, Union
 
 
@@ -90,11 +90,12 @@ class RainbowAgent(AgentBase):
         self.buffer = PERBuffer(**kwargs)
         self.__batch_indices = torch.arange(self.batch_size, device=self.device)
 
-        self.n_steps = self._register_param(kwargs, "n_steps", 3)
+        self.n_steps = int(self._register_param(kwargs, "n_steps", 3))
         self.n_buffer = NStepBuffer(n_steps=self.n_steps, gamma=self.gamma)
 
         # Note that in case a pre_network is provided, e.g. a shared net that extracts pixels values,
         # it should be explicitly passed in kwargs
+        kwargs["hidden_layers"] = to_numbers_seq(self._register_param(kwargs, "hidden_layers", (100, 100)))
         self.net = RainbowNet(self.input_shape, self.output_shape, num_atoms=self.num_atoms, **kwargs)
         self.target_net = RainbowNet(self.input_shape, self.output_shape, num_atoms=self.num_atoms, **kwargs)
 

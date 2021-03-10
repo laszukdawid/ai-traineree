@@ -11,7 +11,7 @@ from ai_traineree.buffers import RolloutBuffer
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody
 from ai_traineree.policies import MultivariateGaussianPolicySimple, MultivariateGaussianPolicy
-from ai_traineree.utils import to_tensor
+from ai_traineree.utils import to_numbers_seq, to_tensor
 from typing import Dict, Tuple
 
 
@@ -28,12 +28,12 @@ class PPOAgent(AgentBase):
 
     name = "PPO"
 
-    def __init__(self, state_size: int, action_size: int, hidden_layers=(200, 200), device=None, **kwargs):
+    def __init__(self, state_size: int, action_size: int, device="cuda", **kwargs):
         """
         Parameters:
             state_size: Number of input dimensions.
             action_size: Number of output dimensions
-            hidden_layers: (default: (200, 200) ) Tuple defining hidden dimensions in fully connected nets.
+            hidden_layers: (default: (100, 100) ) Tuple defining hidden dimensions in fully connected nets.
             is_discrete: (default: False) Whether return discrete action.
             kl_div: (default: False) Whether to use KL divergence in loss.
             using_gae: (default: True) Whether to use General Advantage Estimator.
@@ -59,7 +59,7 @@ class PPOAgent(AgentBase):
 
         self.state_size = state_size
         self.action_size = action_size
-        self.hidden_layers = hidden_layers
+        self.hidden_layers = to_numbers_seq(self._register_param(kwargs, "hidden_layers", (100, 100)))
         self.iteration = 0
 
         self.is_discrete = bool(self._register_param(kwargs, "is_discrete", False))
@@ -67,9 +67,9 @@ class PPOAgent(AgentBase):
         self.gae_lambda = float(self._register_param(kwargs, "gae_lambda", 0.96))
 
         self.actor_lr = float(self._register_param(kwargs, 'actor_lr', 3e-4))
-        self.actor_betas: Tuple[float, float] = self._register_param(kwargs, 'actor_betas', (0.9, 0.999))
+        self.actor_betas: Tuple[float, float] = to_numbers_seq(self._register_param(kwargs, 'actor_betas', (0.9, 0.999)))
         self.critic_lr = float(self._register_param(kwargs, 'critic_lr', 1e-3))
-        self.critic_betas: Tuple[float, float] = self._register_param(kwargs, 'critic_betas', (0.9, 0.999))
+        self.critic_betas: Tuple[float, float] = to_numbers_seq(self._register_param(kwargs, 'critic_betas', (0.9, 0.999)))
         self.gamma = float(self._register_param(kwargs, "gamma", 0.99))
         self.ppo_ratio_clip = float(self._register_param(kwargs, "ppo_ratio_clip", 0.25))
 
@@ -101,15 +101,19 @@ class PPOAgent(AgentBase):
             self.policy = MultivariateGaussianPolicy(self.action_size, device=self.device)
 
         self.buffer = RolloutBuffer(batch_size=self.batch_size, buffer_size=self.rollout_length)
-        self.actor = ActorBody(state_size, self.policy.param_dim*action_size, gate_out=torch.tanh, hidden_layers=self.hidden_layers, device=self.device)
-        self.critic = ActorBody(state_size, 1, gate_out=None, hidden_layers=self.hidden_layers, device=self.device)
+        self.actor = ActorBody(
+            state_size, self.policy.param_dim*action_size,
+            gate_out=torch.tanh, hidden_layers=self.hidden_layers, device=self.device)
+        self.critic = ActorBody(
+            state_size, 1,
+            gate_out=None, hidden_layers=self.hidden_layers, device=self.device)
         self.actor_params = list(self.actor.parameters()) + list(self.policy.parameters())
         self.critic_params = list(self.critic.parameters())
 
         self.actor_opt = optim.Adam(self.actor_params, lr=self.actor_lr, betas=self.actor_betas)
         self.critic_opt = optim.Adam(self.critic_params, lr=self.critic_lr, betas=self.critic_betas)
-        self._loss_actor: float = float('nan')
-        self._loss_critic: float = float('nan')
+        self._loss_actor = float('nan')
+        self._loss_critic = float('nan')
         self._metrics: Dict[str, float] = {}
 
     @property

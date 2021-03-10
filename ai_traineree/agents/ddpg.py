@@ -8,10 +8,10 @@ from ai_traineree.buffers import ReplayBuffer
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.noise import GaussianNoise
-from ai_traineree.utils import to_tensor
+from ai_traineree.utils import to_numbers_seq, to_tensor
 from torch.optim import Adam
 from torch.nn.functional import mse_loss
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence
 
 
 class DDPGAgent(AgentBase):
@@ -27,7 +27,6 @@ class DDPGAgent(AgentBase):
         self,
         state_size: int,
         action_size: int,
-        hidden_layers: Sequence[int]=(128, 128),
         actor_lr: float=2e-3,
         critic_lr: float=2e-3,
         noise_scale: float=0.2,
@@ -35,50 +34,50 @@ class DDPGAgent(AgentBase):
         **kwargs
     ):
         super().__init__(**kwargs)
-        self.device = device = self._register_param(kwargs, "device", DEVICE)
+        self.device = self._register_param(kwargs, "device", DEVICE)
         self.state_size = state_size
         self.action_size = action_size
 
         # Reason sequence initiation.
-        self.hidden_layers = self._register_param(kwargs, 'hidden_layers', hidden_layers)
+        hidden_layers = to_numbers_seq(self._register_param(kwargs, 'hidden_layers', (128, 128)))
         self.actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers, gate_out=torch.tanh).to(self.device)
         self.critic = CriticBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
         self.target_actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers, gate_out=torch.tanh).to(self.device)
         self.target_critic = CriticBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
 
         # Noise sequence initiation
-        self.noise = GaussianNoise(shape=(action_size,), mu=1e-8, sigma=noise_sigma, scale=noise_scale, device=device)
+        self.noise = GaussianNoise(shape=(action_size,), mu=1e-8, sigma=noise_sigma, scale=noise_scale, device=self.device)
 
         # Target sequence initiation
         hard_update(self.target_actor, self.actor)
         hard_update(self.target_critic, self.critic)
 
         # Optimization sequence initiation.
-        self.actor_lr = self._register_param(kwargs, 'actor_lr', actor_lr)
-        self.critic_lr = self._register_param(kwargs, 'critic_lr', critic_lr)
+        self.actor_lr = float(self._register_param(kwargs, 'actor_lr', actor_lr))
+        self.critic_lr = float(self._register_param(kwargs, 'critic_lr', critic_lr))
         self.actor_optimizer = Adam(self.actor.parameters(), lr=self.actor_lr)
         self.critic_optimizer = Adam(self.critic.parameters(), lr=self.critic_lr)
-        self.max_grad_norm_actor: float = float(self._register_param(kwargs, "max_grad_norm_actor", 10.0))
-        self.max_grad_norm_critic: float = float(self._register_param(kwargs, "max_grad_norm_critic", 10.0))
+        self.max_grad_norm_actor = float(self._register_param(kwargs, "max_grad_norm_actor", 10.0))
+        self.max_grad_norm_critic = float(self._register_param(kwargs, "max_grad_norm_critic", 10.0))
         self.action_min = float(self._register_param(kwargs, 'action_min', -1))
         self.action_max = float(self._register_param(kwargs, 'action_max', 1))
-        self.action_scale = self._register_param(kwargs, 'action_scale', 1)
+        self.action_scale = float(self._register_param(kwargs, 'action_scale', 1))
 
-        self.gamma: float = float(self._register_param(kwargs, 'gamma', 0.99))
-        self.tau: float = float(self._register_param(kwargs, 'tau', 0.02))
-        self.batch_size: int = int(self._register_param(kwargs, 'batch_size', 64))
-        self.buffer_size: int = int(self._register_param(kwargs, 'buffer_size', int(1e6)))
+        self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))
+        self.tau = float(self._register_param(kwargs, 'tau', 0.02))
+        self.batch_size = int(self._register_param(kwargs, 'batch_size', 64))
+        self.buffer_size = int(self._register_param(kwargs, 'buffer_size', int(1e6)))
         self.buffer = ReplayBuffer(self.batch_size, self.buffer_size)
 
-        self.warm_up: int = int(self._register_param(kwargs, 'warm_up', 0))
-        self.update_freq: int = int(self._register_param(kwargs, 'update_freq', 1))
-        self.number_updates: int = int(self._register_param(kwargs, 'number_updates', 1))
+        self.warm_up = int(self._register_param(kwargs, 'warm_up', 0))
+        self.update_freq = int(self._register_param(kwargs, 'update_freq', 1))
+        self.number_updates = int(self._register_param(kwargs, 'number_updates', 1))
 
         # Breath, my child.
         self.reset_agent()
         self.iteration = 0
-        self._loss_actor: float = 0
-        self._loss_critic: float = 0
+        self._loss_actor = 0.
+        self._loss_critic = 0.
 
     def reset_agent(self) -> None:
         self.actor.reset_parameters()

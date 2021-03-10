@@ -3,6 +3,7 @@ import torch
 from ai_traineree import DEVICE
 from ai_traineree.agents.dqn import DQNAgent
 from ai_traineree.loggers import DataLogger
+from ai_traineree.utils import to_numbers_seq
 from ai_traineree.types import ActionType, MultiAgentType, StateType
 from typing import Dict
 
@@ -45,7 +46,7 @@ class IQLAgents(MultiAgentType):
         self.agent_names = kwargs.get("agent_names", map(str, range(self.num_agents)))
 
         kwargs['device'] = self._register_param(kwargs, "device", DEVICE)
-        kwargs['hidden_layers'] = self._register_param(kwargs, 'hidden_layers', (64, 64))
+        kwargs['hidden_layers'] = to_numbers_seq(self._register_param(kwargs, 'hidden_layers', (64, 64)))
         kwargs['gamma'] = float(self._register_param(kwargs, 'gamma', 0.99))
         kwargs['tau'] = float(self._register_param(kwargs, 'tau', 0.002))
         kwargs['gradient_clip'] = self._register_param(kwargs, 'gradient_clip')

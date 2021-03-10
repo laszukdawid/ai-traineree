@@ -13,7 +13,7 @@ from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import DoubleCritic
 from ai_traineree.policies import GaussianPolicy, MultivariateGaussianPolicySimple
 from ai_traineree.types import FeatureType
-from ai_traineree.utils import to_tensor
+from ai_traineree.utils import to_numbers_seq, to_tensor
 from functools import reduce
 from torch import optim, Tensor
 from typing import Dict, List, Sequence, Tuple, Union
@@ -68,18 +68,18 @@ class SACAgent(AgentBase):
         self.action_max = self._register_param(kwargs, 'action_max', 1)
         self.action_scale = self._register_param(kwargs, 'action_scale', 1)
 
-        self.warm_up: int = int(self._register_param(kwargs, 'warm_up', 0))
-        self.update_freq: int = int(self._register_param(kwargs, 'update_freq', 1))
-        self.number_updates: int = int(self._register_param(kwargs, 'number_updates', 1))
-        self.actor_number_updates: int = int(self._register_param(kwargs, 'actor_number_updates', 1))
-        self.critic_number_updates: int = int(self._register_param(kwargs, 'critic_number_updates', 1))
+        self.warm_up = int(self._register_param(kwargs, 'warm_up', 0))
+        self.update_freq = int(self._register_param(kwargs, 'update_freq', 1))
+        self.number_updates = int(self._register_param(kwargs, 'number_updates', 1))
+        self.actor_number_updates = int(self._register_param(kwargs, 'actor_number_updates', 1))
+        self.critic_number_updates = int(self._register_param(kwargs, 'critic_number_updates', 1))
 
         # Reason sequence initiation.
-        hidden_layers = self._register_param(kwargs, 'hidden_layers', (128, 128))
-        actor_hidden_layers = self._register_param(kwargs, 'actor_hidden_layers', hidden_layers)
-        critic_hidden_layers = self._register_param(kwargs, 'critic_hidden_layers', hidden_layers)
+        hidden_layers = to_numbers_seq(self._register_param(kwargs, 'hidden_layers', (128, 128)))
+        actor_hidden_layers = to_numbers_seq(self._register_param(kwargs, 'actor_hidden_layers', hidden_layers))
+        critic_hidden_layers = to_numbers_seq(self._register_param(kwargs, 'critic_hidden_layers', hidden_layers))
 
-        self.simple_policy = self._register_param(kwargs, "simple_policy", False)
+        self.simple_policy = bool(self._register_param(kwargs, "simple_policy", False))
         if self.simple_policy:
             self.policy = MultivariateGaussianPolicySimple(self.action_size, **kwargs)
             self.actor = ActorBody(self.state_size, self.policy.param_dim*self.action_size, hidden_layers=actor_hidden_layers, device=self.device)
@@ -95,7 +95,8 @@ class SACAgent(AgentBase):
 
         # Optimization sequence initiation.
         self.target_entropy = -self.action_size
-        self.alpha_lr = self._register_param(kwargs, "alpha_lr")
+        alpha_lr = self._register_param(kwargs, "alpha_lr")
+        self.alpha_lr = float(alpha_lr) if alpha_lr else None
         alpha_init = float(self._register_param(kwargs, "alpha", 0.2))
         self.log_alpha = torch.tensor(np.log(alpha_init), device=self.device, requires_grad=True)
 
@@ -108,9 +109,9 @@ class SACAgent(AgentBase):
         self.critic_optimizer = optim.Adam(list(self.critic_params), lr=critic_lr)
         if self.alpha_lr is not None:
             self.alpha_optimizer = optim.Adam([self.log_alpha], lr=self.alpha_lr)
-        self.max_grad_norm_alpha: float = float(self._register_param(kwargs, "max_grad_norm_alpha", 1.0))
-        self.max_grad_norm_actor: float = float(self._register_param(kwargs, "max_grad_norm_actor", 10.0))
-        self.max_grad_norm_critic: float = float(self._register_param(kwargs, "max_grad_norm_critic", 10.0))
+        self.max_grad_norm_alpha = float(self._register_param(kwargs, "max_grad_norm_alpha", 1.0))
+        self.max_grad_norm_actor = float(self._register_param(kwargs, "max_grad_norm_actor", 10.0))
+        self.max_grad_norm_critic = float(self._register_param(kwargs, "max_grad_norm_critic", 10.0))
 
         # Breath, my child.
         self.iteration = 0

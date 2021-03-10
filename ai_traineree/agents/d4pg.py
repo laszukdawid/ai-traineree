@@ -11,9 +11,9 @@ from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import CategoricalNet
 from ai_traineree.policies import MultivariateGaussianPolicySimple, MultivariateGaussianPolicy
-from ai_traineree.utils import to_tensor
+from ai_traineree.utils import to_numbers_seq, to_tensor
 from torch.optim import Adam
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Dict, List, Sequence
 
 
 class D4PGAgent(AgentBase):
@@ -44,7 +44,7 @@ class D4PGAgent(AgentBase):
         """
         super().__init__(**kwargs)
         self.device = self._register_param(kwargs, "device", DEVICE)
-        self.state_size: int = state_size
+        self.state_size = state_size
         self.action_size = action_size
 
         self.num_atoms = int(self._register_param(kwargs, 'num_atoms', 51))
@@ -54,27 +54,27 @@ class D4PGAgent(AgentBase):
         # Reason sequence initiation.
         self.action_min = float(self._register_param(kwargs, 'action_min', -1))
         self.action_max = float(self._register_param(kwargs, 'action_max', 1))
-        self.action_scale = self._register_param(kwargs, 'action_scale', 1)
+        self.action_scale = float(self._register_param(kwargs, 'action_scale', 1))
 
-        self.gamma: float = float(self._register_param(kwargs, 'gamma', 0.99))
-        self.tau: float = float(self._register_param(kwargs, 'tau', 0.02))
-        self.batch_size: int = int(self._register_param(kwargs, 'batch_size', 64))
-        self.buffer_size: int = int(self._register_param(kwargs, 'buffer_size', int(1e6)))
+        self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))
+        self.tau = float(self._register_param(kwargs, 'tau', 0.02))
+        self.batch_size = int(self._register_param(kwargs, 'batch_size', 64))
+        self.buffer_size = int(self._register_param(kwargs, 'buffer_size', int(1e6)))
         self.buffer = PERBuffer(self.batch_size, self.buffer_size)
 
-        self.n_steps = self._register_param(kwargs, "n_steps", 3)
+        self.n_steps = int(self._register_param(kwargs, "n_steps", 3))
         self.n_buffer = NStepBuffer(n_steps=self.n_steps, gamma=self.gamma)
 
-        self.warm_up: int = int(self._register_param(kwargs, 'warm_up', 0))
-        self.update_freq: int = int(self._register_param(kwargs, 'update_freq', 1))
+        self.warm_up = int(self._register_param(kwargs, 'warm_up', 0))
+        self.update_freq = int(self._register_param(kwargs, 'update_freq', 1))
 
-        self.actor_hidden_layers = kwargs.get('actor_hidden_layers', hidden_layers)
-        self.critic_hidden_layers = kwargs.get('critic_hidden_layers', hidden_layers)
+        self.actor_hidden_layers = to_numbers_seq(self._register_param(kwargs, 'actor_hidden_layers', hidden_layers))
+        self.critic_hidden_layers = to_numbers_seq(self._register_param(kwargs, 'critic_hidden_layers', hidden_layers))
 
         if kwargs.get("simple_policy", False):
-            std_init = self._register_param(kwargs, "std_init", 1.0)
-            std_max = self._register_param(kwargs, "std_max", 2.0)
-            std_min = self._register_param(kwargs, "std_min", 0.05)
+            std_init = float(self._register_param(kwargs, "std_init", 1.0))
+            std_max = float(self._register_param(kwargs, "std_max", 2.0))
+            std_min = float(self._register_param(kwargs, "std_min", 0.05))
             self.policy = MultivariateGaussianPolicySimple(self.action_size, std_init=std_init, std_min=std_min, std_max=std_max, device=self.device)
         else:
             self.policy = MultivariateGaussianPolicy(self.action_size, device=self.device)
@@ -138,7 +138,7 @@ class D4PGAgent(AgentBase):
             self._loss_critic = value
 
     @torch.no_grad()
-    def act(self, state, epsilon: float=0.) -> List[Any]:
+    def act(self, state, epsilon: float=0.) -> List[float]:
         """
         Returns actions for given state as per current policy.
 

@@ -10,7 +10,7 @@ from ai_traineree.agents.agent_utils import hard_update, soft_update
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import CriticBody
 from ai_traineree.types import ActionType, MultiAgentType, StateType
-from ai_traineree.utils import to_tensor
+from ai_traineree.utils import to_numbers_seq, to_tensor
 from collections import defaultdict, OrderedDict
 from typing import Any, Dict, List, Optional
 
@@ -52,7 +52,7 @@ class MADDPGAgent(MultiAgentType):
         self.num_agents: int = num_agents
         self.agent_names: List[str] = kwargs.get("agent_names", map(str, range(self.num_agents)))
 
-        hidden_layers = self._register_param(kwargs, 'hidden_layers', (100, 100), update=True)
+        hidden_layers = to_numbers_seq(self._register_param(kwargs, 'hidden_layers', (100, 100), update=True))
         noise_scale = float(self._register_param(kwargs, 'noise_scale', 0.5))
         noise_sigma = float(self._register_param(kwargs, 'noise_sigma', 1.0))
         actor_lr = float(self._register_param(kwargs, 'actor_lr', 3e-4))
@@ -67,17 +67,17 @@ class MADDPGAgent(MultiAgentType):
             ) for agent_name in self.agent_names
         })
 
-        self.gamma: float = float(self._register_param(kwargs, 'gamma', 0.99))
-        self.tau: float = float(self._register_param(kwargs, 'tau', 0.02))
+        self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))
+        self.tau = float(self._register_param(kwargs, 'tau', 0.02))
         self.gradient_clip: Optional[float] = self._register_param(kwargs, 'gradient_clip')
 
-        self.batch_size: int = int(self._register_param(kwargs, 'batch_size', 64))
+        self.batch_size = int(self._register_param(kwargs, 'batch_size', 64))
         self.buffer_size = int(self._register_param(kwargs, 'buffer_size', int(1e6)))
         self.buffer = ReplayBuffer(self.batch_size, self.buffer_size)
 
-        self.warm_up: int = int(self._register_param(kwargs, 'warm_up', 0))
-        self.update_freq: int = int(self._register_param(kwargs, 'update_freq', 1))
-        self.number_updates: int = int(self._register_param(kwargs, 'number_updates', 1))
+        self.warm_up = int(self._register_param(kwargs, 'warm_up', 0))
+        self.update_freq = int(self._register_param(kwargs, 'update_freq', 1))
+        self.number_updates = int(self._register_param(kwargs, 'number_updates', 1))
 
         self.critic = CriticBody(num_agents*state_size, num_agents*action_size, hidden_layers=hidden_layers).to(self.device)
         self.target_critic = CriticBody(num_agents*state_size, num_agents*action_size, hidden_layers=hidden_layers).to(self.device)

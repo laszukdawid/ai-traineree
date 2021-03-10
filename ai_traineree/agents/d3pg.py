@@ -1,4 +1,3 @@
-from ai_traineree.loggers import DataLogger
 import itertools
 import torch
 import torch.nn as nn
@@ -8,12 +7,13 @@ from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import hard_update, soft_update
 from ai_traineree.buffers import NStepBuffer, PERBuffer
+from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import CategoricalNet
 from ai_traineree.policies import MultivariateGaussianPolicySimple, MultivariateGaussianPolicy
-from ai_traineree.utils import to_tensor
+from ai_traineree.utils import to_numbers_seq, to_tensor
 from torch.optim import Adam
-from typing import Any, Dict, Sequence, Tuple
+from typing import Dict, List, Sequence
 
 
 class D3PGAgent(AgentBase):
@@ -45,15 +45,15 @@ class D3PGAgent(AgentBase):
         # Reason sequence initiation.
         self.action_min = float(self._register_param(kwargs, 'action_min', -1))
         self.action_max = float(self._register_param(kwargs, 'action_max', 1))
-        self.action_scale = self._register_param(kwargs, 'action_scale', 1)
+        self.action_scale = int(self._register_param(kwargs, 'action_scale', 1))
 
-        self.gamma: float = float(self._register_param(kwargs, 'gamma', 0.99))
-        self.tau: float = float(self._register_param(kwargs, 'tau', 0.02))
+        self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))
+        self.tau = float(self._register_param(kwargs, 'tau', 0.02))
         self.batch_size: int = int(self._register_param(kwargs, 'batch_size', 64))
         self.buffer_size: int = int(self._register_param(kwargs, 'buffer_size', int(1e6)))
         self.buffer = PERBuffer(self.batch_size, self.buffer_size)
 
-        self.n_steps = self._register_param(kwargs, "n_steps", 3)
+        self.n_steps = int(self._register_param(kwargs, "n_steps", 3))
         self.n_buffer = NStepBuffer(n_steps=self.n_steps, gamma=self.gamma)
 
         self.warm_up: int = int(self._register_param(kwargs, 'warm_up', 0))
@@ -67,8 +67,8 @@ class D3PGAgent(AgentBase):
         else:
             self.policy = MultivariateGaussianPolicy(self.action_size, device=self.device)
 
-        self.actor_hidden_layers = kwargs.get('actor_hidden_layers', hidden_layers)
-        self.critic_hidden_layers = kwargs.get('critic_hidden_layers', hidden_layers)
+        self.actor_hidden_layers = to_numbers_seq(self._register_param(kwargs, 'actor_hidden_layers', hidden_layers))
+        self.critic_hidden_layers = to_numbers_seq(self._register_param(kwargs, 'critic_hidden_layers', hidden_layers))
 
         # This looks messy but it's not that bad. Actor, critic_net and Critic(critic_net). Then the same for `target_`.
         self.actor = ActorBody(
@@ -98,16 +98,16 @@ class D3PGAgent(AgentBase):
         hard_update(self.target_critic, self.critic)
 
         # Optimization sequence initiation.
-        self.actor_lr = self._register_param(kwargs, 'actor_lr', 3e-4)
-        self.critic_lr = self._register_param(kwargs, 'critic_lr', 3e-4)
+        self.actor_lr = float(self._register_param(kwargs, 'actor_lr', 3e-4))
+        self.critic_lr = float(self._register_param(kwargs, 'critic_lr', 3e-4))
         self.value_loss_func = nn.BCELoss(reduction='none')
 
         # self.actor_params = list(self.actor.parameters()) #+ list(self.policy.parameters())
         self.actor_params = list(self.actor.parameters()) + list(self.policy.parameters())
         self.actor_optimizer = Adam(self.actor_params, lr=self.actor_lr)
         self.critic_optimizer = Adam(self.critic.parameters(), lr=self.critic_lr)
-        self.max_grad_norm_actor: float = float(self._register_param(kwargs, "max_grad_norm_actor", 50.0))
-        self.max_grad_norm_critic: float = float(self._register_param(kwargs, "max_grad_norm_critic", 50.0))
+        self.max_grad_norm_actor = float(self._register_param(kwargs, "max_grad_norm_actor", 50.0))
+        self.max_grad_norm_critic = float(self._register_param(kwargs, "max_grad_norm_critic", 50.0))
 
         # Breath, my child.
         self.iteration = 0
@@ -131,7 +131,7 @@ class D3PGAgent(AgentBase):
             self._loss_critic = value
 
     @torch.no_grad()
-    def act(self, state, epsilon: float=0.0):
+    def act(self, state, epsilon: float=0.0) -> List[float]:
         """
         Returns actions for given state as per current policy.
 

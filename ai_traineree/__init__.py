@@ -4,7 +4,10 @@ import torch
 
 # This is expected to be safe, although in PyTorch 1.7 it comes as a warning,
 # if CUDA is not installed.
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+try:
+    DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+except Exception:
+    DEVICE = torch.device("cpu")
 
 
 def to_list(e):

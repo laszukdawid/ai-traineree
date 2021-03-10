@@ -10,7 +10,7 @@ from ai_traineree.buffers import NStepBuffer, PERBuffer
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks import NetworkType, NetworkTypeClass
 from ai_traineree.networks.heads import DuelingNet
-from ai_traineree.utils import to_tensor
+from ai_traineree.utils import to_numbers_seq, to_tensor
 from typing import Callable, Dict, Optional, Type, Sequence, Union
 
 
@@ -77,10 +77,10 @@ class DQNAgent(AgentBase):
         self.buffer = PERBuffer(**kwargs)
         self.using_double_q = bool(self._register_param(kwargs, "using_double_q", True))
 
-        self.n_steps = self._register_param(kwargs, 'n_steps', 1)
+        self.n_steps = int(self._register_param(kwargs, 'n_steps', 1))
         self.n_buffer = NStepBuffer(n_steps=self.n_steps, gamma=self.gamma)
 
-        hidden_layers = self._register_param(kwargs, 'hidden_layers', (64, 64))
+        hidden_layers = to_numbers_seq(self._register_param(kwargs, 'hidden_layers', (64, 64)))
         self.state_transform = state_transform if state_transform is not None else lambda x: x
         self.reward_transform = reward_transform if reward_transform is not None else lambda x: x
         if network_fn is not None:
