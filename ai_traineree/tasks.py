@@ -156,7 +156,7 @@ class PettingZooTask(MultiAgentTaskType):
     def __init__(self, env) -> None:
         """Wrapper around PettingZoo's envs to make it more compatible with EnvRunners.
 
-        *Note*: Direct access to wrapped env is through `self.env`. 
+        *Note*: Direct access to wrapped env is through `self.env`.
 
         Parameters:
             env: An instance of PettingZoo env.

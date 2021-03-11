@@ -287,7 +287,7 @@ class PERBuffer(BufferBase):
     A buffer that holds previously seen sets of transitions, or memories.
     Prioritization in the name means that each transition has some value (priority)
     which refers to the probability of sampling that transition.
-    In short, the larger priority value the higher chances of sampling associated samples. 
+    In short, the larger priority value the higher chances of sampling associated samples.
     Often these priority values are related to the error calculated when learning from
     that associated sample. In such cases, sampling from the buffer will more often provide
     values that are troublesome.

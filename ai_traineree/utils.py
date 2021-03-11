@@ -3,7 +3,7 @@ import torch
 
 from numpy import ndarray
 from pathlib import Path
-from typing import List
+from typing import Any, List, Tuple, Union
 
 
 def to_tensor(x) -> torch.Tensor:

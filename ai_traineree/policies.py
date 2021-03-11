@@ -180,7 +180,7 @@ class GaussianPolicy(PolicyType):
         #         Please return once not needed.
         # Compute logprob from Gaussian, and then apply correction for Tanh squashing.
         # NOTE: The correction formula is a little bit magic. To get an understanding
-        # of where it comes from, check out the original SAC paper (arXiv 1801.01290) 
+        # of where it comes from, check out the original SAC paper (arXiv 1801.01290)
         # and look in appendix C. This is a more numerically-stable equivalent to Eq 21.
         # Try deriving it yourself as a (very difficult) exercise. :)
         actions = self._last_samples
