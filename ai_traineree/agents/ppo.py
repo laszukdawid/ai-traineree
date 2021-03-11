@@ -28,7 +28,7 @@ class PPOAgent(AgentBase):
 
     name = "PPO"
 
-    def __init__(self, state_size: int, action_size: int, device="cuda", **kwargs):
+    def __init__(self, state_size: int, action_size: int, **kwargs):
         """
         Parameters:
             state_size: Number of input dimensions.
@@ -55,7 +55,7 @@ class PPOAgent(AgentBase):
         """
         super().__init__(**kwargs)
 
-        self.device = device if device is not None else DEVICE
+        self.device = self._register_param(kwargs, "device", DEVICE)  # Default device is CUDA if available
 
         self.state_size = state_size
         self.action_size = action_size

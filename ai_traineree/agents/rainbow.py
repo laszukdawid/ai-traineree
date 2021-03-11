@@ -124,7 +124,7 @@ class RainbowAgent(AgentBase):
             action: A(t)
             reward: R(t)
             nexxt_state: S(t+1)
-            done: (bool) Whether the state is terminal. 
+            done: (bool) Whether the state is terminal.
 
         """
         self.iteration += 1
