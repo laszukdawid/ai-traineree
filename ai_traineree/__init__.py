@@ -1,6 +1,8 @@
 import numpy
 import torch
 
+__version__ = "0.0.6"
+
 
 # This is expected to be safe, although in PyTorch 1.7 it comes as a warning,
 # if CUDA is not installed.

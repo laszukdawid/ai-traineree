@@ -1,49 +1,10 @@
 import abc
-import torch
 
 from ai_traineree.loggers import DataLogger
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Tuple
 
-ActionType = Union[int, List]
-DoneType = bool
-RewardType = Union[int, float]
-StateType = torch.Tensor
-
-Hyperparameters = Dict[str, str]
-FeatureType = Union[Sequence[int], int]
-
-TaskStepType = Tuple[StateType, RewardType, DoneType, Any]
-
-
-class TaskType(abc.ABC):
-
-    name: str
-    action_size: int
-    state_size: int
-    is_discrete: bool
-
-    @abc.abstractmethod
-    def seed(self, seed):
-        pass
-
-    @abc.abstractmethod
-    def step(self, action: ActionType, **kwargs) -> TaskStepType:
-        pass
-
-    @abc.abstractmethod
-    def render(self, mode: Optional[str]=None) -> None:
-        pass
-
-    @abc.abstractmethod
-    def reset(self) -> StateType:
-        pass
-
-
-class MultiAgentTaskType(TaskType):
-
-    @abc.abstractmethod
-    def reset(self) -> List[StateType]:
-        pass
+from .primitive import ActionType, DoneType, StateType, RewardType
+from .state import AgentState, FullState
 
 
 class AgentType(abc.ABC):
@@ -79,6 +40,11 @@ class AgentType(abc.ABC):
 
     @abc.abstractmethod
     def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
+        pass
+
+    @abc.abstractmethod
+    def get_state(self) -> AgentState:
+        """Returns agent's internal state"""
         pass
 
     @abc.abstractmethod
@@ -136,6 +102,11 @@ class MultiAgentType(abc.ABC):
     @abc.abstractmethod
     def state_dict(self) -> Dict[str, Any]:
         """Returns description of all agent's components."""
+        pass
+
+    @abc.abstractmethod
+    def get_state(self):
+        """Returns agents' internal states"""
         pass
 
     @abc.abstractmethod
