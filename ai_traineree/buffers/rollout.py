@@ -1,9 +1,10 @@
 
 from collections import defaultdict, deque
-from typing import Dict, Iterator, List, Optional, Sequence
+from typing import Dict, Iterator, List, Optional
 
 from . import BufferBase, Experience
 from ai_traineree.buffers import ReferenceBuffer
+from ai_traineree.types.state import BufferState
 
 
 class RolloutBuffer(BufferBase):
@@ -28,30 +29,30 @@ class RolloutBuffer(BufferBase):
         super().__init__()
         self.batch_size = batch_size
         self.buffer_size = buffer_size
-        self.exp = deque()
+        self.data = deque()
 
         self._states_mng = kwargs.get('compress_state', False)
         self._states = ReferenceBuffer(buffer_size + 20)
 
     def __len__(self) -> int:
-        return len(self.exp)
+        return len(self.data)
+
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) \
+            and self.get_state() == o.get_state()
 
     def clear(self):
-        self.exp.clear()
-
-    @property
-    def all_data(self) -> List:
-        return self.exp
+        self.data.clear()
 
     def add(self, **kwargs):
         if self._states_mng:
             kwargs['state_idx'] = self._states.add(kwargs.pop("state"))
             if "next_state" in kwargs:
                 kwargs['next_state_idx'] = self._states.add(kwargs.pop("next_state", "None"))
-        self.exp.append(Experience(**kwargs))
+        self.data.append(Experience(**kwargs))
 
-        if len(self.exp) > self.buffer_size:
-            drop_exp = self.exp.popleft()
+        if len(self.data) > self.buffer_size:
+            drop_exp = self.data.popleft()
             if self._states_mng:
                 self._states.remove(drop_exp.state_idx)
                 self._states.remove(drop_exp.next_state_idx)
@@ -64,14 +65,14 @@ class RolloutBuffer(BufferBase):
         Returns:
             A generator that iterates over all rolled-out samples.
         """
-        exp = self.exp.copy()
+        data = self.data.copy()
         batch_size = batch_size if batch_size is not None else self.batch_size
 
-        while len(exp):
-            batch_size = min(batch_size, len(exp))
+        while len(data):
+            batch_size = min(batch_size, len(data))
             all_experiences = defaultdict(lambda: [])
             for _ in range(batch_size):
-                sample = exp.popleft()
+                sample = data.popleft()
                 for key, value in sample.get_dict().items():
                     all_experiences[key].append(value)
 
@@ -79,19 +80,28 @@ class RolloutBuffer(BufferBase):
 
     def all_samples(self):
         all_experiences = defaultdict(lambda: [])
-        for sample in self.exp:
+        for sample in self.data:
             for key, value in sample.get_dict().items():
                 all_experiences[key].append(value)
 
         return all_experiences
 
+    @staticmethod
+    def from_state(state: BufferState):
+        if state.type != RolloutBuffer.type:
+            raise ValueError(f"Can only populate own type. '{RolloutBuffer.type}' != '{state.type}'")
+        buffer = RolloutBuffer(batch_size=state.batch_size, buffer_size=state.buffer_size)
+        if state.data:
+            buffer.load_buffer(state.data)
+        return buffer
+
     def dump_buffer(self, serialize: bool=False) -> Iterator[Dict[str, List]]:
-        for exp in self.exp:
-            yield exp.get_dict(serialize=serialize)
+        for data in self.data:
+            yield data.get_dict(serialize=serialize)
 
     def load_buffer(self, buffer: List[Dict[str, List]]):
         for experience in buffer:
-            self.add(**experience)
+            self.add(**experience.data)
 
     def seed(self, seed: int) -> None:
         pass

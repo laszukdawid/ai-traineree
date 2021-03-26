@@ -5,38 +5,42 @@ import torch
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Union
 from ai_traineree import to_list
+from ai_traineree.types import BufferState
 
 # *Note*: Below these classes are additional imports to keep things backward compatible and easier to import.
 
 
-class Experience(object):
+class Experience:
     """
     Data type used to store experiences in experience buffers.
     """
 
-    __must_haves = ['state', 'action', 'reward', 'next_state', 'done', 'state_idx', 'next_state_idx']
-    keys = __must_haves + ['advantage', 'logprob', 'value', 'priority', 'index', 'weight']
+    common_keys = ['state', 'action', 'reward', 'next_state', 'done']
+    extra_keys = ['advantage', 'logprob', 'value', 'priority', 'index', 'weight', 'state_idx', 'next_state_idx']
+    whitelist = common_keys + extra_keys
 
     def __init__(self, **kwargs):
+        self.data = {}
 
-        for key in self.__must_haves:
-            setattr(self, key, kwargs.pop(key, None))
+        for (key, value) in kwargs.items():
+            if key in Experience.whitelist:
+                self.data[key] = value
+                self.__dict__[key] = value  # TODO: Delete after checking that everything is updated
 
-        for key in self.keys:
-            if key in kwargs:
-                setattr(self, key, kwargs.get(key))
+    def __eq__(self, o: object) -> bool:
+        return isinstance(o, Experience) and self.data == o.data
 
     def get_dict(self, serialize=False) -> Dict[str, Any]:
         if serialize:
-            return {k: to_list(v) for (k, v) in self.__dict__.items() if k in self.keys}
-        return {k: v for (k, v) in self.__dict__.items() if k in self.keys}
+            return {k: to_list(v) for (k, v) in self.data.items()}
+        return self.data
 
 
 class BufferBase(abc.ABC):
     """Abstract class that defines buffer."""
 
     type: str
-    all_data: List
+    data: List  # Experience
 
     def add(self, **kwargs):
         """Add samples to the buffer."""
@@ -50,9 +54,15 @@ class BufferBase(abc.ABC):
         """Return the whole buffer, e.g. for storing."""
         raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
 
-    def load_buffer(self, buffer: List[Dict]):
+    def load_buffer(self, buffer: List[Dict]) -> None:
         """Loads provided data into the buffer."""
         raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
+
+    def get_state(self, include_data: bool=True) -> BufferState:
+        state = BufferState(type=self.type, buffer_size=self.buffer_size, batch_size=self.batch_size) 
+        if len(self.data) and include_data:
+            state.data = self.data
+        return state
 
 
 class ReferenceBuffer(object):
@@ -90,8 +100,9 @@ class ReferenceBuffer(object):
             del self.counter[idx]
 
 
+
 # Imports to keep things easier accessible and in tact with previous version
-from .nstep import NStepBuffer  # flake8: noqa
+from .nstep import NStepBuffer
 from .per import PERBuffer
 from .replay import ReplayBuffer
 from .rollout import RolloutBuffer

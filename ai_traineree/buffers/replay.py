@@ -1,3 +1,4 @@
+from ai_traineree.types.state import BufferState
 import random
 
 from typing import Dict, Iterator, List, Optional, Sequence
@@ -11,7 +12,7 @@ class ReplayBuffer(BufferBase):
     type = "Replay"
     keys = ["states", "actions", "rewards", "next_states", "dones"]
 
-    def __init__(self, batch_size: int, buffer_size=int(1e6), device=None, **kwargs):
+    def __init__(self, batch_size: int, buffer_size=int(1e6), **kwargs):
         """
         Parameters:
             compress_state: bool (default: False)
@@ -23,32 +24,38 @@ class ReplayBuffer(BufferBase):
         super().__init__()
         self.batch_size = batch_size
         self.buffer_size = buffer_size
-        self.device = device
         self.indices = range(batch_size)
-        self.exp: List = []
+        self.data: List[Experience] = []
 
         self._states_mng = kwargs.get('compress_state', False)
         self._states = ReferenceBuffer(buffer_size + 20)
         self._rng = random.Random(kwargs.get('seed'))
 
     def __len__(self) -> int:
-        return len(self.exp)
+        return len(self.data)
+
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) \
+            and self.type == o.type \
+            and self.buffer_size == o.buffer_size \
+            and self.data == o.data
 
     def seed(self, seed: int):
         self._rng = random.Random(seed)
 
     def clear(self):
-        self.exp = []
+        """Removes all data from the buffer"""
+        self.data = []
 
     def add(self, **kwargs):
         if self._states_mng:
             kwargs['state_idx'] = self._states.add(kwargs.pop("state"))
             if "next_state" in kwargs:
                 kwargs['next_state_idx'] = self._states.add(kwargs.pop("next_state", "None"))
-        self.exp.append(Experience(**kwargs))
+        self.data.append(Experience(**kwargs))
 
-        if len(self.exp) > self.buffer_size:
-            drop_exp = self.exp.pop(0)
+        if len(self.data) > self.buffer_size:
+            drop_exp = self.data.pop(0)
             if self._states_mng:
                 self._states.remove(drop_exp.state_idx)
                 self._states.remove(drop_exp.next_state_idx)
@@ -62,27 +69,33 @@ class ReplayBuffer(BufferBase):
         Returns:
             Returns all values for asked keys.
         """
-        sampled_exp: List[Experience] = self._rng.sample(self.exp, self.batch_size)
-        keys = keys if keys is not None else list(self.exp[0].__dict__.keys())
+        sampled_exp: List[Experience] = self._rng.sample(self.data, self.batch_size)
+        keys = keys if keys is not None else list(self.data[0].__dict__.keys())
         all_experiences = {k: [] for k in keys}
-        for exp in sampled_exp:
+        for data in sampled_exp:
             for key in keys:
                 if self._states_mng and (key == 'state' or key == 'next_state'):
-                    value = self._states.get(getattr(exp, key + '_idx'))
+                    value = self._states.get(getattr(data, key + '_idx'))
                 else:
-                    value = getattr(exp, key)
+                    value = getattr(data, key)
 
                 all_experiences[key].append(value)
         return all_experiences
 
-    @property
-    def all_data(self) -> List:
-        return self.exp
+    @staticmethod
+    def from_state(state: BufferState):
+        if state.type != ReplayBuffer.type:
+            raise ValueError(f"Can only populate own type. '{ReplayBuffer.type}' != '{state.type}'")
+        buffer = ReplayBuffer(batch_size=state.batch_size, buffer_size=state.buffer_size)
+        if state.data:
+            buffer.load_buffer(state.data)
+        return buffer
 
     def dump_buffer(self, serialize: bool=False) -> Iterator[Dict[str, List]]:
-        for exp in self.exp:
-            yield exp.get_dict(serialize=serialize)
+        for data in self.data:
+            yield data.get_dict(serialize=serialize)
 
     def load_buffer(self, buffer: List[Dict[str, List]]):
         for experience in buffer:
-            self.add(**experience)
+            # self.add(**experience)
+            self.add(**experience.data)

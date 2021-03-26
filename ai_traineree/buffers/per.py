@@ -6,6 +6,7 @@ import random
 
 from collections import defaultdict
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
+from ai_traineree.types.state import BufferState
 
 from . import BufferBase, Experience, ReferenceBuffer
 
@@ -58,8 +59,20 @@ class PERBuffer(BufferBase):
     def __len__(self) -> int:
         return len(self.tree)
 
-    def seed(self, seed):
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) \
+            and self.type == o.type \
+            and self.buffer_size == o.buffer_size \
+            and self.data == o.data
+
+    def seed(self, seed: int):
+        self._rng = random.Random(seed)
         return seed
+
+    @property
+    def data(self):
+        # TODO @dawid: update to SumTree so that it return proper data
+        return list(filter(lambda x: x is not None, self.tree.data))
 
     def add(self, *, priority: float=0, **kwargs):
         priority += self.tiny_offset
@@ -67,7 +80,8 @@ class PERBuffer(BufferBase):
             kwargs['state_idx'] = self._states.add(kwargs.pop("state"))
             if "next_state" in kwargs:
                 kwargs['next_state_idx'] = self._states.add(kwargs.pop("next_state"))
-        old_data = self.tree.insert(kwargs, pow(priority, self.alpha))
+        # old_data = self.tree.insert(kwargs, pow(priority, self.alpha))
+        old_data = self.tree.insert(Experience(**kwargs), pow(priority, self.alpha))
 
         if len(self.tree) >= self.buffer_size and self._states_mng and old_data is not None:
             self._states.remove(old_data['state_idx'])
@@ -94,8 +108,10 @@ class PERBuffer(BufferBase):
 
         self.priority_update(indices, priorities)  # Revert priorities
         weights = weights / max(weights)
-        for k in range(self.batch_size):
-            experience = Experience(**samples[k], index=indices[k], weight=weights[k])
+
+        for (experience, weight, index) in zip(samples, weights, indices):
+            experience.weight = weight
+            experience.index = index
             if self._states_mng:
                 experience.state = self._states.get(experience.state_idx)
                 experience.next_state = self._states.get(experience.next_state_idx)
@@ -130,25 +146,39 @@ class PERBuffer(BufferBase):
         priorities = [pow(self.tree[i], -old_alpha) for i in range(tree_len)]
         self.priority_update(range(tree_len), priorities)
 
-    @property
-    def all_data(self):
-        return self.tree.data
+    @staticmethod
+    def from_state(state: BufferState):
+        if state.type != PERBuffer.type:
+            raise ValueError(f"Can only populate own type. '{PERBuffer.type}' != '{state.type}'")
+        buffer = PERBuffer(batch_size=state.batch_size, buffer_size=state.buffer_size)
+
+        # TODO: Populate whole tree
+        if state.data:
+            buffer.load_buffer(state.data)
+        return buffer
 
     def dump_buffer(self, serialize: bool=False) -> Iterator[Dict[str, List]]:
         for exp in self.tree.data[:len(self.tree)]:
-            yield Experience(**exp).get_dict(serialize=serialize)
+            # yield Experience(**exp).get_dict(serialize=serialize)
+            yield exp.get_dict(serialize=serialize)
 
     def load_buffer(self, buffer: List[Dict[str, List]]):
         for experience in buffer:
-            self.add(**experience)
+            self.add(**experience.data)
 
 
 class SumTree(object):
-    """Binary tree that is a SumTree.
-    Each level contains a sum of all its nodes.
+    """SumTree
+
+    A binary tree where each level contains sum of its children nodes.
     """
-    def __init__(self, leafs_num):
-        """Expects `max_size` which is the number of leaf nodes."""
+
+    def __init__(self, leafs_num: int):
+        """
+        Parameters:
+            leafs_num (int): Number of leaf nodes.
+
+        """
         self.leafs_num = leafs_num
         self.tree_height = math.ceil(math.log(leafs_num, 2)) + 1
         self.leaf_offset = 2**(self.tree_height-1) - 1
