@@ -1,3 +1,4 @@
+import copy
 import itertools
 import torch
 import torch.nn as nn
@@ -8,9 +9,11 @@ from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import compute_gae, normalize, revert_norm_returns
 from ai_traineree.buffers import RolloutBuffer
+from ai_traineree.buffers.buffer_factory import BufferFactory
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody
 from ai_traineree.policies import MultivariateGaussianPolicySimple, MultivariateGaussianPolicy
+from ai_traineree.types.state import AgentState, BufferState, NetworkState
 from ai_traineree.utils import to_numbers_seq, to_tensor
 from typing import Dict, Tuple
 
@@ -96,7 +99,7 @@ class PPOAgent(AgentBase):
         self.max_grad_norm_critic = float(self._register_param(kwargs, "max_grad_norm_critic", 100.0))
 
         if kwargs.get("simple_policy", False):
-            self.policy = MultivariateGaussianPolicySimple(self.action_size, device=self.device, **kwargs)
+            self.policy = MultivariateGaussianPolicySimple(self.action_size, **kwargs)
         else:
             self.policy = MultivariateGaussianPolicy(self.action_size, device=self.device)
 
@@ -128,6 +131,12 @@ class PPOAgent(AgentBase):
         else:
             self._loss_actor = value
             self._loss_critic = value
+
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) \
+            and self._config == o._config \
+            and self.buffer == o.buffer \
+            and self.get_network_state() == o.get_network_state()  # TODO @dawid: Currently net isn't compared properly
 
     def __clear_memory(self):
         self.buffer.clear()
@@ -161,14 +170,14 @@ class PPOAgent(AgentBase):
         assert len(actions) == self.num_workers
         return actions if self.num_workers > 1 else actions[0]
 
-    def step(self, states, actions, rewards, next_states, dones, **kwargs):
+    def step(self, state, action, reward, next_state, done, **kwargs):
         self.iteration += 1
 
         self.buffer.add(
-            state=torch.tensor(states).reshape(self.num_workers, self.state_size).float(),
-            action=torch.tensor(actions).reshape(self.num_workers, self.action_size).float(),
-            reward=torch.tensor(rewards).reshape(self.num_workers, 1),
-            done=torch.tensor(dones).reshape(self.num_workers, 1),
+            state=torch.tensor(state).reshape(self.num_workers, self.state_size).float(),
+            action=torch.tensor(action).reshape(self.num_workers, self.action_size).float(),
+            reward=torch.tensor(reward).reshape(self.num_workers, 1),
+            done=torch.tensor(done).reshape(self.num_workers, 1),
             logprob=self.local_memory_buffer['logprob'].reshape(self.num_workers, 1),
             value=self.local_memory_buffer['value'].reshape(self.num_workers, 1),
         )
@@ -309,13 +318,40 @@ class PPOAgent(AgentBase):
                 if hasattr(layer, "bias") and layer.bias is not None:
                     data_logger.create_histogram(f"critic/layer_bias_{idx}", layer.bias, step)
 
-    def save_state(self, path: str):
-        agent_state = dict(
+    def get_state(self) -> AgentState:
+        return AgentState(
+            model=self.name,
+            state_space=self.state_size,
+            action_space=self.action_size,
             config=self._config,
+            buffer=copy.deepcopy(self.buffer.get_state()),
+            network=copy.deepcopy(self.get_network_state())
+        )
+
+    def get_network_state(self) -> NetworkState:
+        return NetworkState(net=dict(
             policy=self.policy.state_dict(),
             actor=self.actor.state_dict(),
-            critic=self.critic.state_dict()
-        )
+            critic=self.critic.state_dict(),
+        ))
+
+    def set_buffer(self, buffer_state: BufferState) -> None:
+        self.buffer = BufferFactory.from_state(buffer_state)
+
+    def set_network(self, network_state: NetworkState) -> None:
+        self.policy.load_state_dict(network_state.net['policy'])
+        self.actor.load_state_dict(network_state.net['actor'])
+        self.critic.load_state_dict(network_state.net['critic'])
+
+    @staticmethod
+    def from_state(state: AgentState) -> AgentBase:
+        agent = PPOAgent(state.state_space, state.action_space, **state.config)
+        agent.set_network(state.network)
+        agent.set_buffer(state.buffer)
+        return agent
+
+    def save_state(self, path: str):
+        agent_state = self.get_state()
         torch.save(agent_state, path)
 
     def load_state(self, path: str):

@@ -1,3 +1,4 @@
+import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,9 +8,11 @@ from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import soft_update
 from ai_traineree.buffers import NStepBuffer, PERBuffer
+from ai_traineree.buffers.buffer_factory import BufferFactory
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks import NetworkType, NetworkTypeClass
 from ai_traineree.networks.heads import DuelingNet
+from ai_traineree.types import AgentState, BufferState, NetworkState
 from ai_traineree.utils import to_numbers_seq, to_tensor
 from typing import Callable, Dict, Optional, Type, Sequence, Union
 
@@ -57,14 +60,17 @@ class DQNAgent(AgentBase):
         super().__init__(**kwargs)
 
         self.device = self._register_param(kwargs, "device", DEVICE, update=True)
+        # TODO: All this should be condenced with some structure, e.g. gym spaces
         self.input_shape: Sequence[int] = input_shape if not isinstance(input_shape, int) else (input_shape,)
-        self.in_features: int = self.input_shape[0]
+        self.state_size: int = self.input_shape[0]
         self.output_shape: Sequence[int] = output_shape if not isinstance(output_shape, int) else (output_shape,)
-        self.out_features: int = self.output_shape[0]
+        self.action_size: int = self.output_shape[0]
+        self._config['state_size'] = self.state_size
+        self._config['action_size'] = self.action_size
 
-        self.lr = float(self._register_param(kwargs, 'lr', 3e-4))
-        self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))
-        self.tau = float(self._register_param(kwargs, 'tau', 0.002))
+        self.lr = float(self._register_param(kwargs, 'lr', 3e-4))  # Learning rate
+        self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))  # Discount value
+        self.tau = float(self._register_param(kwargs, 'tau', 0.002))  # Soft update
 
         self.update_freq = int(self._register_param(kwargs, 'update_freq', 1))
         self.batch_size = int(self._register_param(kwargs, 'batch_size', 64, update=True))
@@ -87,8 +93,8 @@ class DQNAgent(AgentBase):
             self.net = network_fn()
             self.target_net = network_fn()
         elif network_class is not None:
-            self.net = network_class(self.input_shape, self.out_features, hidden_layers=hidden_layers, device=self.device)
-            self.target_net = network_class(self.input_shape, self.out_features, hidden_layers=hidden_layers, device=self.device)
+            self.net = network_class(self.input_shape, self.action_size, hidden_layers=hidden_layers, device=self.device)
+            self.target_net = network_class(self.input_shape, self.action_size, hidden_layers=hidden_layers, device=self.device)
         else:
             self.net = DuelingNet(self.input_shape, self.output_shape, hidden_layers=hidden_layers, device=self.device)
             self.target_net = DuelingNet(self.input_shape, self.output_shape, hidden_layers=hidden_layers, device=self.device)
@@ -104,6 +110,13 @@ class DQNAgent(AgentBase):
         if isinstance(value, dict):
             value = value['loss']
         self._loss = value
+
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) \
+            and self._config == o._config \
+            and self.buffer == o.buffer \
+            and self.n_buffer == o.n_buffer \
+            and self.get_network_state() == o.get_network_state()
 
     def reset(self):
         self.net.reset_parameters()
@@ -159,7 +172,7 @@ class DQNAgent(AgentBase):
         """
         # Epsilon-greedy action selection
         if self._rng.random() < eps:
-            return self._rng.randint(0, self.out_features-1)
+            return self._rng.randint(0, self.action_size-1)
 
         state = to_tensor(self.state_transform(state)).float()
         state = state.unsqueeze(0).to(self.device)
@@ -223,36 +236,66 @@ class DQNAgent(AgentBase):
         """
         data_logger.log_value("loss/agent", self._loss, step)
 
-    def save_state(self, path: str) -> None:
+    def get_state(self) -> AgentState:
+        """Provides agent's internal state."""
+        return AgentState(
+            model=self.name,
+            state_space=self.state_size,
+            action_space=self.action_size,
+            config=self._config,
+            buffer=copy.deepcopy(self.buffer.get_state()),
+            network=copy.deepcopy(self.get_network_state()),
+        )
+
+    def get_network_state(self) -> NetworkState:
+        return NetworkState(net=dict(net=self.net.state_dict(), target_net=self.target_net.state_dict()))
+
+    @staticmethod
+    def from_state(state: AgentState) -> AgentBase:
+        agent = DQNAgent(state.state_space, state.action_space, **state.config)
+        agent.set_network(state.network)
+        agent.set_buffer(state.buffer)
+        return agent
+
+    def set_buffer(self, buffer_state: BufferState) -> None:
+        self.buffer = BufferFactory.from_state(buffer_state)
+
+    def set_network(self, network_state: NetworkState) -> None:
+        self.net.load_state_dict(network_state.net['net'])
+        self.target_net.load_state_dict(network_state.net['target_net'])
+
+    def save_state(self, path: str):
         """Saves agent's state into a file.
 
         Parameters:
             path: String path where to write the state.
 
         """
-        agent_state = dict(
-            net=self.net.state_dict(),
-            target_net=self.target_net.state_dict(),
-            config=self._config,
-        )
+        agent_state = self.get_state()
         torch.save(agent_state, path)
 
-    def load_state(self, *, path: Optional[str]=None, agent_state: Optional[dict]=None) -> None:
+    def load_state(self, *, path: Optional[str]=None, state: Optional[AgentState]=None) -> None:
         """Loads state from a file under provided path.
 
         Parameters:
             path: String path indicating where the state is stored.
 
         """
-        if path is None and agent_state is None:
-            raise ValueError("Either `path` or `agent_state` must be provided to load agent's state.")
+        if path is None and state is None:
+            raise ValueError("Either `path` or `state` must be provided to load agent's state.")
         if path is not None:
-            agent_state = torch.load(path)
-        self._config = agent_state.get('config', {})
+            state = torch.load(path)
+
+        # Populate agent
+        agent_state = state.agent
+        self._config = agent_state.config
         self.__dict__.update(**self._config)
 
-        self.net.load_state_dict(agent_state['net'])
-        self.target_net.load_state_dict(agent_state['target_net'])
+        # Populate network
+        network_state = state.network
+        self.net.load_state_dict(network_state.net['net'])
+        self.target_net.load_state_dict(network_state.net['target_net'])
+        self.buffer = PERBuffer(**self._config)
 
     def save_buffer(self, path: str) -> None:
         """Saves data from the buffer into a file under provided path.
