@@ -24,6 +24,9 @@ class NStepBuffer(BufferBase):
     def __len__(self):
         return len(self.data)
 
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) and self.gamma == o.gamma
+
     @property
     def available(self):
         return len(self.data) >= self.n_steps

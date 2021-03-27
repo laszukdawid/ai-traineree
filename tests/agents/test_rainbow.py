@@ -34,8 +34,8 @@ def test_rainbow_init_default():
     assert agent.n_steps > 0
     assert isinstance(agent.net, RainbowNet)
     assert isinstance(agent.target_net, RainbowNet)
-    assert agent.in_features == input_shape[0]
-    assert agent.out_features == output_shape[0]
+    assert agent.state_size == input_shape[0]
+    assert agent.action_size == output_shape[0]
 
 
 def test_rainbow_seed():

@@ -26,7 +26,7 @@ class MultivariateGaussianPolicySimple(PolicyType):
 
     param_dim = 1
 
-    def __init__(self, size: int, std_init: float=1.0, std_min: float=0.1, std_max: float=3., device=None):
+    def __init__(self, size: int, std_init: float=1.0, std_min: float=0.1, std_max: float=3., device=None, **kwargs):
         """
         Parameters:
             size: Size of the observation.

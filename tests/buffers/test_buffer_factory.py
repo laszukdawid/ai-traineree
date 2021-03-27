@@ -3,7 +3,7 @@ import pytest
 
 from ai_traineree.buffers import Experience
 from ai_traineree.buffers import ReplayBuffer, PERBuffer, NStepBuffer, RolloutBuffer
-from ai_traineree.buffers.factory import BufferFactory
+from ai_traineree.buffers.buffer_factory import BufferFactory
 
 
 def generate_sample_SARS(iterations, state_size: int=4, action_size: int=2, dict_type=False):

@@ -26,7 +26,7 @@ class D3PGAgent(AgentBase):
     3. Prioritization of the experience replay (PER).
 
     [1] "Distributed Distributional Deterministic Policy Gradients"
-        (2018, ICLR) by G. Barth-Maron & M. Hoffman et al. 
+        (2018, ICLR) by G. Barth-Maron & M. Hoffman et al.
 
     """
 
@@ -287,12 +287,15 @@ class D3PGAgent(AgentBase):
                 bucket_counts=dist, global_step=step
             )
 
-    def save_state(self, path: str):
-        agent_state = dict(
+    def get_state(self):
+        return dict(
             actor=self.actor.state_dict(), target_actor=self.target_actor.state_dict(),
             critic=self.critic.state_dict(), target_critic=self.target_critic.state_dict(),
             config=self._config,
         )
+
+    def save_state(self, path: str):
+        agent_state = self.get_state()
         torch.save(agent_state, path)
 
     def load_state(self, path: str):

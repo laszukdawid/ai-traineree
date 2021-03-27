@@ -9,9 +9,10 @@ from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.noise import GaussianNoise
 from ai_traineree.utils import to_numbers_seq, to_tensor
+from ai_traineree.types import AgentState, NetworkState
 from torch.optim import Adam
 from torch.nn.functional import mse_loss
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional
 
 
 class DDPGAgent(AgentBase):
@@ -202,12 +203,23 @@ class DDPGAgent(AgentBase):
                 if hasattr(layer, "bias") and layer.bias is not None:
                     data_logger.create_histogram(f"critic/layer_bias_{idx}", layer.bias, step)
 
-    def save_state(self, path: str):
-        agent_state = dict(
+    def get_state(self) -> AgentState:
+        net = dict(
             actor=self.actor.state_dict(), target_actor=self.target_actor.state_dict(),
             critic=self.critic.state_dict(), target_critic=self.target_critic.state_dict(),
-            config=self._config,
         )
+        network_state: NetworkState = NetworkState(net=net)
+        return AgentState(
+            model=self.name,
+            state_space=self.state_size,
+            action_space=self.action_size,
+            config=self._config,
+            buffer=self.buffer.get_state(),
+            network=network_state
+        )
+
+    def save_state(self, path: str) -> None:
+        agent_state = self.get_state()
         torch.save(agent_state, path)
 
     def load_state(self, *, path: Optional[str]=None, agent_state: Optional[dict]=None):

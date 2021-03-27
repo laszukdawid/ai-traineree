@@ -5,6 +5,7 @@ import pytest
 import random
 
 from typing import Any, List, Sequence, Tuple
+from ai_traineree.agents import AgentBase
 
 
 class MockContinuousSpace:
@@ -42,15 +43,15 @@ def fix_env():
     return mock_env
 
 
-def deterministic_interactions(agent, state_size=4, num_iters=50):
-    state = [0]*state_size
+def deterministic_interactions(agent, num_iters=50):
+    state = [0]*agent.state_size
     next_state = copy.copy(state)
     actions = []
     for i in range(num_iters):
         action = agent.act(state)
         actions.append(action)
 
-        next_state[i % state_size] = (next_state[i % state_size] + 1) % 2
+        next_state[i % agent.state_size] = (next_state[i % agent.state_size] + 1) % 2
         reward = (i % 4 - 2) / 2.
         done = (i + 1) % 100 == 0
 
@@ -64,3 +65,18 @@ def fake_step(step_shape: Sequence[int]) -> Tuple[List[Any], float, bool]:
     reward = random.random()
     terminal = random.random() > 0.8
     return state, reward, terminal
+
+
+def feed_agent(agent: AgentBase, num_samples: int, discrete_action=True, as_list=False):
+    for _ in range(num_samples):
+        s, r, d = fake_step(agent.state_size)
+        if discrete_action:
+            a = random.randint(0, agent.action_size-1)
+        else:
+            a = np.random.random(agent.action_size).tolist()
+
+        if as_list:
+            agent.step(state=s, action=[a], reward=[r], next_state=s, done=[d])
+        else:
+            agent.step(state=s, action=a, reward=r, next_state=s, done=d)
+    return agent

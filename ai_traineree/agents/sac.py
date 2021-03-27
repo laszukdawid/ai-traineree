@@ -16,7 +16,7 @@ from ai_traineree.types import FeatureType
 from ai_traineree.utils import to_numbers_seq, to_tensor
 from functools import reduce
 from torch import optim, Tensor
-from typing import Dict, List, Sequence, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
 
 class SACAgent(AgentBase):
@@ -309,14 +309,17 @@ class SACAgent(AgentBase):
                 if hasattr(layer, "bias") and layer.bias is not None:
                     data_logger.create_histogram(f"critic_2/layer_bias_{idx}", layer.bias, step)
 
-    def save_state(self, path: str):
-        agent_state = dict(
+    def get_state(self):
+        return dict(
             actor=self.actor.state_dict(),
             policy=self.policy.state_dict(),
             double_critic=self.double_critic.state_dict(),
             target_double_critic=self.target_double_critic.state_dict(),
             config=self._config,
         )
+
+    def save_state(self, path: str):
+        agent_state = self.get_state()
         torch.save(agent_state, path)
 
     def load_state(self, path: str):

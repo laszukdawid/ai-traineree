@@ -42,6 +42,9 @@ class BufferBase(abc.ABC):
     type: str
     data: List  # Experience
 
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) and self.type == o.type and self.data == o.data
+
     def add(self, **kwargs):
         """Add samples to the buffer."""
         raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
@@ -59,8 +62,9 @@ class BufferBase(abc.ABC):
         raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
 
     def get_state(self, include_data: bool=True) -> BufferState:
-        state = BufferState(type=self.type, buffer_size=self.buffer_size, batch_size=self.batch_size) 
+        state = BufferState(type=self.type, buffer_size=self.buffer_size, batch_size=self.batch_size)
         if len(self.data) and include_data:
+            # state.data = [d.data for d in self.data]  # In case we want to serialize
             state.data = self.data
         return state
 
@@ -98,7 +102,6 @@ class ReferenceBuffer(object):
         if self.counter[idx] < 1:
             self.buffer.pop(idx, None)
             del self.counter[idx]
-
 
 
 # Imports to keep things easier accessible and in tact with previous version

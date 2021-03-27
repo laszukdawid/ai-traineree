@@ -217,6 +217,14 @@ class MADDPGAgent(MultiAgentType):
         for agent_name, agent in self.agents.items():
             data_logger.log_values_dict(f"{agent_name}/loss", agent.loss, step)
 
+    def get_state(self) -> Dict[str, dict]:
+        """Returns agents' internal states"""
+        agents_state = {}
+        agents_state['config'] = self._config
+        for agent_name, agent in self.agents.items():
+            agents_state[agent_name] = {"state": agent.state_dict(), "config": agent._config}
+        return agents_state
+
     def save_state(self, path: str):
         """Saves current state of the Multi Agent instance and all related agents.
 
@@ -226,10 +234,7 @@ class MADDPGAgent(MultiAgentType):
             path: (str) String path to a location where the state is store.
 
         """
-        agents_state = {}
-        agents_state['config'] = self._config
-        for agent_name, agent in self.agents.items():
-            agents_state[agent_name] = {"state": agent.state_dict(), "config": agent._config}
+        agents_state = self.get_state()
         torch.save(agents_state, path)
 
     def load_state(self, *, path: Optional[str]=None, agent_state: Optional[dict]=None) -> None:

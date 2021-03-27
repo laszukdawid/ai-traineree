@@ -38,8 +38,7 @@ class RolloutBuffer(BufferBase):
         return len(self.data)
 
     def __eq__(self, o: object) -> bool:
-        return super().__eq__(o) \
-            and self.get_state() == o.get_state()
+        return super().__eq__(o)
 
     def clear(self):
         self.data.clear()

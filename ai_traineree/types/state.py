@@ -1,23 +1,18 @@
 import torch
 
-from dataclasses import dataclass
-from typing import Any, Dict, List
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
 
 from .primitive import StateType, ActionType
 
 
 @dataclass
-class AgentState:
-    name: str
-    state_space: StateType
-    action_space: ActionType
-    config: Dict[str, Any]
-
-
-@dataclass
 class BufferState:
     type: str
-    data: List
+    buffer_size: int
+    batch_size: int
+    data: Optional[List] = field(default=None, init=False)
+    extra: Optional[Dict[str, Any]] = field(default=None, init=False, repr=False)
 
 
 @dataclass
@@ -33,7 +28,11 @@ class NetworkState:
 
 
 @dataclass
-class FullState:
-    agent: AgentState
-    buffer: BufferState
-    network: NetworkState
+class AgentState:
+    """Fully identifies an agent"""
+    model: str
+    state_space: StateType
+    action_space: ActionType
+    config: Dict[str, Any]
+    network: Optional[NetworkState]
+    buffer: Optional[BufferState]

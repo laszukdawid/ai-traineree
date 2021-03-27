@@ -311,12 +311,15 @@ class D4PGAgent(AgentBase):
                 if hasattr(layer, "bias") and layer.bias is not None:
                     data_logger.create_histogram(f"critic/layer_bias_{idx}", layer.bias, step)
 
-    def save_state(self, path: str):
-        agent_state = dict(
+    def get_state(self):
+        return dict(
             actor=self.actor.state_dict(), target_actor=self.target_actor.state_dict(),
             critic=self.critic.state_dict(), target_critic=self.target_critic.state_dict(),
             config=self._config,
         )
+
+    def save_state(self, path: str):
+        agent_state = self.get_state()
         torch.save(agent_state, path)
 
     def load_state(self, path: str):

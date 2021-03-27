@@ -4,7 +4,7 @@ from ai_traineree.loggers import DataLogger
 from typing import Any, Dict, List, Tuple
 
 from .primitive import ActionType, DoneType, StateType, RewardType
-from .state import AgentState, FullState
+from .state import AgentState
 
 
 class AgentType(abc.ABC):
@@ -105,7 +105,7 @@ class MultiAgentType(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_state(self):
+    def get_state(self) -> AgentState:
         """Returns agents' internal states"""
         pass
 

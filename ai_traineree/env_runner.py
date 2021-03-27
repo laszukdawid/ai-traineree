@@ -361,7 +361,7 @@ class EnvRunner:
             self.scores_window.append(avg_score)
 
         self.logger.info("Loading saved agent state: %s/%s.agent", self.state_dir, state_name)
-        self.agent.load_state(f'{self.state_dir}/{state_name}.agent')
+        self.agent.load_state(path=f'{self.state_dir}/{state_name}.agent')
         self.agent.loss = state.get('loss', 0)
 
 

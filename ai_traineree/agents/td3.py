@@ -36,7 +36,9 @@ class TD3Agent(AgentBase):
         self.device = device if device is not None else DEVICE
 
         # Reason sequence initiation.
+        self.state_size = state_size
         self.action_size = action_size
+
         hidden_layers = to_numbers_seq(self._register_param(kwargs, 'hidden_layers', (128, 128)))
         self.actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
         self.critic = DoubleCritic(state_size, action_size, CriticBody, hidden_layers=hidden_layers).to(self.device)
@@ -101,7 +103,7 @@ class TD3Agent(AgentBase):
         """
         Agent acting on observations.
 
-        When the training_mode is True (default) a noise is added to each action. 
+        When the training_mode is True (default) a noise is added to each action.
         """
         # Epsilon greedy
         if self._rng.random() < epsilon:
@@ -200,12 +202,15 @@ class TD3Agent(AgentBase):
         data_logger.log_value("loss/actor", self._loss_actor, step)
         data_logger.log_value("loss/critic", self._loss_critic, step)
 
-    def save_state(self, path: str):
-        agent_state = dict(
+    def get_state(self):
+        return dict(
             actor=self.actor.state_dict(), target_actor=self.target_actor.state_dict(),
             critic=self.critic.state_dict(), target_critic=self.target_critic.state_dict(),
             config=self._config,
         )
+
+    def save_state(self, path: str):
+        agent_state = self.get_state()
         torch.save(agent_state, path)
 
     def load_state(self, path: str):

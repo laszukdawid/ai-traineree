@@ -61,9 +61,9 @@ class RainbowAgent(AgentBase):
         self.device = self._register_param(kwargs, "device", DEVICE, update=True)
         self.input_shape: Sequence[int] = input_shape if not isinstance(input_shape, int) else (input_shape,)
 
-        self.in_features: int = self.input_shape[0]
+        self.state_size: int = self.input_shape[0]
         self.output_shape: Sequence[int] = output_shape if not isinstance(output_shape, int) else (output_shape,)
-        self.out_features: int = self.output_shape[0]
+        self.action_size: int = self.output_shape[0]
 
         self.lr = float(self._register_param(kwargs, 'lr', 3e-4))
         self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))
@@ -160,7 +160,7 @@ class RainbowAgent(AgentBase):
         """
         # Epsilon-greedy action selection
         if self._rng.random() < eps:
-            return self._rng.randint(0, self.out_features-1)
+            return self._rng.randint(0, self.action_size-1)
 
         state = to_tensor(self.state_transform(state)).float().unsqueeze(0).to(self.device)
         # state = to_tensor(self.state_transform(state)).float().to(self.device)
@@ -182,7 +182,7 @@ class RainbowAgent(AgentBase):
         next_states = to_tensor(experiences['next_state']).float().to(self.device)
         actions = to_tensor(experiences['action']).type(torch.long).to(self.device)
         assert rewards.shape == dones.shape == (self.batch_size, 1)
-        assert states.shape == next_states.shape == (self.batch_size, self.in_features)
+        assert states.shape == next_states.shape == (self.batch_size, self.state_size)
         assert actions.shape == (self.batch_size, 1)  # Discrete domain
 
         with torch.no_grad():
@@ -200,7 +200,7 @@ class RainbowAgent(AgentBase):
         assert m.shape == (self.batch_size, self.num_atoms)
 
         log_prob = self.net(states, log_prob=True)
-        assert log_prob.shape == (self.batch_size, self.out_features, self.num_atoms)
+        assert log_prob.shape == (self.batch_size, self.action_size, self.num_atoms)
         log_prob = log_prob[self.__batch_indices, actions.squeeze(), :]
         assert log_prob.shape == m.shape == (self.batch_size, self.num_atoms)
 
@@ -236,7 +236,7 @@ class RainbowAgent(AgentBase):
         data_logger.log_value("loss/agent", self._loss, step)
 
         if full_log and self.dist_probs is not None:
-            for action_idx in range(self.out_features):
+            for action_idx in range(self.action_size):
                 dist = self.dist_probs[0, action_idx]
                 data_logger.log_value(f'dist/expected_{action_idx}', (dist*self.z_atoms).sum().item(), step)
                 data_logger.add_histogram(
@@ -259,6 +259,13 @@ class RainbowAgent(AgentBase):
                 if hasattr(layer, "bias") and layer.bias is not None:
                     data_logger.create_histogram(f"advantage_net/layer_bias_{idx}", layer.bias.cpu(), step)
 
+    def get_state(self):
+        return dict(
+            net=self.net.state_dict(),
+            target_net=self.target_net.state_dict(),
+            config=self._config,
+        )
+
     def save_state(self, path: str) -> None:
         """Saves agent's state into a file.
 
@@ -266,11 +273,7 @@ class RainbowAgent(AgentBase):
             path: String path where to write the state.
 
         """
-        agent_state = dict(
-            net=self.net.state_dict(),
-            target_net=self.target_net.state_dict(),
-            config=self._config,
-        )
+        agent_state = self.get_state()
         torch.save(agent_state, path)
 
     def load_state(self, path: str) -> None:

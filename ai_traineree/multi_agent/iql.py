@@ -106,11 +106,15 @@ class IQLAgents(MultiAgentType):
         for agent_name, agent in self.agents.items():
             data_logger.log_values_dict(f"{agent_name}/loss", agent.loss, step)
 
-    def save_state(self, path: str):
+    def get_state(self):
         agents_state = {}
         agents_state['config'] = self._config
         for agent_name, agent in self.agents.items():
             agents_state[agent_name] = {'network': agent.state_dict(), 'config': agent.hparams}
+        return agents_state
+
+    def save_state(self, path: str):
+        agents_state = self.get_state()
         torch.save(agents_state, path)
 
     def load_state(self, path: str):
