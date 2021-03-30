@@ -2,3 +2,4 @@
 # Please keep in sync with setup.cfg
 numpy>=1.18
 torch>=1.7
+jsons

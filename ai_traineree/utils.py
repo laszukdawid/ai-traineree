@@ -1,9 +1,14 @@
 import os
-import torch
-
-from numpy import ndarray
 from pathlib import Path
 from typing import Any, List, Tuple, Union
+
+import jsons
+import torch
+from numpy import ndarray
+
+# Update serializaiton rules for `jsons` module used by `serialize` function (below).
+jsons.set_serializer(lambda x, **kwargs: x.tolist(), torch.Tensor)
+jsons.set_serializer(lambda x, **kwargs: x.tolist(), ndarray)
 
 
 def to_tensor(x) -> torch.Tensor:
@@ -97,3 +102,8 @@ def to_numbers_seq(x: Any) -> Union[Tuple, List]:
         return (x,)
     else:
         raise ValueError(f"Value `{x}` has unsporrted type for casting to a sequence of numbers. Please report, or fix.")
+
+
+def serialize(obj) -> str:
+    """Serializes object to JSON format."""
+    return jsons.dumps(obj)

@@ -1,8 +1,18 @@
-import numpy as np
-import torch
-import pytest
+import json
+import random
 
-from ai_traineree.utils import str_to_list, str_to_number, str_to_seq, str_to_tuple, to_tensor
+import numpy as np
+import pytest
+import torch
+from ai_traineree.utils import (serialize, str_to_list, str_to_number,
+                                str_to_seq, str_to_tuple, to_tensor)
+from conftest import deterministic_interactions
+
+
+def generate_value():
+    if random.random() < 0.5:
+        return [random.random() for _ in range(random.randint(0, 10))]
+    return random.random()
 
 
 def test_to_tensor_tensor():
@@ -121,3 +131,121 @@ def test_str_to_seq():
         str_to_seq("[0, 1)")
     with pytest.raises(ValueError):
         str_to_seq("{0, 1}")
+
+
+def test_serialize_experience_individual():
+    from ai_traineree.buffers.experience import Experience
+
+    for key in Experience.whitelist:
+        value = generate_value()
+        e = Experience(**{key: value})
+
+        ser = serialize(e)
+        assert ser == '{"%s": "%s"}' % (key, value)
+
+
+def test_serialize_experience_all_keys():
+    import json
+
+    from ai_traineree.buffers.experience import Experience
+
+    state = {key: generate_value() for key in Experience.whitelist}
+    e = Experience(**state)
+
+    # Act
+    ser = serialize(e)
+
+    # Assert
+    assert json.loads(ser) == {k: str(v) for (k, v) in state.items()}
+
+
+def test_serialize_buffer_state_list():
+    from ai_traineree.buffers import BufferState, Experience
+
+    def generate_exp() -> Experience:
+        return Experience(
+            state=np.random.random(10).tolist(),
+            next_state=np.random.random(10).tolist(),
+            action=np.random.random(3).tolist(),
+            reward=float(random.random()),
+            done=bool(random.randint(0, 8) == 8),
+        )
+
+    # Assign
+    buffer_size = 1e1
+    buffer_state = BufferState(type="Type", batch_size=200, buffer_size=buffer_size)
+    buffer_state.data = [generate_exp() for _ in range(int(buffer_size))]
+
+    # Act
+    ser = serialize(buffer_state)
+
+    # Assert
+    des = json.loads(ser)
+    assert set(des.keys()) == set(("type", "buffer_size", "batch_size", "data", "extra"))
+    assert len(des['data']) == buffer_size
+    assert des["type"] == "Type"
+    assert des["extra"] is None
+
+
+def test_serialize_buffer_state_numpy():
+    from ai_traineree.buffers import BufferState, Experience
+
+    def generate_exp() -> Experience:
+        return Experience(
+            state=np.random.random(10),
+            next_state=np.random.random(10),
+            action=np.random.random(3),
+            reward=random.random(),
+            done=(random.randint(0, 8) == 8),
+        )
+
+    # Assign
+    buffer_size = 1e1
+    buffer_state = BufferState(type="Type", batch_size=200, buffer_size=buffer_size)
+    buffer_state.data = [generate_exp() for _ in range(int(buffer_size))]
+
+    # Act
+    ser = serialize(buffer_state)
+
+    # Assert
+    des = json.loads(ser)
+    assert set(des.keys()) == set(("type", "buffer_size", "batch_size", "data", "extra"))
+    assert len(des['data']) == buffer_size
+    assert des["type"] == "Type"
+    assert des["extra"] is None
+
+
+def test_serialize_network_state_actual():
+    from ai_traineree.agents.dqn import DQNAgent
+
+    agent = DQNAgent(10, 4)
+    deterministic_interactions(agent, 30)
+    network_state = agent.get_network_state()
+
+    # Act
+    ser = serialize(network_state)
+
+    # Assert
+    des = json.loads(ser)
+    assert set(des['net'].keys()) == set(('target_net', 'net'))
+
+
+def test_serialize_agent_state_actual():
+    from ai_traineree.agents.dqn import DQNAgent
+
+    agent = DQNAgent(10, 4)
+    deterministic_interactions(agent, 30)
+    state = agent.get_state()
+
+    # Act
+    ser = serialize(state)
+
+    # Assert
+    des = json.loads(ser)
+    assert des['model'] == DQNAgent.name
+    assert len(des['buffer']['data']) == 30
+    assert set(des['network']['net'].keys()) == set(('target_net', 'net'))
+
+
+if __name__ == "__main__":
+    test_serialize_network_state_actual()
