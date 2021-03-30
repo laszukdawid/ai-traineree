@@ -101,6 +101,44 @@ def test_ppo_from_state():
     assert new_agent.buffer == agent.buffer
 
 
+def test_ppo_from_state_network_state_none():
+    # Assign
+    state_shape, action_size = 10, 3
+    agent = PPOAgent(state_shape, action_size)
+    agent_state = agent.get_state()
+    agent_state.network = None
+
+    # Act
+    new_agent = PPOAgent.from_state(agent_state)
+
+    # Assert
+    assert id(agent) != id(new_agent)
+    # assert new_agent == agent
+    assert isinstance(new_agent, PPOAgent)
+    assert new_agent.hparams == agent.hparams
+    assert new_agent.buffer == agent.buffer
+
+
+def test_ppo_from_state_buffer_state_none():
+    # Assign
+    state_shape, action_size = 10, 3
+    agent = PPOAgent(state_shape, action_size)
+    agent_state = agent.get_state()
+    agent_state.buffer = None
+
+    # Act
+    new_agent = PPOAgent.from_state(agent_state)
+
+    # Assert
+    assert id(agent) != id(new_agent)
+    # assert new_agent == agent
+    assert isinstance(new_agent, PPOAgent)
+    assert new_agent.hparams == agent.hparams
+    assert all([torch.all(x == y) for (x, y) in zip(agent.policy.parameters(), new_agent.policy.parameters())])
+    assert all([torch.all(x == y) for (x, y) in zip(agent.actor.parameters(), new_agent.actor.parameters())])
+    assert all([torch.all(x == y) for (x, y) in zip(agent.critic.parameters(), new_agent.critic.parameters())])
+
+
 def test_ppo_from_state_one_updated():
     # Assign
     state_shape, action_size = 10, 3

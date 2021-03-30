@@ -96,6 +96,43 @@ def test_dqn_from_state():
     assert new_agent.buffer == agent.buffer
 
 
+def test_dqn_from_state_network_state_none():
+    # Assign
+    state_shape, action_size = 10, 3
+    agent = DQNAgent(state_shape, action_size)
+    agent_state = agent.get_state()
+    agent_state.network = None
+
+    # Act
+    new_agent = DQNAgent.from_state(agent_state)
+
+    # Assert
+    assert id(agent) != id(new_agent)
+    # assert new_agent == agent
+    assert isinstance(new_agent, DQNAgent)
+    assert new_agent.hparams == agent.hparams
+    assert new_agent.buffer == agent.buffer
+
+
+def test_dqn_from_state_buffer_state_none():
+    # Assign
+    state_shape, action_size = 10, 3
+    agent = DQNAgent(state_shape, action_size)
+    agent_state = agent.get_state()
+    agent_state.buffer = None
+
+    # Act
+    new_agent = DQNAgent.from_state(agent_state)
+
+    # Assert
+    assert id(agent) != id(new_agent)
+    # assert new_agent == agent
+    assert isinstance(new_agent, DQNAgent)
+    assert new_agent.hparams == agent.hparams
+    assert all([torch.all(x == y) for (x, y) in zip(agent.net.parameters(), new_agent.net.parameters())])
+    assert all([torch.all(x == y) for (x, y) in zip(agent.target_net.parameters(), new_agent.target_net.parameters())])
+
+
 def test_dqn_from_state_one_updated():
     # Assign
     state_shape, action_size = 10, 3

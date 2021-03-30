@@ -253,8 +253,10 @@ class DQNAgent(AgentBase):
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
         agent = DQNAgent(state.state_space, state.action_space, **state.config)
-        agent.set_network(state.network)
-        agent.set_buffer(state.buffer)
+        if state.network is not None:
+            agent.set_network(state.network)
+        if state.buffer is not None:
+            agent.set_buffer(state.buffer)
         return agent
 
     def set_buffer(self, buffer_state: BufferState) -> None:
