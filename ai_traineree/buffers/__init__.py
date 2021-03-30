@@ -1,39 +1,14 @@
 import abc
+from collections import defaultdict
+from typing import Dict, List, Optional, Union
+
 import numpy as np
 import torch
-
-from collections import defaultdict
-from typing import Any, Dict, List, Optional, Union
-from ai_traineree import to_list
 from ai_traineree.types import BufferState
 
+from .experience import Experience
+
 # *Note*: Below these classes are additional imports to keep things backward compatible and easier to import.
-
-
-class Experience:
-    """
-    Data type used to store experiences in experience buffers.
-    """
-
-    common_keys = ['state', 'action', 'reward', 'next_state', 'done']
-    extra_keys = ['advantage', 'logprob', 'value', 'priority', 'index', 'weight', 'state_idx', 'next_state_idx']
-    whitelist = common_keys + extra_keys
-
-    def __init__(self, **kwargs):
-        self.data = {}
-
-        for (key, value) in kwargs.items():
-            if key in Experience.whitelist:
-                self.data[key] = value
-                self.__dict__[key] = value  # TODO: Delete after checking that everything is updated
-
-    def __eq__(self, o: object) -> bool:
-        return isinstance(o, Experience) and self.data == o.data
-
-    def get_dict(self, serialize=False) -> Dict[str, Any]:
-        if serialize:
-            return {k: to_list(v) for (k, v) in self.data.items()}
-        return self.data
 
 
 class BufferBase(abc.ABC):
