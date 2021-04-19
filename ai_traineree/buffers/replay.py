@@ -86,7 +86,7 @@ class ReplayBuffer(BufferBase):
     def from_state(state: BufferState):
         if state.type != ReplayBuffer.type:
             raise ValueError(f"Can only populate own type. '{ReplayBuffer.type}' != '{state.type}'")
-        buffer = ReplayBuffer(batch_size=state.batch_size, buffer_size=state.buffer_size)
+        buffer = ReplayBuffer(batch_size=int(state.batch_size), buffer_size=int(state.buffer_size))
         if state.data:
             buffer.load_buffer(state.data)
         return buffer

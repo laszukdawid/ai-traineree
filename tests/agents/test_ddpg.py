@@ -1,8 +1,10 @@
 import copy
+import torch
 import pytest
 
 from ai_traineree.agents.ddpg import DDPGAgent
-from conftest import deterministic_interactions
+from ai_traineree.types import AgentState, BufferState, NetworkState
+from conftest import deterministic_interactions, feed_agent
 
 
 def test_ddpg_seed():
@@ -32,3 +34,135 @@ def test_ddpg_seed():
     assert any(a0 != a1 for (a0, a1) in zip(actions_0, actions_1))
     for idx, (a1, a2) in enumerate(zip(actions_1, actions_2)):
         assert a1 == pytest.approx(a2, 1e-4), f"Action mismatch on position {idx}: {a1} != {a2}"
+
+
+def test_ddpg_get_state():
+    # Assign
+    state_size, action_size = 3, 4
+    init_config = {'actor_lr': 0.1, 'critic_lr': 0.2, 'gamma': 0.6}
+    agent = DDPGAgent(state_size, action_size, device='cpu', **init_config)
+
+    # Act
+    agent_state = agent.get_state()
+
+    # Assert
+    assert isinstance(agent_state, AgentState)
+    assert agent_state.model == DDPGAgent.name
+    assert agent_state.state_space == state_size
+    assert agent_state.action_space == action_size
+    assert agent_state.config == agent._config
+    assert agent_state.config['actor_lr'] == 0.1
+    assert agent_state.config['critic_lr'] == 0.2
+    assert agent_state.config['gamma'] == 0.6
+
+    network_state = agent_state.network
+    assert isinstance(network_state, NetworkState)
+    assert {'actor', 'target_actor', 'critic', 'target_critic'} == set(network_state.net.keys())
+
+    buffer_state = agent_state.buffer
+    assert isinstance(buffer_state, BufferState)
+    assert buffer_state.type == agent.buffer.type
+    assert buffer_state.batch_size == agent.buffer.batch_size
+    assert buffer_state.buffer_size == agent.buffer.buffer_size
+
+
+def test_ddpg_get_state_compare_different_agents():
+    # Assign
+    state_size, action_size = 3, 2
+    agent_1 = DDPGAgent(state_size, action_size, device='cpu', actor_lr=0.01)
+    agent_2 = DDPGAgent(state_size, action_size, device='cpu', actor_lr=0.02)
+
+    # Act
+    state_1 = agent_1.get_state()
+    state_2 = agent_2.get_state()
+
+    # Assert
+    assert state_1 != state_2
+    assert state_1.model == state_2.model
+
+
+def test_ddpg_from_state():
+    # Assign
+    state_shape, action_size = 10, 3
+    agent = DDPGAgent(state_shape, action_size)
+    agent_state = agent.get_state()
+
+    # Act
+    new_agent = DDPGAgent.from_state(agent_state)
+
+    # Assert
+    assert id(agent) != id(new_agent)
+    # assert new_agent == agent
+    assert isinstance(new_agent, DDPGAgent)
+    assert new_agent.hparams == agent.hparams
+    assert all([torch.all(x == y) for (x, y) in zip(agent.actor.parameters(), new_agent.actor.parameters())])
+    assert all([torch.all(x == y) for (x, y) in zip(agent.critic.parameters(), new_agent.critic.parameters())])
+    assert all([torch.all(x == y) for (x, y) in zip(agent.target_actor.parameters(), new_agent.target_actor.parameters())])
+    assert all([torch.all(x == y) for (x, y) in zip(agent.target_critic.parameters(), new_agent.target_critic.parameters())])
+    assert new_agent.buffer == agent.buffer
+
+
+def test_ddpg_from_state_network_state_none():
+    # Assign
+    state_shape, action_size = 10, 3
+    agent = DDPGAgent(state_shape, action_size)
+    agent_state = agent.get_state()
+    agent_state.network = None
+
+    # Act
+    new_agent = DDPGAgent.from_state(agent_state)
+
+    # Assert
+    assert id(agent) != id(new_agent)
+    # assert new_agent == agent
+    assert isinstance(new_agent, DDPGAgent)
+    assert new_agent.hparams == agent.hparams
+    assert new_agent.buffer == agent.buffer
+
+
+def test_ddpg_from_state_buffer_state_none():
+    # Assign
+    state_shape, action_size = 10, 3
+    agent = DDPGAgent(state_shape, action_size)
+    agent_state = agent.get_state()
+    agent_state.buffer = None
+
+    # Act
+    new_agent = DDPGAgent.from_state(agent_state)
+
+    # Assert
+    assert id(agent) != id(new_agent)
+    # assert new_agent == agent
+    assert isinstance(new_agent, DDPGAgent)
+    assert new_agent.hparams == agent.hparams
+    assert all([torch.all(x == y) for (x, y) in zip(agent.actor.parameters(), new_agent.actor.parameters())])
+    assert all([torch.all(x == y) for (x, y) in zip(agent.target_actor.parameters(), new_agent.target_actor.parameters())])
+    assert all([torch.all(x == y) for (x, y) in zip(agent.critic.parameters(), new_agent.critic.parameters())])
+    assert all([torch.all(x == y) for (x, y) in zip(agent.target_critic.parameters(), new_agent.target_critic.parameters())])
+
+
+def test_ddpg_from_state_one_updated():
+    # Assign
+    state_shape, action_size = 10, 3
+    agent = DDPGAgent(state_shape, action_size)
+    feed_agent(agent, 2*agent.batch_size, discrete_action=False)  # Feed 1
+    agent_state = agent.get_state()
+    feed_agent(agent, 100, discrete_action=False)  # Feed 2 - to make different
+
+    # Act
+    new_agent = DDPGAgent.from_state(agent_state)
+
+    # Assert
+    assert id(agent) != id(new_agent)
+    # assert new_agent == agent
+    assert isinstance(new_agent, DDPGAgent)
+    assert new_agent.hparams == agent.hparams
+    assert all([torch.all(x != y) for (x, y) in zip(agent.actor.parameters(), new_agent.actor.parameters())])
+    assert all([torch.all(x != y) for (x, y) in zip(agent.target_actor.parameters(), new_agent.target_actor.parameters())])
+    assert all([torch.all(x != y) for (x, y) in zip(agent.critic.parameters(), new_agent.critic.parameters())])
+    assert all([torch.all(x != y) for (x, y) in zip(agent.target_critic.parameters(), new_agent.target_critic.parameters())])
+    assert new_agent.buffer != agent.buffer
+
+
+if __name__ == "__main__":
+    test_ddpg_from_state()

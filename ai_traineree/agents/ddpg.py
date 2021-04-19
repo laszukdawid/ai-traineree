@@ -1,3 +1,5 @@
+import copy
+
 import torch
 import torch.nn as nn
 
@@ -5,11 +7,12 @@ from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import hard_update, soft_update
 from ai_traineree.buffers import ReplayBuffer
+from ai_traineree.buffers.buffer_factory import BufferFactory
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.noise import GaussianNoise
 from ai_traineree.utils import to_numbers_seq, to_tensor
-from ai_traineree.types import AgentState, NetworkState
+from ai_traineree.types import AgentState, BufferState, NetworkState
 from torch.optim import Adam
 from torch.nn.functional import mse_loss
 from typing import Dict, List, Optional
@@ -28,8 +31,8 @@ class DDPGAgent(AgentBase):
         self,
         state_size: int,
         action_size: int,
-        actor_lr: float=2e-3,
-        critic_lr: float=2e-3,
+        actor_lr: float=3e-4,
+        critic_lr: float=3e-4,
         noise_scale: float=0.2,
         noise_sigma: float=0.1,
         **kwargs
@@ -40,7 +43,7 @@ class DDPGAgent(AgentBase):
         self.action_size = action_size
 
         # Reason sequence initiation.
-        hidden_layers = to_numbers_seq(self._register_param(kwargs, 'hidden_layers', (128, 128)))
+        hidden_layers = to_numbers_seq(self._register_param(kwargs, 'hidden_layers', (64, 64)))
         self.actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers, gate_out=torch.tanh).to(self.device)
         self.critic = CriticBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
         self.target_actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers, gate_out=torch.tanh).to(self.device)
@@ -98,6 +101,13 @@ class DDPGAgent(AgentBase):
         else:
             self._loss_actor = value
             self._loss_critic = value
+
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) \
+            and self._config == o._config \
+            and self.buffer == o.buffer \
+            and self.get_network_state() == o.get_network_state()
+
 
     @torch.no_grad()
     def act(self, obs, noise: float=0.0) -> List[float]:
@@ -204,19 +214,41 @@ class DDPGAgent(AgentBase):
                     data_logger.create_histogram(f"critic/layer_bias_{idx}", layer.bias, step)
 
     def get_state(self) -> AgentState:
-        net = dict(
-            actor=self.actor.state_dict(), target_actor=self.target_actor.state_dict(),
-            critic=self.critic.state_dict(), target_critic=self.target_critic.state_dict(),
-        )
-        network_state: NetworkState = NetworkState(net=net)
         return AgentState(
             model=self.name,
             state_space=self.state_size,
             action_space=self.action_size,
             config=self._config,
-            buffer=self.buffer.get_state(),
-            network=network_state
+            buffer=copy.deepcopy(self.buffer.get_state()),
+            network=copy.deepcopy(self.get_network_state()),
         )
+
+    def get_network_state(self) -> NetworkState:
+        net = dict(
+            actor=self.actor.state_dict(),
+            target_actor=self.target_actor.state_dict(),
+            critic=self.critic.state_dict(),
+            target_critic=self.target_critic.state_dict(),
+        )
+        return NetworkState(net=net)
+
+    @staticmethod
+    def from_state(state: AgentState) -> AgentBase:
+        agent = DDPGAgent(state_size=state.state_space, action_size=state.action_space, **state.config)
+        if state.network is not None:
+            agent.set_network(state.network)
+        if state.buffer is not None:
+            agent.set_buffer(state.buffer)
+        return agent
+
+    def set_buffer(self, buffer_state: BufferState) -> None:
+        self.buffer = BufferFactory.from_state(buffer_state)
+
+    def set_network(self, network_state: NetworkState) -> None:
+        self.actor.load_state_dict(copy.deepcopy(network_state.net['actor']))
+        self.target_actor.load_state_dict(network_state.net['target_actor'])
+        self.critic.load_state_dict(network_state.net['critic'])
+        self.target_critic.load_state_dict(network_state.net['target_critic'])
 
     def save_state(self, path: str) -> None:
         agent_state = self.get_state()

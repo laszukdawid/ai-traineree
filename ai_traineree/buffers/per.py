@@ -150,7 +150,7 @@ class PERBuffer(BufferBase):
     def from_state(state: BufferState):
         if state.type != PERBuffer.type:
             raise ValueError(f"Can only populate own type. '{PERBuffer.type}' != '{state.type}'")
-        buffer = PERBuffer(batch_size=state.batch_size, buffer_size=state.buffer_size)
+        buffer = PERBuffer(batch_size=int(state.batch_size), buffer_size=int(state.buffer_size))
 
         # TODO: Populate whole tree
         if state.data:

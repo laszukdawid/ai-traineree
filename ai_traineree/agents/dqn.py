@@ -44,6 +44,7 @@ class DQNAgent(AgentBase):
         """Initiates the DQN agent.
 
         Parameters:
+            hidden_layers: (default: (64, 64) ) Tuple defining hidden dimensions in fully connected nets.
             lr: (default: 1e-3) learning rate
             gamma: (default: 0.99) discount factor
             tau: (default: 0.002) soft-copy factor
@@ -133,7 +134,7 @@ class DQNAgent(AgentBase):
             state: S(t)
             action: A(t)
             reward: R(t)
-            nexxt_state: S(t+1)
+            next_state: S(t+1)
             done: (bool) Whether the state is terminal.
 
         """
