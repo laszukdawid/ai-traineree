@@ -61,7 +61,7 @@ class DQNAgent(AgentBase):
         super().__init__(**kwargs)
 
         self.device = self._register_param(kwargs, "device", DEVICE, update=True)
-        # TODO: All this should be condenced with some structure, e.g. gym spaces
+        # TODO: All this should be condensed with some structure, e.g. gym spaces
         self.input_shape: Sequence[int] = input_shape if not isinstance(input_shape, int) else (input_shape,)
         self.state_size: int = self.input_shape[0]
         self.output_shape: Sequence[int] = output_shape if not isinstance(output_shape, int) else (output_shape,)

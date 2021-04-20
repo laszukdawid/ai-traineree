@@ -10,13 +10,14 @@ class AgentFactory:
 
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
-        if state.model == DQNAgent.name:
+        norm_model = state.model.upper()
+        if norm_model == DQNAgent.name.upper():
             return DQNAgent.from_state(state)
-        elif state.model == PPOAgent.name:
+        elif norm_model == PPOAgent.name.upper():
             return PPOAgent.from_state(state)
-        elif state.model == DDPGAgent.name:
+        elif norm_model == DDPGAgent.name.upper():
             return DDPGAgent.from_state(state)
-        elif state.model.upper() == RainbowAgent.name.upper():
+        elif norm_model == RainbowAgent.name.upper():
             return RainbowAgent.from_state(state)
         else:
             raise ValueError(f"Agent state contains unsupported model type: {state.model}")

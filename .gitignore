@@ -4,7 +4,8 @@ ai_traineree.egg-info/
 /gifs
 /run*
 /htmlcov
-/.vscode
+.vscode/
+.idea/
 
 .venv/
 __pycache__/
