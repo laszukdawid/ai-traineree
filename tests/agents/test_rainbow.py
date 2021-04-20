@@ -1,17 +1,20 @@
 import copy
+import torch
+
 import mock
 import pytest
 
 from ai_traineree.networks.heads import RainbowNet
-from ai_traineree.agents.rainbow import RainbowAgent as Agent
-from conftest import deterministic_interactions, fake_step
+from ai_traineree.agents.rainbow import RainbowAgent
+from ai_traineree.types import AgentState, BufferState, NetworkState
+from conftest import deterministic_interactions, fake_step, feed_agent
 from unittest.mock import MagicMock
 
 
-def RainbowAgent(*args, **kwargs):
-    """Monkey patch to make sure all RainbowAgents are running on cpu."""
-    kwargs['device'] = 'cpu'
-    return Agent(*args, **kwargs)
+#def RainbowAgent(*args, **kwargs):
+#    """Monkey patch to make sure all RainbowAgents are running on cpu."""
+#    kwargs['device'] = 'cpu'
+#    return Agent(*args, **kwargs)
 
 
 def test_rainbow_init_fail_without_state_action_dim():
@@ -66,7 +69,7 @@ def test_rainbow_seed():
 
 def test_rainbow_set_loss():
     # Assign
-    agent = RainbowAgent(1, 1)
+    agent = RainbowAgent(1, 1, device='cpu')
     new_loss = 1
     assert agent.loss == {'loss': float('inf')} # Check default
 
@@ -83,7 +86,7 @@ def test_rainbow_warm_up(mock_soft_update):
     # Assign
     warm_up = 10
     # Update will commence after batch is available and on (iter % update_freq) == 0
-    agent = RainbowAgent(1, 1, warm_up=warm_up, batch_size=1, update_freq=1)
+    agent = RainbowAgent(1, 1, device='cpu', warm_up=warm_up, batch_size=1, update_freq=1)
     agent.learn = MagicMock()
 
     # Act & assert
@@ -102,7 +105,7 @@ def test_rainbow_warm_up(mock_soft_update):
 @mock.patch("ai_traineree.loggers.DataLogger")
 def test_rainbow_log_metrics(mock_data_logger):
     # Assign
-    agent = RainbowAgent(1, 1)
+    agent = RainbowAgent(1, 1, device='cpu')
     step = 10
     agent.loss = 1
 
@@ -118,7 +121,7 @@ def test_rainbow_log_metrics(mock_data_logger):
 @mock.patch("ai_traineree.loggers.DataLogger")
 def test_rainbow_log_metrics_full_log(mock_data_logger):
     # Assign
-    agent = RainbowAgent(1, 1, hidden_layers=(10,))  # Only 2 layers ((I, H) -> (H, O)
+    agent = RainbowAgent(1, 1, device='cpu', hidden_layers=(10,))  # Only 2 layers ((I, H) -> (H, O)
     step = 10
     agent.loss = 1
 
@@ -137,7 +140,7 @@ def test_rainbow_log_metrics_full_log(mock_data_logger):
 def test_rainbow_log_metrics_full_log_dist_prob(mock_data_logger):
     """Acting on a state means that there's a prob dist created for each actions."""
     # Assign
-    agent = RainbowAgent(1, 1, hidden_layers=(10,))  # Only 2 layers ((I, H) -> (H, O)
+    agent = RainbowAgent(1, 1, device='cpu', hidden_layers=(10,))  # Only 2 layers ((I, H) -> (H, O)
     step = 10
     agent.loss = 1
 
@@ -156,7 +159,7 @@ def test_rainbow_log_metrics_full_log_dist_prob(mock_data_logger):
 @mock.patch("torch.save")
 def test_rainbow_save_state(mock_torch_save):
     # Assign
-    agent = RainbowAgent(1, 1)
+    agent = RainbowAgent(1, 1, device='cpu')
     fname = "/tmp/my_path_is_better_than_yours"
 
     # Act
@@ -170,7 +173,7 @@ def test_rainbow_save_state(mock_torch_save):
 @mock.patch("torch.load")
 def test_rainbow_load_state(mock_torch_load):
     # Assign
-    agent = RainbowAgent(2, 2)
+    agent = RainbowAgent(2, 2, device='cpu')
     agent.net = MagicMock()
     agent.target_net = MagicMock()
     mock_torch_load.return_value = {
@@ -190,5 +193,89 @@ def test_rainbow_load_state(mock_torch_load):
     assert agent._config == dict(batch_size=10, n_steps=2)
 
 
-if __name__ == "__main__":
-    test_rainbow_set_loss()
+def test_rainbow_get_state():
+    # Assign
+    state_size, action_size = 3, 4
+    init_config = {'lr': 0.1, 'gamma': 0.6}
+    agent = RainbowAgent(state_size, action_size, device='cpu', **init_config)
+
+    # Act
+    agent_state = agent.get_state()
+
+    # Assert
+    assert isinstance(agent_state, AgentState)
+    assert agent_state.model == RainbowAgent.name
+    assert agent_state.state_space == state_size
+    assert agent_state.action_space == action_size
+    assert agent_state.config == agent._config
+    assert agent_state.config['lr'] == 0.1
+    assert agent_state.config['gamma'] == 0.6
+
+    network_state = agent_state.network
+    assert isinstance(network_state, NetworkState)
+    assert {'net', 'target_net'} == set(network_state.net.keys())
+
+    buffer_state = agent_state.buffer
+    assert isinstance(buffer_state, BufferState)
+    assert buffer_state.type == agent.buffer.type
+    assert buffer_state.batch_size == agent.buffer.batch_size
+    assert buffer_state.buffer_size == agent.buffer.buffer_size
+
+
+def test_rainbow_get_state_compare_different_agents():
+    # Assign
+    state_size, action_size = 3, 2
+    agent_1 = RainbowAgent(state_size, action_size, device='cpu', n_steps=1)
+    agent_2 = RainbowAgent(state_size, action_size, device='cpu', n_steps=2)
+
+    # Act
+    state_1 = agent_1.get_state()
+    state_2 = agent_2.get_state()
+
+    # Assert
+    assert state_1 != state_2
+    assert state_1.model == state_2.model
+
+
+def test_rainbow_from_state():
+    # Assign
+    state_shape, action_size = 10, 3
+    agent = RainbowAgent(state_shape, action_size, device='cpu')
+    agent_state = agent.get_state()
+
+    # Act
+    new_agent = RainbowAgent.from_state(agent_state)
+
+    # Assert
+    assert id(agent) != id(new_agent)
+    # assert new_agent == agent
+    assert isinstance(new_agent, RainbowAgent)
+    assert new_agent.hparams == agent.hparams
+    assert all([torch.all(x == y) for (x, y) in zip(agent.net.parameters(), new_agent.net.parameters())])
+    assert all([torch.all(x == y) for (x, y) in zip(agent.target_net.parameters(), new_agent.target_net.parameters())])
+    assert new_agent.buffer == agent.buffer
+
+
+def test_rainbow_from_state_one_updated():
+    # Assign
+    state_shape, action_size = 10, 3
+    agent = RainbowAgent(state_shape, action_size, device='cpu')
+    feed_agent(agent, 2*agent.batch_size)  # Feed 1
+    agent_state = agent.get_state()
+    feed_agent(agent, 100)  # Feed 2 - to make different
+
+    # Act
+    new_agent = RainbowAgent.from_state(agent_state)
+
+    # Assert
+    assert id(agent) != id(new_agent)
+    # assert new_agent == agent
+    assert isinstance(new_agent, RainbowAgent)
+    assert new_agent.hparams == agent.hparams
+    assert any([torch.any(x != y) for (x, y) in zip(agent.net.parameters(), new_agent.net.parameters())])
+    assert any([torch.any(x != y) for (x, y) in zip(agent.target_net.parameters(), new_agent.target_net.parameters())])
+    assert new_agent.buffer != agent.buffer
+
+
+#if __name__ == "__main__":
+#    test_rainbow_set_loss()
