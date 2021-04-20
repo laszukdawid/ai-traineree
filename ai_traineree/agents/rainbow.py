@@ -1,3 +1,4 @@
+import copy
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -6,8 +7,10 @@ from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import soft_update
 from ai_traineree.buffers import NStepBuffer, PERBuffer
+from ai_traineree.buffers.buffer_factory import BufferFactory
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.heads import RainbowNet
+from ai_traineree.types import AgentState, BufferState, NetworkState
 from ai_traineree.utils import to_numbers_seq, to_tensor
 from typing import Callable, Dict, List, Optional, Sequence, Union
 
@@ -83,7 +86,7 @@ class RainbowAgent(AgentBase):
 
         v_min = float(self._register_param(kwargs, "v_min", -10))
         v_max = float(self._register_param(kwargs, "v_max", 10))
-        self.num_atoms = int(self._register_param(kwargs, "num_atoms", 21))
+        self.num_atoms = int(self._register_param(kwargs, "num_atoms", 21, drop=True))
         self.z_atoms = torch.linspace(v_min, v_max, self.num_atoms, device=self.device)
         self.z_delta = self.z_atoms[1] - self.z_atoms[0]
 
@@ -259,12 +262,35 @@ class RainbowAgent(AgentBase):
                 if hasattr(layer, "bias") and layer.bias is not None:
                     data_logger.create_histogram(f"advantage_net/layer_bias_{idx}", layer.bias.cpu(), step)
 
-    def get_state(self):
-        return dict(
-            net=self.net.state_dict(),
-            target_net=self.target_net.state_dict(),
+    def get_state(self) -> AgentState:
+        """Provides agent's internal state."""
+        return AgentState(
+            model=self.name,
+            state_space=self.state_size,
+            action_space=self.action_size,
             config=self._config,
+            buffer=copy.deepcopy(self.buffer.get_state()),
+            network=copy.deepcopy(self.get_network_state()),
         )
+
+    def get_network_state(self) -> NetworkState:
+        return NetworkState(net=dict(net=self.net.state_dict(), target_net=self.target_net.state_dict()))
+
+    @staticmethod
+    def from_state(state: AgentState) -> AgentBase:
+        agent = RainbowAgent(state.state_space, state.action_space, **state.config)
+        if state.network is not None:
+            agent.set_network(state.network)
+        if state.buffer is not None:
+            agent.set_buffer(state.buffer)
+        return agent
+
+    def set_network(self, network_state: NetworkState) -> None:
+        self.net.load_state_dict(network_state.net['net'])
+        self.target_net.load_state_dict(network_state.net['target_net'])
+
+    def set_buffer(self, buffer_state: BufferState) -> None:
+        self.buffer = BufferFactory.from_state(buffer_state)
 
     def save_state(self, path: str) -> None:
         """Saves agent's state into a file.
@@ -313,3 +339,9 @@ class RainbowAgent(AgentBase):
         with open(path, 'r') as f:
             buffer_dump = json.load(f)
         self.buffer.load_buffer(buffer_dump)
+
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) \
+               and self._config == o._config \
+               and self.buffer == o.buffer \
+               and self.get_network_state() == o.get_network_state()
