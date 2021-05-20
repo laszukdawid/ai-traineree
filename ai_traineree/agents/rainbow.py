@@ -1,8 +1,9 @@
 import copy
+from typing import Callable, Dict, List, Optional, Sequence, Union
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
-
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import soft_update
@@ -12,7 +13,6 @@ from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.heads import RainbowNet
 from ai_traineree.types import AgentState, BufferState, NetworkState
 from ai_traineree.utils import to_numbers_seq, to_tensor
-from typing import Callable, Dict, List, Optional, Sequence, Union
 
 
 class RainbowAgent(AgentBase):
@@ -55,9 +55,21 @@ class RainbowAgent(AgentBase):
             output_shape (tuple of ints): Most likely that's you *action* shape.
             pre_network_fn (function that takes input_shape and returns network):
                 Used to preprocess state before it is used in the value- and advantage-function in the dueling nets.
+            hidden_layers (tuple of ints): Shape and sizes of fully connected networks used. Default: (100, 100).
             lr (default: 1e-3): Learning rate value.
-            gamma (default: 0.99): Discount factor.
-            tau (default: 0.002): Soft-copy factor.
+            gamma (float): Discount factor. Default: 0.99.
+            tau (float): Soft-copy factor. Default: 0.002.
+            update_freq (int): Number of steps between each learning step. Default 1.
+            batch_size (int): Number of samples to use at each learning step. Default: 80.
+            buffer_size (int): Number of most recent samples to keep in memory for learning. Default: 1e5.
+            warm_up (int): Number of samples to observe before starting any learning step. Default: 0.
+            number_updates (int): How many times to use learning step in the learning phase. Default: 1.
+            max_grad_norm (float): Maximum norm of the gradient used in learning. Default: 10.
+            using_double_q (bool): Whether to use Double Q Learning network. Default: True.
+            n_steps (int): Number of lookahead steps when estimating reward. See :ref:`NStepBuffer`. Default: 3.
+            v_min (float): Lower bound for distributional value V. Default: -10.
+            v_max (float): Upper bound for distributional value V. Default: 10.
+            num_atoms (int): Number of atoms (discrete states) in the value V distribution. Default: 21.
 
         """
         super().__init__(**kwargs)
@@ -278,7 +290,9 @@ class RainbowAgent(AgentBase):
 
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
-        agent = RainbowAgent(state.state_space, state.action_space, **state.config)
+        config = copy.copy(state.config)
+        config.update({'input_shape': state.state_space, 'output_shape': state.action_space})
+        agent = RainbowAgent(**config)
         if state.network is not None:
             agent.set_network(state.network)
         if state.buffer is not None:

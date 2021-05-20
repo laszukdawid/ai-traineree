@@ -106,7 +106,6 @@ Supports using Tensorboard (via PyTorch's [SummaryWriter](https://pytorch.org/do
 
 | Name | Progress |
 |------|----------|
-| Pip package | Not started |
 | CD | Not started |
 | More multi agent methods | Research |
 | Test coverage > 80% | Tested ~40%, Covered 85% |

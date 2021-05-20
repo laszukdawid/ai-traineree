@@ -1,9 +1,10 @@
 import copy
+from typing import Callable, Dict, Optional, Sequence, Type, Union
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import soft_update
@@ -14,7 +15,6 @@ from ai_traineree.networks import NetworkType, NetworkTypeClass
 from ai_traineree.networks.heads import DuelingNet
 from ai_traineree.types import AgentState, BufferState, NetworkState
 from ai_traineree.utils import to_numbers_seq, to_tensor
-from typing import Callable, Dict, Optional, Type, Sequence, Union
 
 
 class DQNAgent(AgentBase):
@@ -25,7 +25,7 @@ class DQNAgent(AgentBase):
     Learning is also delayed by slowly copying to target nets (via tau parameter).
     Although NStep is implemented the default value is 1-step reward.
 
-    There is also a specific implemntation of the DQN called the Rainbow which differs
+    There is also a specific implementation of the DQN called the Rainbow which differs
     to this implementation by working on the discrete space projection of the Q(s,a) function.
     """
 
@@ -45,17 +45,17 @@ class DQNAgent(AgentBase):
 
         Parameters:
             hidden_layers: (default: (64, 64) ) Tuple defining hidden dimensions in fully connected nets.
-            lr: (default: 1e-3) learning rate
-            gamma: (default: 0.99) discount factor
-            tau: (default: 0.002) soft-copy factor
-            update_freq: (default: 1)
-            batch_size: (default: 32)
-            buffer_size: (default: 1e5)
-            warm_up: (default: 0)
-            number_updates: (default: 1)
-            max_grad_norm: (default: 10)
-            using_double_q: (default: True) Whether to use double Q value
-            n_steps: (int: 1) N steps reward lookahead
+            lr (default: 1e-3): Learning rate value.
+            gamma (float): Discount factor. Default: 0.99.
+            tau (float): Soft-copy factor. Default: 0.002.
+            update_freq (int): Number of steps between each learning step. Default 1.
+            batch_size (int): Number of samples to use at each learning step. Default: 80.
+            buffer_size (int): Number of most recent samples to keep in memory for learning. Default: 1e5.
+            warm_up (int): Number of samples to observe before starting any learning step. Default: 0.
+            number_updates (int): How many times to use learning step in the learning phase. Default: 1.
+            max_grad_norm (float): Maximum norm of the gradient used in learning. Default: 10.
+            using_double_q (bool): Whether to use Double Q Learning network. Default: True.
+            n_steps (int): Number of lookahead steps when estimating reward. See :ref:`NStepBuffer`. Default: 3.
 
         """
         super().__init__(**kwargs)
@@ -253,7 +253,9 @@ class DQNAgent(AgentBase):
 
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
-        agent = DQNAgent(state.state_space, state.action_space, **state.config)
+        config = copy.copy(state.config)
+        config.update({'input_shape': state.state_space, 'output_shape': state.action_space})
+        agent = DQNAgent(**config)
         if state.network is not None:
             agent.set_network(state.network)
         if state.buffer is not None:

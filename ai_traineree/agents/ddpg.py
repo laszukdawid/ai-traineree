@@ -1,8 +1,8 @@
 import copy
+from typing import Dict, List, Optional
 
 import torch
 import torch.nn as nn
-
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import hard_update, soft_update
@@ -11,11 +11,10 @@ from ai_traineree.buffers.buffer_factory import BufferFactory
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.noise import GaussianNoise
-from ai_traineree.utils import to_numbers_seq, to_tensor
 from ai_traineree.types import AgentState, BufferState, NetworkState
-from torch.optim import Adam
+from ai_traineree.utils import to_numbers_seq, to_tensor
 from torch.nn.functional import mse_loss
-from typing import Dict, List, Optional
+from torch.optim import Adam
 
 
 class DDPGAgent(AgentBase):
@@ -234,7 +233,9 @@ class DDPGAgent(AgentBase):
 
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
-        agent = DDPGAgent(state_size=state.state_space, action_size=state.action_space, **state.config)
+        config = copy.copy(state.config)
+        config.update({'state_size': state.state_space, 'action_size': state.action_space})
+        agent = DDPGAgent(**config)
         if state.network is not None:
             agent.set_network(state.network)
         if state.buffer is not None:

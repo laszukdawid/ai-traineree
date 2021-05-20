@@ -1,10 +1,11 @@
 import copy
 import itertools
+from typing import Dict, Tuple
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import compute_gae, normalize, revert_norm_returns
@@ -12,10 +13,9 @@ from ai_traineree.buffers import RolloutBuffer
 from ai_traineree.buffers.buffer_factory import BufferFactory
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody
-from ai_traineree.policies import MultivariateGaussianPolicySimple, MultivariateGaussianPolicy
+from ai_traineree.policies import MultivariateGaussianPolicy, MultivariateGaussianPolicySimple
 from ai_traineree.types.state import AgentState, BufferState, NetworkState
 from ai_traineree.utils import to_numbers_seq, to_tensor
-from typing import Dict, Tuple
 
 
 class PPOAgent(AgentBase):
@@ -345,7 +345,9 @@ class PPOAgent(AgentBase):
 
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
-        agent = PPOAgent(state.state_space, state.action_space, **state.config)
+        config = copy.copy(state.config)
+        config.update({'state_size': state.state_space, 'action_size': state.action_space})
+        agent = PPOAgent(**config)
         if state.network is not None:
             agent.set_network(state.network)
         if state.buffer is not None:
