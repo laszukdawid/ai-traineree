@@ -4,14 +4,14 @@ import random
 from ai_traineree.multi_agent.maddpg import MADDPGAgent
 from ai_traineree.multiagent_env_runner import MultiAgentCycleEnvRunner
 from ai_traineree.tasks import PettingZooTask
-from pettingzoo.sisl import multiwalker_v6
+from pettingzoo.sisl import multiwalker_v7
 
 # NOTE: Some of these tests use `test_task` and `test_agent` which are real instances.
 #       This is partially to make sure that the tricky part is covered, and not hid
 #       by aggressive mocking. The other part, however, is the burden of keeping env mocks.
 #       This results in unnecessary performance hit. A lightweight env would be nice.
 
-env = multiwalker_v6.env()
+env = multiwalker_v7.env()
 test_task = PettingZooTask(env)
 test_task.reset()
 state_size = int(test_task.state_size[0])
