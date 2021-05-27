@@ -44,8 +44,8 @@ class DQNAgent(AgentBase):
         """Initiates the DQN agent.
 
         Parameters:
-            hidden_layers: (default: (64, 64) ) Tuple defining hidden dimensions in fully connected nets.
-            lr (default: 1e-3): Learning rate value.
+            hidden_layers (tuple of ints): Tuple defining hidden dimensions in fully connected nets. Default: (64, 64).
+            lr (float): Learning rate value. Default: 3e-4.
             gamma (float): Discount factor. Default: 0.99.
             tau (float): Soft-copy factor. Default: 0.002.
             update_freq (int): Number of steps between each learning step. Default 1.

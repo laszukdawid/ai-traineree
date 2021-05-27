@@ -1,7 +1,8 @@
+from typing import Dict, List
+
 import numpy as np
 import torch
 import torch.nn as nn
-
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import hard_update, soft_update
@@ -11,9 +12,8 @@ from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import DoubleCritic
 from ai_traineree.noise import OUProcess
 from ai_traineree.utils import to_numbers_seq, to_tensor
-from torch.optim import AdamW
 from torch.nn.functional import mse_loss
-from typing import Dict, List
+from torch.optim import AdamW
 
 
 class TD3Agent(AgentBase):
@@ -26,14 +26,36 @@ class TD3Agent(AgentBase):
 
     name = "TD3"
 
-    def __init__(
-        self, state_size: int, action_size: int,
-        actor_lr: float=1e-3, critic_lr: float=1e-3,
-        noise_scale: float=0.2, noise_sigma: float=0.1,
-        device=None, **kwargs
-    ):
+    def __init__(self, state_size: int, action_size: int, noise_scale: float=0.2, noise_sigma: float=0.1, **kwargs):
+        """
+        Parameters:
+            state_size (int): Number of input dimensions.
+            action_size (int): Number of output dimensions
+            noise_scale (float): Added noise amplitude. Default: 0.2.
+            noise_sigma (float): Added noise variance. Default: 0.1.
+
+        Keyword parameters:
+            hidden_layers (tuple of ints): Tuple defining hidden dimensions in fully connected nets. Default: (128, 128).
+            actor_lr (float): Learning rate for the actor (policy). Default: 0.003.
+            critic_lr (float): Learning rate for the critic (value function). Default: 0.003.
+            gamma (float): Discount value. Default: 0.99.
+            tau (float): Soft-copy factor. Default: 0.02.
+            actor_hidden_layers (tuple of ints): Shape of network for actor. Default: `hideen_layers`.
+            critic_hidden_layers (tuple of ints): Shape of network for critic. Default: `hideen_layers`.
+            max_grad_norm_actor (float) Maximum norm value for actor gradient. Default: 100.
+            max_grad_norm_critic (float): Maximum norm value for critic gradient. Default: 100.
+            batch_size (int): Number of samples used in learning. Default: 64.
+            buffer_size (int): Maximum number of samples to store. Default: 1e6.
+            warm_up (int): Number of samples to observe before starting any learning step. Default: 0.
+            update_freq (int): Number of steps between each learning step. Default 1.
+            number_updates (int): How many times to use learning step in the learning phase. Default: 1.
+            action_min (float): Minimum returned action value. Default: -1.
+            action_max (float): Maximum returned action value. Default: 1.
+            action_scale (float): Multipler value for action. Default: 1.
+
+        """
         super().__init__(**kwargs)
-        self.device = device if device is not None else DEVICE
+        self.device = self._register_param(kwargs, "device", DEVICE)  # Default device is CUDA if available
 
         # Reason sequence initiation.
         self.state_size = state_size
@@ -54,10 +76,12 @@ class TD3Agent(AgentBase):
         hard_update(self.target_critic, self.critic)
 
         # Optimization sequence initiation.
+        actor_lr = float(self._register_param(kwargs, 'actor_lr', 3e-3))
+        critic_lr = float(self._register_param(kwargs, 'critic_lr', 3e-3))
         self.actor_optimizer = AdamW(self.actor.parameters(), lr=actor_lr)
         self.critic_optimizer = AdamW(self.critic.parameters(), lr=critic_lr)
-        self.max_grad_norm_actor: float = float(kwargs.get("max_grad_norm_actor", 10.0))
-        self.max_grad_norm_critic: float = float(kwargs.get("max_grad_norm_critic", 10.0))
+        self.max_grad_norm_actor: float = float(kwargs.get("max_grad_norm_actor", 100))
+        self.max_grad_norm_critic: float = float(kwargs.get("max_grad_norm_critic", 100))
         self.action_min = float(self._register_param(kwargs, 'action_min', -1.))
         self.action_max = float(self._register_param(kwargs, 'action_max', 1.))
         self.action_scale = float(self._register_param(kwargs, 'action_scale', 1.))
@@ -65,7 +89,7 @@ class TD3Agent(AgentBase):
         self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))
         self.tau = float(self._register_param(kwargs, 'tau', 0.02))
         self.batch_size = int(self._register_param(kwargs, 'batch_size', 64))
-        self.buffer_size = int(self._register_param(kwargs, 'buffer_size', int(1e5)))
+        self.buffer_size = int(self._register_param(kwargs, 'buffer_size', int(1e6)))
         self.buffer = ReplayBuffer(self.batch_size, self.buffer_size)
 
         self.warm_up = int(self._register_param(kwargs, 'warm_up', 0))

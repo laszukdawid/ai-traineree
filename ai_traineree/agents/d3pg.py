@@ -1,8 +1,9 @@
 import itertools
+from typing import Dict, List, Sequence
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import hard_update, soft_update
@@ -10,10 +11,9 @@ from ai_traineree.buffers import NStepBuffer, PERBuffer
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import CategoricalNet
-from ai_traineree.policies import MultivariateGaussianPolicySimple, MultivariateGaussianPolicy
+from ai_traineree.policies import MultivariateGaussianPolicy, MultivariateGaussianPolicySimple
 from ai_traineree.utils import to_numbers_seq, to_tensor
 from torch.optim import Adam
-from typing import Dict, List, Sequence
 
 
 class D3PGAgent(AgentBase):
@@ -33,6 +33,34 @@ class D3PGAgent(AgentBase):
     name = "D3PG"
 
     def __init__(self, state_size: int, action_size: int, hidden_layers: Sequence[int]=(128, 128), **kwargs):
+        """
+        Parameters:
+            state_size (int): Number of input dimensions.
+            action_size (int): Number of output dimensions
+            hidden_layers (tuple of ints): Tuple defining hidden dimensions in fully connected nets. Default: (128, 128).
+
+        Keyword parameters:
+            gamma (float): Discount value. Default: 0.99.
+            tau (float): Soft-copy factor. Default: 0.02.
+            actor_lr (float): Learning rate for the actor (policy). Default: 0.0003.
+            critic_lr (float): Learning rate for the critic (value function). Default: 0.0003.
+            actor_hidden_layers (tuple of ints): Shape of network for actor. Default: `hideen_layers`.
+            critic_hidden_layers (tuple of ints): Shape of network for critic. Default: `hideen_layers`.
+            max_grad_norm_actor (float) Maximum norm value for actor gradient. Default: 100.
+            max_grad_norm_critic (float): Maximum norm value for critic gradient. Default: 100.
+            num_atoms (int): Number of discrete values for the value distribution. Default: 51.
+            v_min (float): Value distribution minimum (left most) value. Default: -10.
+            v_max (float): Value distribution maximum (right most) value. Default: 10.
+            n_steps (int): Number of steps (N-steps) for the TD. Defualt: 3.
+            batch_size (int): Number of samples used in learning. Default: 64.
+            buffer_size (int): Maximum number of samples to store. Default: 1e6.
+            warm_up (int): Number of samples to observe before starting any learning step. Default: 0.
+            update_freq (int): Number of steps between each learning step. Default 1.
+            action_min (float): Minimum returned action value. Default: -1.
+            action_max (float): Maximum returned action value. Default: 1.
+            action_scale (float): Multipler value for action. Default: 1.
+
+        """
         super().__init__(**kwargs)
         self.device = self._register_param(kwargs, "device", DEVICE)
         self.state_size = state_size
@@ -106,8 +134,8 @@ class D3PGAgent(AgentBase):
         self.actor_params = list(self.actor.parameters()) + list(self.policy.parameters())
         self.actor_optimizer = Adam(self.actor_params, lr=self.actor_lr)
         self.critic_optimizer = Adam(self.critic.parameters(), lr=self.critic_lr)
-        self.max_grad_norm_actor = float(self._register_param(kwargs, "max_grad_norm_actor", 50.0))
-        self.max_grad_norm_critic = float(self._register_param(kwargs, "max_grad_norm_critic", 50.0))
+        self.max_grad_norm_actor = float(self._register_param(kwargs, "max_grad_norm_actor", 100))
+        self.max_grad_norm_critic = float(self._register_param(kwargs, "max_grad_norm_critic", 100))
 
         # Breath, my child.
         self.iteration = 0

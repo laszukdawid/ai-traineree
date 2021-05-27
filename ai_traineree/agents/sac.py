@@ -1,9 +1,11 @@
 import itertools
 import operator
+from functools import reduce
+from typing import Dict, List, Tuple, Union
+
 import numpy as np
 import torch
 import torch.nn as nn
-
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import hard_update, soft_update
@@ -14,9 +16,7 @@ from ai_traineree.networks.heads import DoubleCritic
 from ai_traineree.policies import GaussianPolicy, MultivariateGaussianPolicySimple
 from ai_traineree.types import FeatureType
 from ai_traineree.utils import to_numbers_seq, to_tensor
-from functools import reduce
-from torch import optim, Tensor
-from typing import Dict, List, Tuple, Union
+from torch import Tensor, optim
 
 
 class SACAgent(AgentBase):
@@ -87,8 +87,10 @@ class SACAgent(AgentBase):
             self.policy = GaussianPolicy(actor_hidden_layers[-1], self.action_size, out_scale=self.action_scale, device=self.device)
             self.actor = ActorBody(self.state_size, actor_hidden_layers[-1], hidden_layers=actor_hidden_layers[:-1], device=self.device)
 
-        self.double_critic = DoubleCritic(self.in_features, self.action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device)
-        self.target_double_critic = DoubleCritic(self.in_features, self.action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device)
+        self.double_critic = DoubleCritic(
+            self.in_features, self.action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device)
+        self.target_double_critic = DoubleCritic(
+            self.in_features, self.action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device)
 
         # Target sequence initiation
         hard_update(self.target_double_critic, self.double_critic)

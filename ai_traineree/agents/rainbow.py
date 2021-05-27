@@ -356,6 +356,6 @@ class RainbowAgent(AgentBase):
 
     def __eq__(self, o: object) -> bool:
         return super().__eq__(o) \
-               and self._config == o._config \
-               and self.buffer == o.buffer \
-               and self.get_network_state() == o.get_network_state()
+            and self._config == o._config \
+            and self.buffer == o.buffer \
+            and self.get_network_state() == o.get_network_state()

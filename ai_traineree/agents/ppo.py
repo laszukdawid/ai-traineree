@@ -34,26 +34,30 @@ class PPOAgent(AgentBase):
     def __init__(self, state_size: int, action_size: int, **kwargs):
         """
         Parameters:
-            state_size: Number of input dimensions.
-            action_size: Number of output dimensions
-            hidden_layers: (default: (100, 100) ) Tuple defining hidden dimensions in fully connected nets.
-            is_discrete: (default: False) Whether return discrete action.
-            kl_div: (default: False) Whether to use KL divergence in loss.
-            using_gae: (default: True) Whether to use General Advantage Estimator.
-            gae_lambda: (default: 0.96) Value of \lambda in GAE.
-            actor_lr: (default: 0.0003) Learning rate for the actor (policy).
-            critic_lr: (default: 0.001) Learning rate for the critic (value function).
-            actor_betas: (default: (0.9, 0.999) Adam's betas for actor optimizer.
-            critic_betas: (default: (0.9, 0.999) Adam's betas for critic optimizer.
-            gamma: (default: 0.99) Discount value.
-            ppo_ratio_clip: (default: 0.25) Policy ratio clipping value.
-            num_epochs: (default: 1) Number of time to learn from samples.
-            rollout_length: (default: 48) Number of actions to take before update.
-            batch_size: (default: rollout_length) Number of samples used in learning.
-            actor_number_updates: (default: 10) Number of times policy losses are propagated.
-            critic_number_updates: (default: 10) Number of times value losses are propagated.
-            entropy_weight: (default: 0.005) Weight of the entropy term in the loss.
-            value_loss_weight: (default: 0.005) Weight of the entropy term in the loss.
+            state_size (int): Number of input dimensions.
+            action_size (int): Number of output dimensions
+
+        Keyword parameters:
+            hidden_layers (tuple of ints): Tuple defining hidden dimensions in fully connected nets. Default: (100, 100).
+            is_discrete (bool): Whether return discrete action. Default: False.
+            kl_div (bool): Whether to use KL divergence in loss. Default: False.
+            using_gae (bool): Whether to use General Advantage Estimator. Default: True.
+            gae_lambda (float): Value of lambda in GAE. Default: 0.96.
+            actor_lr (float): Learning rate for the actor (policy). Default: 0.0003.
+            critic_lr (float): Learning rate for the critic (value function). Default: 0.001.
+            actor_betas: (tuple of two floats) Adam's betas for actor optimizer. Default: (0.9, 0.999).
+            critic_betas: (tuple of two floats) Adam's betas for critic optimizer. Default: (0.9, 0.999).
+            gamma (float): Discount value. Default: 0.99.
+            ppo_ratio_clip (float): Policy ratio clipping value. Default: 0.25.
+            num_epochs (int): Number of time to learn from samples. Default: 1.
+            rollout_length (int): Number of actions to take before update. Default: 48.
+            batch_size (int): Number of samples used in learning. Default: `rollout_length`.
+            actor_number_updates (int): Number of times policy losses are propagated. Default: 10.
+            critic_number_updates (int): Number of times value losses are propagated. Default: 10.
+            entropy_weight (float): Weight of the entropy term in the loss. Default: 0.005.
+            value_loss_weight (float): Weight of the entropy term in the loss. Default: 0.005.
+            max_grad_norm_actor (float) Maximum norm value for actor gradient. Default: 100.
+            max_grad_norm_critic (float): Maximum norm value for critic gradient. Default: 100.
 
         """
         super().__init__(**kwargs)

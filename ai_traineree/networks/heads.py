@@ -13,12 +13,12 @@ topography and at some point you'll need branching.
 Heads are "special" in that each is built on networks/brains and will likely need
 some special pipeping when attaching to your agent.
 """
+from functools import lru_cache, reduce
+from typing import Callable, List, Optional, Sequence
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-from functools import lru_cache, reduce
-from typing import Callable, Optional, List, Sequence
 from ai_traineree.networks import NetworkType, NetworkTypeClass
 from ai_traineree.networks.bodies import FcNet, NoisyNet
 
@@ -84,10 +84,8 @@ class DuelingNet(NetworkType):
     ):
         """
         Parameters:
-            input_shape (Tuple of ints):
-                Shape of the input. Even in case when input is 1D, a single item tuple is expected, e.g. (4,).
-            output_shape (Tuple of ints):
-                Shape of the output. Same as with the `input_shape`.
+            input_shape (Tuple of ints): Shape of the input. Even in case when input is 1D, a single item tuple is expected, e.g. (4,).
+            output_shape (Tuple of ints): Shape of the output. Same as with the `input_shape`.
         """
         super(DuelingNet, self).__init__()
         device = kwargs.get("device")
@@ -125,7 +123,7 @@ class CategoricalNet(NetworkType):
 
     CategoricalNet [1] learns significantly different compared to other nets here.
     For this reason it won't be suitable for simple replacement in most (current) agents.
-    Please check the Agent whether it supports. 
+    Please check the Agent whether it supports.
 
     The algorithm is used in the RainbowNet but not this particular net.
 
@@ -138,7 +136,7 @@ class CategoricalNet(NetworkType):
         v_min: float=-20.,
         v_max: float=20.,
         state_size: Optional[int]=None,
-        action_size: Optional[int]=None, 
+        action_size: Optional[int]=None,
         hidden_layers: Sequence[int]=(200, 200),
         net: Optional[NetworkType]=None,
         device: Optional[torch.device]=None,
@@ -244,21 +242,26 @@ class RainbowNet(NetworkType, nn.Module):
         self,
         input_shape: Sequence[int],
         output_shape: Sequence[int],
-        num_atoms: int,
         hidden_layers=(200, 200),
-        device=None,
         **kwargs
     ):
         """
         Parameters
-            input_shape: Shape of the single input.
-            output_shape: Shape of the expected output.
-            num_atoms: Number of atoms used in estimating distribution.
-            pre_network_fn (func):
-                A shared network that is used before *value* and *advantage* networks.
+            input_shape (tuple of ints): Shape of the single input.
+            output_shape (tuple of ints): Shape of the expected output.
+            hidden_layers (tuple of ints): Shape of fully connected networks. Default: (200, 200).
+
+        Keyword parameters:
+            num_atoms (int): Number of atoms used in estimating distribution. Default: 21.
+            v_min (float): Value distribution minimum (left most) value. Default -10.
+            v_max (float): Value distribution maximum (right most) value. Default 10.
+            noisy (bool): Whether to use Noisy version of FC networks.
+            pre_network_fn (func): A shared network that is used before *value* and *advantage* networks.
+            device (None, str or torch.device): Device where to cast the network. Can be assigned with strings, or
+                directly passing torch.device type. If `None` then it tries to use CUDA then CPU. Default: None.
         """
         super(RainbowNet, self).__init__()
-        self.device = device
+        self.device = device = kwargs.get("device", None)
 
         self.pre_network = None
         in_features = input_shape[0]
@@ -270,7 +273,7 @@ class RainbowNet(NetworkType, nn.Module):
 
         self.v_min = float(kwargs.get("v_min", -10))
         self.v_max = float(kwargs.get("v_max", 10))
-        self.num_atoms = int(kwargs.get("num_atoms", 21))
+        self.num_atoms = num_atoms = int(kwargs.get("num_atoms", 21))
         self.z_atoms = torch.linspace(self.v_min, self.v_max, self.num_atoms, device=self.device)
         self.z_delta = self.z_atoms[1] - self.z_atoms[0]
 
@@ -284,7 +287,6 @@ class RainbowNet(NetworkType, nn.Module):
 
         self.in_features = in_features if self.pre_network is None else self.pre_network.in_features
         self.out_features = out_features
-        self.num_atoms = num_atoms
         self.to(device=self.device)
 
     @lru_cache(maxsize=5)

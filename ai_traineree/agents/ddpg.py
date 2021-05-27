@@ -26,16 +26,32 @@ class DDPGAgent(AgentBase):
 
     name = "DDPG"
 
-    def __init__(
-        self,
-        state_size: int,
-        action_size: int,
-        actor_lr: float=3e-4,
-        critic_lr: float=3e-4,
-        noise_scale: float=0.2,
-        noise_sigma: float=0.1,
-        **kwargs
-    ):
+    def __init__(self, state_size: int, action_size: int, noise_scale: float=0.2, noise_sigma: float=0.1, **kwargs):
+        """
+        Parameters:
+            state_size: Number of input dimensions.
+            action_size: Number of output dimensions
+            noise_scale (float): Added noise amplitude. Default: 0.2.
+            noise_sigma (float): Added noise variance. Default: 0.1.
+
+        Keyword parameters:
+            hidden_layers (tuple of ints): Tuple defining hidden dimensions in fully connected nets. Default: (64, 64).
+            gamma (float): Discount value. Default: 0.99.
+            tau (float): Soft-copy factor. Default: 0.002.
+            actor_lr (float): Learning rate for the actor (policy). Default: 0.0003.
+            critic_lr (float): Learning rate for the critic (value function). Default: 0.0003.
+            max_grad_norm_actor (float) Maximum norm value for actor gradient. Default: 10.
+            max_grad_norm_critic (float): Maximum norm value for critic gradient. Default: 10.
+            batch_size (int): Number of samples used in learning. Default: 64.
+            buffer_size (int): Maximum number of samples to store. Default: 1e6.
+            warm_up (int): Number of samples to observe before starting any learning step. Default: 0.
+            update_freq (int): Number of steps between each learning step. Default 1.
+            number_updates (int): How many times to use learning step in the learning phase. Default: 1.
+            action_min (float): Minimum returned action value. Default: -1.
+            action_max (float): Maximum returned action value. Default: 1.
+            action_scale (float): Multipler value for action. Default: 1.
+
+        """
         super().__init__(**kwargs)
         self.device = self._register_param(kwargs, "device", DEVICE)
         self.state_size = state_size
@@ -56,8 +72,8 @@ class DDPGAgent(AgentBase):
         hard_update(self.target_critic, self.critic)
 
         # Optimization sequence initiation.
-        self.actor_lr = float(self._register_param(kwargs, 'actor_lr', actor_lr))
-        self.critic_lr = float(self._register_param(kwargs, 'critic_lr', critic_lr))
+        self.actor_lr = float(self._register_param(kwargs, 'actor_lr', 3e-4))
+        self.critic_lr = float(self._register_param(kwargs, 'critic_lr', 3e-4))
         self.actor_optimizer = Adam(self.actor.parameters(), lr=self.actor_lr)
         self.critic_optimizer = Adam(self.critic.parameters(), lr=self.critic_lr)
         self.max_grad_norm_actor = float(self._register_param(kwargs, "max_grad_norm_actor", 10.0))
@@ -106,7 +122,6 @@ class DDPGAgent(AgentBase):
             and self._config == o._config \
             and self.buffer == o.buffer \
             and self.get_network_state() == o.get_network_state()
-
 
     @torch.no_grad()
     def act(self, obs, noise: float=0.0) -> List[float]:
