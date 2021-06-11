@@ -38,7 +38,7 @@ config = {
     'action_max': 2,
     'seed': seed,
 }
-agent = Agent(task.state_size, task.action_size, **config)
+agent = Agent(task.obs_size, task.action_size, **config)
 
 log_dir = f"runs/{env_name}_{agent.name}-{datetime.datetime.now().isoformat()[:-7]}"
 data_logger = TensorboardLogger(log_dir=log_dir)

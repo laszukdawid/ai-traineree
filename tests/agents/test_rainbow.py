@@ -23,16 +23,16 @@ def test_rainbow_init_fail_without_state_action_dim():
 
 def test_rainbow_init_default():
     # Assign
-    input_shape, output_shape = (10,), (2,)
-    agent = RainbowAgent(input_shape, output_shape)
+    input_size, output_size = 10, 2
+    agent = RainbowAgent(input_size, output_size)
 
     # Assert
     assert agent.using_double_q
     assert agent.n_steps > 0
     assert isinstance(agent.net, RainbowNet)
     assert isinstance(agent.target_net, RainbowNet)
-    assert agent.state_size == input_shape[0]
-    assert agent.action_size == output_shape[0]
+    assert agent.obs_size == input_size
+    assert agent.action_size == output_size
 
 
 def test_rainbow_seed():
@@ -189,9 +189,9 @@ def test_rainbow_load_state(mock_torch_load):
 
 def test_rainbow_get_state():
     # Assign
-    state_size, action_size = 3, 4
+    obs_size, action_size = 3, 4
     init_config = {'lr': 0.1, 'gamma': 0.6}
-    agent = RainbowAgent(state_size, action_size, device='cpu', **init_config)
+    agent = RainbowAgent(obs_size, action_size, device='cpu', **init_config)
 
     # Act
     agent_state = agent.get_state()
@@ -199,7 +199,7 @@ def test_rainbow_get_state():
     # Assert
     assert isinstance(agent_state, AgentState)
     assert agent_state.model == RainbowAgent.name
-    assert agent_state.state_space == state_size
+    assert agent_state.obs_space == obs_size
     assert agent_state.action_space == action_size
     assert agent_state.config == agent._config
     assert agent_state.config['lr'] == 0.1
@@ -218,9 +218,9 @@ def test_rainbow_get_state():
 
 def test_rainbow_get_state_compare_different_agents():
     # Assign
-    state_size, action_size = 3, 2
-    agent_1 = RainbowAgent(state_size, action_size, device='cpu', n_steps=1)
-    agent_2 = RainbowAgent(state_size, action_size, device='cpu', n_steps=2)
+    obs_size, action_size = 3, 2
+    agent_1 = RainbowAgent(obs_size, action_size, device='cpu', n_steps=1)
+    agent_2 = RainbowAgent(obs_size, action_size, device='cpu', n_steps=2)
 
     # Act
     state_1 = agent_1.get_state()
@@ -233,8 +233,8 @@ def test_rainbow_get_state_compare_different_agents():
 
 def test_rainbow_from_state():
     # Assign
-    state_shape, action_size = 10, 3
-    agent = RainbowAgent(state_shape, action_size, device='cpu')
+    obs_size, action_size = 10, 3
+    agent = RainbowAgent(obs_size, action_size, device='cpu')
     agent_state = agent.get_state()
 
     # Act
@@ -252,8 +252,8 @@ def test_rainbow_from_state():
 
 def test_rainbow_from_state_one_updated():
     # Assign
-    state_shape, action_size = 10, 3
-    agent = RainbowAgent(state_shape, action_size, device='cpu')
+    obs_size, action_size = 10, 3
+    agent = RainbowAgent(obs_size, action_size, device='cpu')
     feed_agent(agent, 2*agent.batch_size)  # Feed 1
     agent_state = agent.get_state()
     feed_agent(agent, 100)  # Feed 2 - to make different

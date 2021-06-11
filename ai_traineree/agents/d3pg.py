@@ -32,10 +32,10 @@ class D3PGAgent(AgentBase):
 
     name = "D3PG"
 
-    def __init__(self, state_size: int, action_size: int, hidden_layers: Sequence[int]=(128, 128), **kwargs):
+    def __init__(self, obs_size: int, action_size: int, hidden_layers: Sequence[int]=(128, 128), **kwargs):
         """
         Parameters:
-            state_size (int): Number of input dimensions.
+            obs_size (int): Number of input dimensions.
             action_size (int): Number of output dimensions
             hidden_layers (tuple of ints): Tuple defining hidden dimensions in fully connected nets. Default: (128, 128).
 
@@ -63,7 +63,7 @@ class D3PGAgent(AgentBase):
         """
         super().__init__(**kwargs)
         self.device = self._register_param(kwargs, "device", DEVICE)
-        self.state_size = state_size
+        self.obs_size = obs_size
         self.action_size = action_size
 
         self.num_atoms = int(self._register_param(kwargs, 'num_atoms', 51))
@@ -100,22 +100,22 @@ class D3PGAgent(AgentBase):
 
         # This looks messy but it's not that bad. Actor, critic_net and Critic(critic_net). Then the same for `target_`.
         self.actor = ActorBody(
-            state_size, self.policy.param_dim*action_size, hidden_layers=self.actor_hidden_layers,
+            obs_size, self.policy.param_dim*action_size, hidden_layers=self.actor_hidden_layers,
             gate_out=torch.tanh, device=self.device
         )
         critic_net = CriticBody(
-            state_size, action_size, out_features=self.num_atoms, hidden_layers=self.critic_hidden_layers, device=self.device
+            obs_size, action_size, out_features=self.num_atoms, hidden_layers=self.critic_hidden_layers, device=self.device
         )
         self.critic = CategoricalNet(
             num_atoms=self.num_atoms, v_min=v_min, v_max=v_max, net=critic_net, device=self.device
         )
 
         self.target_actor = ActorBody(
-            state_size, self.policy.param_dim*action_size, hidden_layers=self.actor_hidden_layers,
+            obs_size, self.policy.param_dim*action_size, hidden_layers=self.actor_hidden_layers,
             gate_out=torch.tanh, device=self.device
         )
         target_critic_net = CriticBody(
-            state_size, action_size, out_features=self.num_atoms, hidden_layers=self.critic_hidden_layers, device=self.device
+            obs_size, action_size, out_features=self.num_atoms, hidden_layers=self.critic_hidden_layers, device=self.device
         )
         self.target_critic = CategoricalNet(
             num_atoms=self.num_atoms, v_min=v_min, v_max=v_max, net=target_critic_net, device=self.device
@@ -255,7 +255,7 @@ class D3PGAgent(AgentBase):
         actions = to_tensor(experiences['action']).to(self.device)
         next_states = to_tensor(experiences['next_state']).float().to(self.device)
         assert rewards.shape == dones.shape == (self.batch_size, 1)
-        assert states.shape == next_states.shape == (self.batch_size, self.state_size)
+        assert states.shape == next_states.shape == (self.batch_size, self.obs_size)
         assert actions.shape == (self.batch_size, self.action_size)
 
         indices = None

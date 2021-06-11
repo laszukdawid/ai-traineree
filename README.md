@@ -26,7 +26,7 @@ from ai_traineree.env_runner import EnvRunner
 from ai_traineree.tasks import GymTask
 
 task = GymTask('CartPole-v1)
-agent = DQNAgent(task.state_size, task.action_size)
+agent = DQNAgent(task.obs_size, task.action_size)
 env_runner = EnvRunner(task, agent)
 
 scores = env_runner.run()

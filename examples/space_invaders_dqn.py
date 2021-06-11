@@ -38,7 +38,7 @@ env_name = 'SpaceInvaders-v0'
 data_logger = TensorboardLogger()
 task = GymTask(env_name, state_transform=state_transform)
 config = {
-    "network_fn": lambda: network_fn(task.actual_state_size, task.action_size, "cuda"),
+    "network_fn": lambda: network_fn(task.actual_obs_size, task.action_size, "cuda"),
     "compress_state": True,
     "gamma": 0.99,
     "lr": 1e-3,
@@ -51,7 +51,7 @@ config = {
 for _ in range(prev_states):
     task.reset()
 
-agent = DQNAgent(task.state_size, task.action_size, **config)
+agent = DQNAgent(task.obs_size, task.action_size, **config)
 env_runner = EnvRunner(task, agent, data_logger=data_logger)
 
 # env_runner.interact_episode(0, render=True)

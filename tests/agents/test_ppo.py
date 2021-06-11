@@ -39,9 +39,9 @@ def test_ppo_seed():
 
 def test_ppo_get_state():
     # Assign
-    state_size, action_size = 3, 4
+    obs_size, action_size = 3, 4
     init_config = {'actor_lr': 0.1, 'gamma': 0.6}
-    agent = PPOAgent(state_size, action_size, device='cpu', **init_config)
+    agent = PPOAgent(obs_size, action_size, device='cpu', **init_config)
 
     # Act
     agent_state = agent.get_state()
@@ -49,7 +49,7 @@ def test_ppo_get_state():
     # Assert
     assert isinstance(agent_state, AgentState)
     assert agent_state.model == PPOAgent.name
-    assert agent_state.state_space == state_size
+    assert agent_state.obs_space == obs_size
     assert agent_state.action_space == action_size
     assert agent_state.config == agent._config
     assert agent_state.config['actor_lr'] == 0.1
@@ -68,9 +68,9 @@ def test_ppo_get_state():
 
 def test_ppo_get_state_compare_different_agents():
     # Assign
-    state_size, action_size = 3, 2
-    agent_1 = PPOAgent(state_size, action_size, device='cpu', n_steps=1)
-    agent_2 = PPOAgent(state_size, action_size, device='cpu', n_steps=2)
+    obs_size, action_size = 3, 2
+    agent_1 = PPOAgent(obs_size, action_size, device='cpu', n_steps=1)
+    agent_2 = PPOAgent(obs_size, action_size, device='cpu', n_steps=2)
 
     # Act
     state_1 = agent_1.get_state()
@@ -83,8 +83,8 @@ def test_ppo_get_state_compare_different_agents():
 
 def test_ppo_from_state():
     # Assign
-    state_shape, action_size = 10, 3
-    agent = PPOAgent(state_shape, action_size)
+    obs_size, action_size = 10, 3
+    agent = PPOAgent(obs_size, action_size)
     agent_state = agent.get_state()
 
     # Act
@@ -103,8 +103,8 @@ def test_ppo_from_state():
 
 def test_ppo_from_state_network_state_none():
     # Assign
-    state_shape, action_size = 10, 3
-    agent = PPOAgent(state_shape, action_size)
+    obs_size, action_size = 10, 3
+    agent = PPOAgent(obs_size, action_size)
     agent_state = agent.get_state()
     agent_state.network = None
 
@@ -121,8 +121,8 @@ def test_ppo_from_state_network_state_none():
 
 def test_ppo_from_state_buffer_state_none():
     # Assign
-    state_shape, action_size = 10, 3
-    agent = PPOAgent(state_shape, action_size)
+    obs_size, action_size = 10, 3
+    agent = PPOAgent(obs_size, action_size)
     agent_state = agent.get_state()
     agent_state.buffer = None
 
@@ -141,8 +141,8 @@ def test_ppo_from_state_buffer_state_none():
 
 def test_ppo_from_state_one_updated():
     # Assign
-    state_shape, action_size = 10, 3
-    agent = PPOAgent(state_shape, action_size)
+    obs_size, action_size = 10, 3
+    agent = PPOAgent(obs_size, action_size)
     deterministic_interactions(agent, num_iters=100)
     agent_state = agent.get_state()
     deterministic_interactions(agent, num_iters=400)

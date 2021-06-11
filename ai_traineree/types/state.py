@@ -31,7 +31,7 @@ class NetworkState:
 class AgentState:
     """Fully identifies an agent"""
     model: str
-    state_space: StateType
+    obs_space: StateType
     action_space: ActionType
     config: Dict[str, Any]
     network: Optional[NetworkState]

@@ -11,8 +11,8 @@ class AgentType(abc.ABC):
 
     name: str
     in_features: Tuple[int]
-    state_size: int
-    action_size: int
+    obs_size: int
+    action_space: int
     loss: Dict[str, float]
     _config: Dict = {}
 
@@ -62,7 +62,7 @@ class MultiAgentType(abc.ABC):
 
     name: str
     in_features: Tuple[int]
-    state_size: int
+    obs_size: int
     action_size: int
     loss: Dict[str, float]
     agents: List[AgentType]
@@ -89,8 +89,9 @@ class MultiAgentType(abc.ABC):
 
     @abc.abstractmethod
     def step(
+        self,
         agent_name: str,
-        self, states: List[StateType], actions: List[ActionType], rewards: List[RewardType],
+        states: List[StateType], actions: List[ActionType], rewards: List[RewardType],
         next_states: List[StateType], dones: List[DoneType]
     ):
         pass

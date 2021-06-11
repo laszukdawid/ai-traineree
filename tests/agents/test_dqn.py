@@ -35,9 +35,9 @@ def test_dqn_seed():
 
 def test_dqn_get_state():
     # Assign
-    state_size, action_size = 3, 4
+    obs_size, action_size = 3, 4
     init_config = {'lr': 0.1, 'gamma': 0.6}
-    agent = DQNAgent(state_size, action_size, device='cpu', **init_config)
+    agent = DQNAgent(obs_size, action_size, device='cpu', **init_config)
 
     # Act
     agent_state = agent.get_state()
@@ -45,7 +45,7 @@ def test_dqn_get_state():
     # Assert
     assert isinstance(agent_state, AgentState)
     assert agent_state.model == DQNAgent.name
-    assert agent_state.state_space == state_size
+    assert agent_state.obs_space == obs_size
     assert agent_state.action_space == action_size
     assert agent_state.config == agent._config
     assert agent_state.config['lr'] == 0.1
@@ -64,9 +64,9 @@ def test_dqn_get_state():
 
 def test_dqn_get_state_compare_different_agents():
     # Assign
-    state_size, action_size = 3, 2
-    agent_1 = DQNAgent(state_size, action_size, device='cpu', n_steps=1)
-    agent_2 = DQNAgent(state_size, action_size, device='cpu', n_steps=2)
+    obs_size, action_size = 3, 2
+    agent_1 = DQNAgent(obs_size, action_size, device='cpu', n_steps=1)
+    agent_2 = DQNAgent(obs_size, action_size, device='cpu', n_steps=2)
 
     # Act
     state_1 = agent_1.get_state()
@@ -79,8 +79,8 @@ def test_dqn_get_state_compare_different_agents():
 
 def test_dqn_from_state():
     # Assign
-    state_shape, action_size = 10, 3
-    agent = DQNAgent(state_shape, action_size)
+    obs_size, action_size = 10, 3
+    agent = DQNAgent(obs_size, action_size)
     agent_state = agent.get_state()
 
     # Act
@@ -98,8 +98,8 @@ def test_dqn_from_state():
 
 def test_dqn_from_state_network_state_none():
     # Assign
-    state_shape, action_size = 10, 3
-    agent = DQNAgent(state_shape, action_size)
+    obs_size, action_size = 10, 3
+    agent = DQNAgent(obs_size, action_size)
     agent_state = agent.get_state()
     agent_state.network = None
 
@@ -116,8 +116,8 @@ def test_dqn_from_state_network_state_none():
 
 def test_dqn_from_state_buffer_state_none():
     # Assign
-    state_shape, action_size = 10, 3
-    agent = DQNAgent(state_shape, action_size)
+    obs_size, action_size = 10, 3
+    agent = DQNAgent(obs_size, action_size)
     agent_state = agent.get_state()
     agent_state.buffer = None
 
@@ -135,8 +135,8 @@ def test_dqn_from_state_buffer_state_none():
 
 def test_dqn_from_state_one_updated():
     # Assign
-    state_shape, action_size = 10, 3
-    agent = DQNAgent(state_shape, action_size)
+    obs_size, action_size = 10, 3
+    agent = DQNAgent(obs_size, action_size)
     feed_agent(agent, 2*agent.batch_size)  # Feed 1
     agent_state = agent.get_state()
     feed_agent(agent, 100)  # Feed 2 - to make different

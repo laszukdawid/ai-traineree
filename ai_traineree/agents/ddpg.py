@@ -3,6 +3,7 @@ from typing import Dict, List, Optional
 
 import torch
 import torch.nn as nn
+from torch.tensor import Tensor
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import hard_update, soft_update
@@ -26,10 +27,10 @@ class DDPGAgent(AgentBase):
 
     name = "DDPG"
 
-    def __init__(self, state_size: int, action_size: int, noise_scale: float=0.2, noise_sigma: float=0.1, **kwargs):
+    def __init__(self, obs_size: int, action_size: int, noise_scale: float=0.2, noise_sigma: float=0.1, **kwargs):
         """
         Parameters:
-            state_size: Number of input dimensions.
+            obs_size: Number of input dimensions.
             action_size: Number of output dimensions
             noise_scale (float): Added noise amplitude. Default: 0.2.
             noise_sigma (float): Added noise variance. Default: 0.1.
@@ -54,15 +55,15 @@ class DDPGAgent(AgentBase):
         """
         super().__init__(**kwargs)
         self.device = self._register_param(kwargs, "device", DEVICE)
-        self.state_size = state_size
+        self.obs_size = obs_size
         self.action_size = action_size
 
         # Reason sequence initiation.
         hidden_layers = to_numbers_seq(self._register_param(kwargs, 'hidden_layers', (64, 64)))
-        self.actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers, gate_out=torch.tanh).to(self.device)
-        self.critic = CriticBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
-        self.target_actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers, gate_out=torch.tanh).to(self.device)
-        self.target_critic = CriticBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
+        self.actor = ActorBody(obs_size, action_size, hidden_layers=hidden_layers, gate_out=torch.tanh).to(self.device)
+        self.critic = CriticBody(obs_size, action_size, hidden_layers=hidden_layers).to(self.device)
+        self.target_actor = ActorBody(obs_size, action_size, hidden_layers=hidden_layers, gate_out=torch.tanh).to(self.device)
+        self.target_critic = CriticBody(obs_size, action_size, hidden_layers=hidden_layers).to(self.device)
 
         # Noise sequence initiation
         self.noise = GaussianNoise(shape=(action_size,), mu=1e-8, sigma=noise_sigma, scale=noise_scale, device=self.device)
@@ -156,7 +157,7 @@ class DDPGAgent(AgentBase):
         assert Q_expected.shape == Q_target.shape == Q_target_next.shape
         return mse_loss(Q_expected, Q_target)
 
-    def compute_policy_loss(self, states) -> None:
+    def compute_policy_loss(self, states) -> Tensor:
         """Compute Policy loss based on provided states.
 
         Loss = Mean(-Q(s, _a) ),
@@ -173,7 +174,7 @@ class DDPGAgent(AgentBase):
         actions = to_tensor(experiences['action']).to(self.device)
         next_states = to_tensor(experiences['next_state']).float().to(self.device)
         assert rewards.shape == dones.shape == (self.batch_size, 1)
-        assert states.shape == next_states.shape == (self.batch_size, self.state_size)
+        assert states.shape == next_states.shape == (self.batch_size, self.obs_size)
         assert actions.shape == (self.batch_size, self.action_size)
 
         # Value (critic) optimization
@@ -230,7 +231,7 @@ class DDPGAgent(AgentBase):
     def get_state(self) -> AgentState:
         return AgentState(
             model=self.name,
-            state_space=self.state_size,
+            obs_space=self.obs_size,
             action_space=self.action_size,
             config=self._config,
             buffer=copy.deepcopy(self.buffer.get_state()),
@@ -249,7 +250,7 @@ class DDPGAgent(AgentBase):
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
         config = copy.copy(state.config)
-        config.update({'state_size': state.state_space, 'action_size': state.action_space})
+        config.update({'obs_size': state.obs_space, 'action_size': state.action_space})
         agent = DDPGAgent(**config)
         if state.network is not None:
             agent.set_network(state.network)

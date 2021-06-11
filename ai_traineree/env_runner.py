@@ -538,7 +538,7 @@ class MultiSyncEnvRunner:
         scores = np.zeros(self.task_num)
         iterations = np.zeros(self.task_num)
 
-        states = np.empty((self.num_processes, self.tasks[0].state_size), dtype=np.float32)
+        states = np.empty((self.num_processes, self.tasks[0].obs_size), dtype=np.float32)
         next_states = states.copy()
         actions = np.empty((len(self.tasks), self.tasks[0].action_size), dtype=np.float32)
         dones = np.empty(len(self.tasks))

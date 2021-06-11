@@ -22,7 +22,7 @@ for idx, config_update in enumerate(config_updates):
         config['seed'] = seed
         pprint(config)
         torch.manual_seed(config['seed'])
-        agent = Agent(task.state_size, task.action_size, **config)
+        agent = Agent(task.obs_size, task.action_size, **config)
 
         data_logger = TensorboardLogger(log_dir=f'runs/MultiExp-{task.name}-i{idx}-s{seed}')
         env_runner = EnvRunner(task, agent, data_logger=data_logger)

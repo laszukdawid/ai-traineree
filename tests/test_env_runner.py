@@ -13,7 +13,7 @@ from typing import List
 #       This results in unnecessary performance hit. A lightweight env would be nice.
 
 test_task = GymTask('LunarLanderContinuous-v2')
-test_agent = PPOAgent(test_task.state_size, test_task.action_size)
+test_agent = PPOAgent(test_task.obs_size, test_task.action_size)
 
 
 @mock.patch("ai_traineree.env_runner.AgentBase")
@@ -243,7 +243,7 @@ def test_multi_sync_env_runner_run_single_step_single_task():
 def test_multi_sync_env_runner_run_single_step_multiple_task():
     # Assign
     tasks: List[TaskType] = [test_task, test_task]
-    agent = PPOAgent(test_task.state_size, test_task.action_size, num_workers=len(tasks))
+    agent = PPOAgent(test_task.obs_size, test_task.action_size, num_workers=len(tasks))
     multi_sync_env_runner = MultiSyncEnvRunner(tasks, agent)
 
     # Act
@@ -256,7 +256,7 @@ def test_multi_sync_env_runner_run_single_step_multiple_task():
 def test_multi_sync_env_runner_run_multiple_step_multiple_task():
     # Assign
     tasks: List[TaskType] = [test_task, test_task]
-    agent = PPOAgent(test_task.state_size, test_task.action_size, num_workers=len(tasks))
+    agent = PPOAgent(test_task.obs_size, test_task.action_size, num_workers=len(tasks))
     multi_sync_env_runner = MultiSyncEnvRunner(tasks, agent)
 
     # Act

@@ -63,10 +63,10 @@ class DQNAgent(AgentBase):
         self.device = self._register_param(kwargs, "device", DEVICE, update=True)
         # TODO: All this should be condensed with some structure, e.g. gym spaces
         self.input_shape: Sequence[int] = input_shape if not isinstance(input_shape, int) else (input_shape,)
-        self.state_size: int = self.input_shape[0]
+        self.obs_size: int = self.input_shape[0]
         self.output_shape: Sequence[int] = output_shape if not isinstance(output_shape, int) else (output_shape,)
         self.action_size: int = self.output_shape[0]
-        self._config['state_size'] = self.state_size
+        self._config['obs_size'] = self.obs_size
         self._config['action_size'] = self.action_size
 
         self.lr = float(self._register_param(kwargs, 'lr', 3e-4))  # Learning rate
@@ -241,7 +241,7 @@ class DQNAgent(AgentBase):
         """Provides agent's internal state."""
         return AgentState(
             model=self.name,
-            state_space=self.state_size,
+            obs_space=self.obs_size,
             action_space=self.action_size,
             config=self._config,
             buffer=copy.deepcopy(self.buffer.get_state()),
@@ -254,7 +254,7 @@ class DQNAgent(AgentBase):
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
         config = copy.copy(state.config)
-        config.update({'input_shape': state.state_space, 'output_shape': state.action_space})
+        config.update({'input_shape': state.obs_space, 'output_shape': state.action_space})
         agent = DQNAgent(**config)
         if state.network is not None:
             agent.set_network(state.network)

@@ -14,9 +14,9 @@ from pettingzoo.sisl import multiwalker_v7
 env = multiwalker_v7.env()
 test_task = PettingZooTask(env)
 test_task.reset()
-state_size = int(test_task.state_size[0])
+obs_space = int(test_task.obs_size[0])
 action_size = int(test_task.action_size.shape[0])
-test_agent = MADDPGAgent(state_size, action_size, num_agents=env.num_agents, agent_names=env.agents)
+test_agent = MADDPGAgent(obs_space, action_size, num_agents=env.num_agents, agent_names=env.agents)
 
 
 def test_multiagent_cycle_env_runner_str():

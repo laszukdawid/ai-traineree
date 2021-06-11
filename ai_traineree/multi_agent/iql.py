@@ -12,7 +12,7 @@ class IQLAgents(MultiAgentType):
 
     name = "IQL"
 
-    def __init__(self, state_size: int, action_size: int, num_agents: int, **kwargs):
+    def __init__(self, obs_space: int, action_size: int, num_agents: int, **kwargs):
         """Independent Q-Learning
 
         A set of independent Q-Learning agents (:py:class:`DQN <DQNAgent>` implementation) that are organized
@@ -20,7 +20,7 @@ class IQLAgents(MultiAgentType):
         All keyword paramters are passed to each agent.
 
         Parameters:
-            state_size (int): Dimensionality of the state.
+            obs_space (int): Dimensionality of the state.
             action_size (int): Dimensionality of the action.
             num_agents (int): Number of agents.
 
@@ -40,7 +40,7 @@ class IQLAgents(MultiAgentType):
 
         """
 
-        self.state_size: int = state_size
+        self.obs_space: int = obs_space
         self.action_size = action_size
         self.num_agents = num_agents
         self.agent_names = kwargs.get("agent_names", map(str, range(self.num_agents)))
@@ -57,7 +57,7 @@ class IQLAgents(MultiAgentType):
         kwargs['number_updates'] = int(self._register_param(kwargs, 'number_updates', 1))
 
         self.agents: Dict[str, DQNAgent] = {
-            agent_name: DQNAgent(state_size, action_size, name=agent_name, **kwargs)
+            agent_name: DQNAgent(obs_space, action_size, name=agent_name, **kwargs)
             for agent_name in self.agent_names
         }
 

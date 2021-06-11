@@ -16,7 +16,7 @@ env_name = 'CartPole-v1'
 task = GymTask(env_name)
 data_logger = TensorboardLogger()
 
-agent = Agent(task.state_size, task.action_size, device='cpu')
+agent = Agent(task.obs_size, task.action_size, device='cpu')
 env_runner = EnvRunner(task, agent, data_logger=data_logger)
 
 scores = env_runner.run(reward_goal=100, max_episodes=500, eps_decay=0.9, force_new=True)

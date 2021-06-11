@@ -27,7 +27,7 @@ def reward_transform(reward) -> float:
 data_logger = TensorboardLogger()
 env_name = 'hungrysnek-raw-16-v1'
 task = GymTask(env_name, state_transform=state_transform, reward_transform=reward_transform)
-state_size = np.array(task.reset()).shape
+obs_size = np.array(task.reset()).shape
 
 device = "cuda"
 config = {
@@ -43,7 +43,7 @@ config = {
 }
 
 
-agent = RainbowAgent(state_size, task.action_size, **config)
+agent = RainbowAgent(obs_size, task.action_size, **config)
 env_runner = EnvRunner(task, agent, max_iterations=2000, data_logger=data_logger)
 
 scores = env_runner.run(

@@ -21,7 +21,7 @@ unity_env = UnityEnvironment(build_path, no_graphics=True)
 ma_task = MultiAgentUnityTask(unity_env=unity_env, allow_multiple_obs=True)
 ma_task.reset()
 
-state_size = ma_task.observation_space[0].shape[0]
+obs_space = ma_task.observation_space[0].shape[0]
 action_size = ma_task.action_space.shape[0]
 num_agents = ma_task.num_agents
 config = {
@@ -30,7 +30,7 @@ config = {
     'update_freq': 10,
     'batch_size': 200,
 }
-ma_agent = MADDPGAgent(state_size, action_size, num_agents, **config)
+ma_agent = MADDPGAgent(obs_space, action_size, num_agents, **config)
 
 
 env_runner = MultiAgentEnvRunner(ma_task, ma_agent, max_iterations=200)

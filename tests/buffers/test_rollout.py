@@ -4,8 +4,8 @@ import pytest
 from ai_traineree.buffers import Experience, RolloutBuffer
 
 
-def generate_sample_SARS(iterations, state_size: int=4, action_size: int=2, dict_type=False):
-    state_fn = lambda: np.random.random(state_size)
+def generate_sample_SARS(iterations, obs_space: int=4, action_size: int=2, dict_type=False):
+    state_fn = lambda: np.random.random(obs_space)
     action_fn = lambda: np.random.random(action_size)
     reward_fn = lambda: float(np.random.random() - 0.5)
     done_fn = lambda: np.random.random() > 0.5

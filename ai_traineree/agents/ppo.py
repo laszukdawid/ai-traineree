@@ -31,10 +31,10 @@ class PPOAgent(AgentBase):
 
     name = "PPO"
 
-    def __init__(self, state_size: int, action_size: int, **kwargs):
+    def __init__(self, obs_size: int, action_size: int, **kwargs):
         """
         Parameters:
-            state_size (int): Number of input dimensions.
+            obs_size (int): Number of input dimensions.
             action_size (int): Number of output dimensions
 
         Keyword parameters:
@@ -64,7 +64,7 @@ class PPOAgent(AgentBase):
 
         self.device = self._register_param(kwargs, "device", DEVICE)  # Default device is CUDA if available
 
-        self.state_size = state_size
+        self.obs_size = obs_size
         self.action_size = action_size
         self.hidden_layers = to_numbers_seq(self._register_param(kwargs, "hidden_layers", (100, 100)))
         self.iteration = 0
@@ -109,10 +109,10 @@ class PPOAgent(AgentBase):
 
         self.buffer = RolloutBuffer(batch_size=self.batch_size, buffer_size=self.rollout_length)
         self.actor = ActorBody(
-            state_size, self.policy.param_dim*action_size,
+            obs_size, self.policy.param_dim*action_size,
             gate_out=torch.tanh, hidden_layers=self.hidden_layers, device=self.device)
         self.critic = ActorBody(
-            state_size, 1,
+            obs_size, 1,
             gate_out=None, hidden_layers=self.hidden_layers, device=self.device)
         self.actor_params = list(self.actor.parameters()) + list(self.policy.parameters())
         self.critic_params = list(self.critic.parameters())
@@ -150,7 +150,7 @@ class PPOAgent(AgentBase):
         actions = []
         logprobs = []
         values = []
-        state = to_tensor(state).view(self.num_workers, self.state_size).float().to(self.device)
+        state = to_tensor(state).view(self.num_workers, self.obs_size).float().to(self.device)
         for worker in range(self.num_workers):
             actor_est = self.actor.act(state[worker].unsqueeze(0))
             assert not torch.any(torch.isnan(actor_est))
@@ -178,7 +178,7 @@ class PPOAgent(AgentBase):
         self.iteration += 1
 
         self.buffer.add(
-            state=torch.tensor(state).reshape(self.num_workers, self.state_size).float(),
+            state=torch.tensor(state).reshape(self.num_workers, self.obs_size).float(),
             action=torch.tensor(action).reshape(self.num_workers, self.action_size).float(),
             reward=torch.tensor(reward).reshape(self.num_workers, 1),
             done=torch.tensor(done).reshape(self.num_workers, 1),
@@ -202,7 +202,7 @@ class PPOAgent(AgentBase):
         values = to_tensor(experiences['value']).to(self.device)
         logprobs = to_tensor(experiences['logprob']).to(self.device)
         assert rewards.shape == dones.shape == values.shape == logprobs.shape
-        assert states.shape == (self.rollout_length, self.num_workers, self.state_size), f"Wrong states shape: {states.shape}"
+        assert states.shape == (self.rollout_length, self.num_workers, self.obs_size), f"Wrong states shape: {states.shape}"
         assert actions.shape == (self.rollout_length, self.num_workers, self.action_size), f"Wrong action shape: {actions.shape}"
 
         with torch.no_grad():
@@ -223,7 +223,7 @@ class PPOAgent(AgentBase):
             idx = 0
             self.kl_div = 0
             while idx < self.rollout_length:
-                _states = states[idx:idx+self.batch_size].view(-1, self.state_size).detach()
+                _states = states[idx:idx+self.batch_size].view(-1, self.obs_size).detach()
                 _actions = actions[idx:idx+self.batch_size].view(-1, self.action_size).detach()
                 _logprobs = logprobs[idx:idx+self.batch_size].view(-1, 1).detach()
                 _returns = returns[idx:idx+self.batch_size].view(-1, 1).detach()
@@ -325,7 +325,7 @@ class PPOAgent(AgentBase):
     def get_state(self) -> AgentState:
         return AgentState(
             model=self.name,
-            state_space=self.state_size,
+            obs_space=self.obs_size,
             action_space=self.action_size,
             config=self._config,
             buffer=copy.deepcopy(self.buffer.get_state()),
@@ -350,7 +350,7 @@ class PPOAgent(AgentBase):
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
         config = copy.copy(state.config)
-        config.update({'state_size': state.state_space, 'action_size': state.action_space})
+        config.update({'obs_size': state.obs_space, 'action_size': state.action_space})
         agent = PPOAgent(**config)
         if state.network is not None:
             agent.set_network(state.network)

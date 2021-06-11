@@ -38,8 +38,8 @@ class RainbowAgent(AgentBase):
 
     def __init__(
         self,
-        input_shape: Union[Sequence[int], int],
-        output_shape: Union[Sequence[int], int],
+        obs_size: int,
+        action_size: int,
         state_transform: Optional[Callable]=None,
         reward_transform: Optional[Callable]=None,
         **kwargs
@@ -51,8 +51,8 @@ class RainbowAgent(AgentBase):
         from such distributions.
 
         Parameters:
-            input_shape (tuple of ints): Most likely that's your *state* shape.
-            output_shape (tuple of ints): Most likely that's you *action* shape.
+            obs_size (int): Number of dimensions or the observation.
+            action_size (int): Dimensionality for the action.
             pre_network_fn (function that takes input_shape and returns network):
                 Used to preprocess state before it is used in the value- and advantage-function in the dueling nets.
             hidden_layers (tuple of ints): Shape and sizes of fully connected networks used. Default: (100, 100).
@@ -74,11 +74,9 @@ class RainbowAgent(AgentBase):
         """
         super().__init__(**kwargs)
         self.device = self._register_param(kwargs, "device", DEVICE, update=True)
-        self.input_shape: Sequence[int] = input_shape if not isinstance(input_shape, int) else (input_shape,)
 
-        self.state_size: int = self.input_shape[0]
-        self.output_shape: Sequence[int] = output_shape if not isinstance(output_shape, int) else (output_shape,)
-        self.action_size: int = self.output_shape[0]
+        self.obs_size: int = obs_size
+        self.action_size: int = action_size
 
         self.lr = float(self._register_param(kwargs, 'lr', 3e-4))
         self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))
@@ -111,8 +109,9 @@ class RainbowAgent(AgentBase):
         # Note that in case a pre_network is provided, e.g. a shared net that extracts pixels values,
         # it should be explicitly passed in kwargs
         kwargs["hidden_layers"] = to_numbers_seq(self._register_param(kwargs, "hidden_layers", (100, 100)))
-        self.net = RainbowNet(self.input_shape, self.output_shape, num_atoms=self.num_atoms, **kwargs)
-        self.target_net = RainbowNet(self.input_shape, self.output_shape, num_atoms=self.num_atoms, **kwargs)
+        in_features, out_features = (obs_size,), (action_size,)
+        self.net = RainbowNet(in_features, out_features, num_atoms=self.num_atoms, **kwargs)
+        self.target_net = RainbowNet(in_features, out_features, num_atoms=self.num_atoms, **kwargs)
 
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
         self.dist_probs = None
@@ -197,7 +196,7 @@ class RainbowAgent(AgentBase):
         next_states = to_tensor(experiences['next_state']).float().to(self.device)
         actions = to_tensor(experiences['action']).type(torch.long).to(self.device)
         assert rewards.shape == dones.shape == (self.batch_size, 1)
-        assert states.shape == next_states.shape == (self.batch_size, self.state_size)
+        assert states.shape == next_states.shape == (self.batch_size, self.obs_size)
         assert actions.shape == (self.batch_size, 1)  # Discrete domain
 
         with torch.no_grad():
@@ -278,7 +277,7 @@ class RainbowAgent(AgentBase):
         """Provides agent's internal state."""
         return AgentState(
             model=self.name,
-            state_space=self.state_size,
+            obs_space=self.obs_size,
             action_space=self.action_size,
             config=self._config,
             buffer=copy.deepcopy(self.buffer.get_state()),
@@ -291,7 +290,7 @@ class RainbowAgent(AgentBase):
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
         config = copy.copy(state.config)
-        config.update({'input_shape': state.state_space, 'output_shape': state.action_space})
+        config.update({'obs_size': state.obs_space, 'action_size': state.action_space})
         agent = RainbowAgent(**config)
         if state.network is not None:
             agent.set_network(state.network)

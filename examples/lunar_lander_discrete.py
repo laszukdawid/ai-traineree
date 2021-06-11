@@ -10,7 +10,7 @@ from ai_traineree.types import TaskType
 env_name = 'LunarLander-v2'
 task: TaskType = GymTask(env_name)
 config = {'batch_size': 64}
-agent = DQNAgent(task.state_size, task.action_size, config=config)
+agent = DQNAgent(task.obs_size, task.action_size, config=config)
 env_runner = EnvRunner(task, agent)
 
 env_runner.interact_episode(0, render=True)

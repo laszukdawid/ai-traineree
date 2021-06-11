@@ -11,7 +11,7 @@ env = prison.env(vector_observation=True)
 ma_task = PettingZooTask(env)
 ma_task.reset()
 
-state_size = ma_task.state_size
+obs_size = ma_task.obs_size
 action_size = ma_task.action_size.n
 agent_number = ma_task.num_agents
 config = {
@@ -20,7 +20,7 @@ config = {
     'batch_size': 200,
     'agent_names': env.agents,
 }
-ma_agent = IQLAgents(state_size, action_size, agent_number, **config)
+ma_agent = IQLAgents(obs_size, action_size, agent_number, **config)
 data_logger = TensorboardLogger(log_dir="runs/Prison-IQL")
 
 env_runner = MultiAgentCycleEnvRunner(ma_task, ma_agent, max_iterations=9000, data_logger=data_logger)

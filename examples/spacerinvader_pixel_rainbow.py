@@ -46,8 +46,8 @@ config = {
     "hidden_layers": None,
     "state_transform": agent_state_tranform,
 }
-state_size = task.actual_state_size
-agent = RainbowAgent(state_size, task.action_size, **config)
+obs_size = task.actual_obs_size
+agent = RainbowAgent(obs_size, task.action_size, **config)
 data_logger = TensorboardLogger(f'runs/{env_name}_{agent.name}_{datetime.datetime.now().strftime("%b%d_%H-%m-%s")}')
 env_runner = EnvRunner(task, agent, max_iterations=10000, data_logger=data_logger)
 

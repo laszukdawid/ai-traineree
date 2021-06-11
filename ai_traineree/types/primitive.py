@@ -1,7 +1,7 @@
 # import torch
 from typing import Dict, List, Sequence, Union
 
-StateType = List[float]
+StateType = Union[int, List[float]]
 ActionType = Union[int, List]
 DoneType = bool
 RewardType = Union[int, float]

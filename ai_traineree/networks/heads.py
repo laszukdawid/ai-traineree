@@ -14,7 +14,8 @@ Heads are "special" in that each is built on networks/brains and will likely nee
 some special pipeping when attaching to your agent.
 """
 from functools import lru_cache, reduce
-from typing import Callable, List, Optional, Sequence
+from operator import mul
+from typing import Callable, List, Optional, Sequence, Tuple
 
 import torch
 import torch.nn as nn
@@ -135,7 +136,7 @@ class CategoricalNet(NetworkType):
         num_atoms: int=21,
         v_min: float=-20.,
         v_max: float=20.,
-        state_size: Optional[int]=None,
+        obs_space: Optional[int]=None,
         action_size: Optional[int]=None,
         hidden_layers: Sequence[int]=(200, 200),
         net: Optional[NetworkType]=None,
@@ -147,12 +148,12 @@ class CategoricalNet(NetworkType):
             v_min: Minimum (edge) value of the shifted distribution.
             v_max: Maximum (edge) value of the shifted distribution.
             net: (Optional) A network used for estimation. If `net` is proved then `hidden_layers` has no effect.
-            state_size: Size of the state.
+            obs_space: Size of the observation.
             action_size: Length of the output.
             hidden_layers: Shape of the hidden layers that are fully connected networks.
 
-        *Note* that either `net` or both (`state_size`, `action_size`) need to be not None.
-        If `state_size` and `action_size` are provided then the default net is created as
+        *Note* that either `net` or both (`obs_space`, `action_size`) need to be not None.
+        If `obs_space` and `action_size` are provided then the default net is created as
         fully connected network with `hidden_layers` size.
 
         """
@@ -166,10 +167,10 @@ class CategoricalNet(NetworkType):
 
         if net is not None:
             self.net = net
-        elif state_size is not None and action_size is not None:
-            self.net = FcNet(state_size, action_size*self.num_atoms, hidden_layers=hidden_layers, device=self.device)
+        elif obs_space is not None and action_size is not None:
+            self.net = FcNet(obs_space, action_size*self.num_atoms, hidden_layers=hidden_layers, device=self.device)
         else:
-            raise ValueError("CategoricalNet needs to be instantiated either with `net` or (`state_size` and `action_size`)")
+            raise ValueError("CategoricalNet needs to be instantiated either with `net` or (`obs_space` and `action_size`)")
 
         self.in_featores = self.net.in_features
         self.out_features = (self.net.out_features // self.num_atoms, self.num_atoms)
@@ -240,15 +241,15 @@ class RainbowNet(NetworkType, nn.Module):
     """
     def __init__(
         self,
-        input_shape: Sequence[int],
-        output_shape: Sequence[int],
+        in_features: Tuple[int],
+        out_features: Tuple[int],
         hidden_layers=(200, 200),
         **kwargs
     ):
         """
         Parameters
-            input_shape (tuple of ints): Shape of the single input.
-            output_shape (tuple of ints): Shape of the expected output.
+            in_features (tuple of ints): Shape of the input.
+            out_features (tuple of ints): Shape of the expected output.
             hidden_layers (tuple of ints): Shape of fully connected networks. Default: (200, 200).
 
         Keyword parameters:
@@ -264,12 +265,11 @@ class RainbowNet(NetworkType, nn.Module):
         self.device = device = kwargs.get("device", None)
 
         self.pre_network = None
-        in_features = input_shape[0]
-        out_features = output_shape[0]
         if 'pre_network_fn' in kwargs:
-            self.pre_network = kwargs.get("pre_network_fn")(in_features=input_shape)
+            self.pre_network = kwargs.get("pre_network_fn")(in_features=in_features)
             self.pre_netowrk_params = self.pre_network.parameters()  # Registers pre_network's parameters to this module
-            in_features = self.pre_network.out_features
+            pof = self.pre_network.out_features
+            in_features = (pof,) if isinstance(pof, int) else pof
 
         self.v_min = float(kwargs.get("v_min", -10))
         self.v_max = float(kwargs.get("v_max", 10))
@@ -277,15 +277,21 @@ class RainbowNet(NetworkType, nn.Module):
         self.z_atoms = torch.linspace(self.v_min, self.v_max, self.num_atoms, device=self.device)
         self.z_delta = self.z_atoms[1] - self.z_atoms[0]
 
+        in_size = reduce(mul, in_features)
+        out_size = reduce(mul, out_features)
         self.noisy = kwargs.get("noisy", False)
         if self.noisy:
-            self.value_net = NoisyNet(in_features, num_atoms, hidden_layers=hidden_layers, device=device)
-            self.advantage_net = NoisyNet(in_features, out_features*num_atoms, hidden_layers=hidden_layers, device=device)
+            self.value_net = NoisyNet(in_size, num_atoms, hidden_layers=hidden_layers, device=device)
+            self.advantage_net = NoisyNet(in_size, out_size*num_atoms, hidden_layers=hidden_layers, device=device)
         else:
             self.value_net = FcNet(in_features, num_atoms, hidden_layers=hidden_layers, gate_out=None, device=device)
-            self.advantage_net = FcNet((in_features,), (out_features*num_atoms,), hidden_layers=hidden_layers, gate_out=None, device=device)
+            self.advantage_net = FcNet(in_features, (out_size*num_atoms,), hidden_layers=hidden_layers, gate_out=None, device=device)
 
-        self.in_features = in_features if self.pre_network is None else self.pre_network.in_features
+        if self.pre_network is not None:
+            pif = self.pre_network.in_features
+            self.in_features = (pif,) if isinstance(pif, int) else pif
+        else:
+            self.in_features = in_features
         self.out_features = out_features
         self.to(device=self.device)
 
@@ -311,7 +317,7 @@ class RainbowNet(NetworkType, nn.Module):
             if self.pre_network is not None:
                 x = self.pre_network(x)
             value = self.value_net.act(x).view(-1, 1, self.num_atoms)
-            advantage = self.advantage_net.act(x).view(-1, self.out_features, self.num_atoms)
+            advantage = self.advantage_net.act(x).view((-1,) + self.out_features + (self.num_atoms,))
             q = value + advantage - advantage.mean(1, keepdim=True)
             # Doc: It's computationally quicker than log(softmax) and more stable
             out = F.softmax(q, dim=-1) if not log_prob else F.log_softmax(q, dim=-1)
@@ -328,7 +334,7 @@ class RainbowNet(NetworkType, nn.Module):
         if self.pre_network is not None:
             x = self.pre_network(x)
         value = self.value_net(x).view((-1, 1, self.num_atoms))
-        advantage = self.advantage_net(x).view(-1, self.out_features, self.num_atoms)
+        advantage = self.advantage_net(x).view((-1,) + self.out_features + (self.num_atoms,))
         q = value + advantage - advantage.mean(1, keepdim=True)
         if log_prob:
             # Doc: It's computationally quicker than log(softmax) and more stable
