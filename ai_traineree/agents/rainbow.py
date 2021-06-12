@@ -1,9 +1,10 @@
 import copy
-from typing import Callable, Dict, List, Optional, Sequence, Union
+from typing import Callable, Dict, List, Optional
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
+
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import soft_update
@@ -12,6 +13,7 @@ from ai_traineree.buffers.buffer_factory import BufferFactory
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.heads import RainbowNet
 from ai_traineree.types import AgentState, BufferState, NetworkState
+from ai_traineree.types.primitive import ActionType, DoneType, ObsType, RewardType
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 
@@ -133,27 +135,30 @@ class RainbowAgent(AgentBase):
             value = value['loss']
         self._loss = value
 
-    def step(self, state, action, reward, next_state, done) -> None:
+    def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType) -> None:
         """Letting the agent to take a step.
 
         On some steps the agent will initiate learning step. This is dependent on
         the `update_freq` value.
 
         Parameters:
-            state: S(t)
-            action: A(t)
-            reward: R(t)
-            nexxt_state: S(t+1)
-            done: (bool) Whether the state is terminal.
+            obs (ObservationType): Observation.
+            action (int): Discrete action associated with observation.
+            reward (float): Reward obtained for taking action at state.
+            next_obs (ObservationType): Observation in a state where the action took.
+            done: (bool) Whether in terminal (end of episode) state.
 
         """
+        assert isinstance(action, int), "Rainbow expects discrete action (int)"
         self.iteration += 1
-        state = to_tensor(self.state_transform(state)).float().to("cpu")
-        next_state = to_tensor(self.state_transform(next_state)).float().to("cpu")
+        t_obs = to_tensor(self.state_transform(obs)).float().to("cpu")
+        t_next_obs = to_tensor(self.state_transform(next_obs)).float().to("cpu")
         reward = self.reward_transform(reward)
 
         # Delay adding to buffer to account for n_steps (particularly the reward)
-        self.n_buffer.add(state=state.numpy(), action=[int(action)], reward=[reward], done=[done], next_state=next_state.numpy())
+        self.n_buffer.add(
+            state=t_obs.numpy(), action=[int(action)], reward=[reward], done=[done], next_state=t_next_obs.numpy()
+        )
         if not self.n_buffer.available:
             return
 
@@ -169,7 +174,7 @@ class RainbowAgent(AgentBase):
             # Update networks only once - sync local & target
             soft_update(self.target_net, self.net, self.tau)
 
-    def act(self, state, eps: float = 0.) -> int:
+    def act(self, obs: ObsType, eps: float = 0.) -> int:
         """
         Returns actions for given state as per current policy.
 
@@ -182,9 +187,8 @@ class RainbowAgent(AgentBase):
         if self._rng.random() < eps:
             return self._rng.randint(0, self.action_size-1)
 
-        state = to_tensor(self.state_transform(state)).float().unsqueeze(0).to(self.device)
-        # state = to_tensor(self.state_transform(state)).float().to(self.device)
-        self.dist_probs = self.net.act(state)
+        t_obs = to_tensor(self.state_transform(obs)).float().unsqueeze(0).to(self.device)
+        self.dist_probs = self.net.act(t_obs)
         q_values = (self.dist_probs * self.z_atoms).sum(-1)
         return int(q_values.argmax(-1))  # Action maximizes state-action value Q(s, a)
 

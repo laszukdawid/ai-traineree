@@ -1,6 +1,6 @@
 import copy
-import torch
 
+import torch
 from ai_traineree.agents.dqn import DQNAgent
 from ai_traineree.types import AgentState, BufferState, NetworkState
 from conftest import deterministic_interactions, feed_agent
@@ -16,8 +16,8 @@ def test_dqn_seed():
     # Make sure agents have the same networks
     agent_nets = zip(agent_1.net.value_net.layers, agent_2.net.value_net.layers)
     agent_target_nets = zip(agent_1.target_net.value_net.layers, agent_2.target_net.value_net.layers)
-    assert all([sum(sum(l1.weight - l2.weight)) == 0 for l1, l2 in agent_nets])
-    assert all([sum(sum(l1.weight - l2.weight)) == 0 for l1, l2 in agent_target_nets])
+    assert all([sum(torch.sum(l1.weight - l2.weight, 0)) == 0 for l1, l2 in agent_nets])
+    assert all([sum(torch.sum(l1.weight - l2.weight, 0)) == 0 for l1, l2 in agent_target_nets])
 
     agent_0.seed(32167)
     actions_0 = deterministic_interactions(agent_0)

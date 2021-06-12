@@ -78,7 +78,7 @@ def feed_agent(agent: AgentBase, num_samples: int, discrete_action=True, as_list
             a = np.random.random(agent.action_size).tolist()
 
         if as_list:
-            agent.step(state=s, action=[a], reward=[r], next_state=s, done=[d])
+            agent.step(obs=s, action=[a], reward=[r], next_obs=s, done=[d])
         else:
-            agent.step(state=s, action=a, reward=r, next_state=s, done=d)
+            agent.step(obs=s, action=a, reward=r, next_obs=s, done=d)
     return agent

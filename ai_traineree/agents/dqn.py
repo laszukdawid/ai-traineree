@@ -1,10 +1,11 @@
 import copy
-from typing import Callable, Dict, Optional, Sequence, Type, Union
+from typing import Callable, Dict, Optional, Type
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import soft_update
@@ -14,6 +15,7 @@ from ai_traineree.loggers import DataLogger
 from ai_traineree.networks import NetworkType, NetworkTypeClass
 from ai_traineree.networks.heads import DuelingNet
 from ai_traineree.types import AgentState, BufferState, NetworkState
+from ai_traineree.types.primitive import ActionType, DoneType, ObsType, RewardType
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 
@@ -130,27 +132,30 @@ class DQNAgent(AgentBase):
         self.target_net.reset_parameters()
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
 
-    def step(self, state, action, reward, next_state, done) -> None:
+    def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType) -> None:
         """Letting the agent to take a step.
 
         On some steps the agent will initiate learning step. This is dependent on
         the `update_freq` value.
 
         Parameters:
-            state: S(t)
-            action: A(t)
-            reward: R(t)
-            next_state: S(t+1)
-            done: (bool) Whether the state is terminal.
+            obs (ObservationType): Observation.
+            action (int): Discrete action associated with observation.
+            reward (float): Reward obtained for taking action at state.
+            next_obs (ObservationType): Observation in a state where the action took.
+            done: (bool) Whether in terminal (end of episode) state.
 
         """
+        assert isinstance(action, int), "DQN expects discrete actions (int)"
         self.iteration += 1
-        state = to_tensor(self.state_transform(state)).float().to("cpu")
-        next_state = to_tensor(self.state_transform(next_state)).float().to("cpu")
+        t_obs = to_tensor(self.state_transform(obs)).float().to("cpu")
+        t_next_obs = to_tensor(self.state_transform(next_obs)).float().to("cpu")
         reward = self.reward_transform(reward)
 
         # Delay adding to buffer to account for n_steps (particularly the reward)
-        self.n_buffer.add(state=state.numpy(), action=[int(action)], reward=[reward], done=[done], next_state=next_state.numpy())
+        self.n_buffer.add(
+            state=t_obs.numpy(), action=[int(action)], reward=[reward], done=[done], next_state=t_next_obs.numpy()
+        )
         if not self.n_buffer.available:
             return
 
@@ -166,12 +171,12 @@ class DQNAgent(AgentBase):
             # Update networks only once - sync local & target
             soft_update(self.target_net, self.net, self.tau)
 
-    def act(self, state, eps: float = 0.) -> int:
+    def act(self, obs: ObsType, eps: float = 0.) -> int:
         """Returns actions for given state as per current policy.
 
         Parameters:
-            state (array_like): current state
-            eps (float): epsilon, for epsilon-greedy action selection
+            obs (array_like): current state
+            eps (optional float): epsilon, for epsilon-greedy action selection. Default 0.
 
         Returns:
             Categorical value for the action.
@@ -181,9 +186,9 @@ class DQNAgent(AgentBase):
         if self._rng.random() < eps:
             return self._rng.randint(0, self.action_size-1)
 
-        state = to_tensor(self.state_transform(state)).float()
-        state = state.unsqueeze(0).to(self.device)
-        action_values = self.net.act(state)
+        t_obs = to_tensor(self.state_transform(obs)).float()
+        t_obs = t_obs.unsqueeze(0).to(self.device)
+        action_values = self.net.act(t_obs)
         return int(torch.argmax(action_values.cpu()))
 
     def learn(self, experiences: Dict[str, list]) -> None:
@@ -195,19 +200,19 @@ class DQNAgent(AgentBase):
         """
         rewards = to_tensor(experiences['reward']).type(torch.float32).to(self.device)
         dones = to_tensor(experiences['done']).type(torch.int).to(self.device)
-        states = to_tensor(experiences['state']).type(torch.float32).to(self.device)
-        next_states = to_tensor(experiences['next_state']).type(torch.float32).to(self.device)
+        obss = to_tensor(experiences['state']).type(torch.float32).to(self.device)
+        next_obss = to_tensor(experiences['next_state']).type(torch.float32).to(self.device)
         actions = to_tensor(experiences['action']).type(torch.long).to(self.device)
 
         with torch.no_grad():
-            Q_targets_next = self.target_net.act(next_states).detach()
+            Q_targets_next = self.target_net.act(next_obss).detach()
             if self.using_double_q:
-                _a = torch.argmax(self.net(next_states), dim=-1).unsqueeze(-1)
+                _a = torch.argmax(self.net(next_obss), dim=-1).unsqueeze(-1)
                 max_Q_targets_next = Q_targets_next.gather(1, _a)
             else:
                 max_Q_targets_next = Q_targets_next.max(1)[0].unsqueeze(1)
         Q_targets = rewards + self.n_buffer.n_gammas[-1] * max_Q_targets_next * (1 - dones)
-        Q_expected: torch.Tensor = self.net(states).gather(1, actions)
+        Q_expected: torch.Tensor = self.net(obss).gather(1, actions)
         loss = F.mse_loss(Q_expected, Q_targets)
 
         self.optimizer.zero_grad()

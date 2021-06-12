@@ -3,6 +3,9 @@ from typing import Dict, List
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.nn.functional import mse_loss
+from torch.optim import AdamW
+
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import hard_update, soft_update
@@ -11,9 +14,8 @@ from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import DoubleCritic
 from ai_traineree.noise import OUProcess
+from ai_traineree.types.primitive import ActionType, DoneType, ObsType, RewardType
 from ai_traineree.utils import to_numbers_seq, to_tensor
-from torch.nn.functional import mse_loss
-from torch.optim import AdamW
 
 
 class TD3Agent(AgentBase):
@@ -104,8 +106,8 @@ class TD3Agent(AgentBase):
         # Breath, my child.
         self.reset_agent()
         self.iteration = 0
-        self._loss_actor = 0.
-        self._loss_critic = 0.
+        self._loss_actor = float('nan')
+        self._loss_critic = float('nan')
 
     @property
     def loss(self) -> Dict[str, float]:
@@ -126,7 +128,8 @@ class TD3Agent(AgentBase):
         self.target_actor.reset_parameters()
         self.target_critic.reset_parameters()
 
-    def act(self, state, epsilon: float=0.0, training_mode=True) -> List[float]:
+    @torch.no_grad()
+    def act(self, obs: ObsType, epsilon: float=0.0, training_mode: bool=True) -> List[float]:
         """
         Agent acting on observations.
 
@@ -137,22 +140,21 @@ class TD3Agent(AgentBase):
             rnd_actions = torch.rand(self.action_size)*(self.action_max - self.action_min) - self.action_min
             return rnd_actions.tolist()
 
-        with torch.no_grad():
-            state = to_tensor(state).float().to(self.device)
-            action = self.actor(state)
-            if training_mode:
-                action += self.noise.sample()
-            return (self.action_scale*torch.clamp(action, self.action_min, self.action_max)).tolist()
+        t_obs = to_tensor(obs).float().to(self.device)
+        action = self.actor(t_obs)
+        if training_mode:
+            action += self.noise.sample()
+        return (self.action_scale*torch.clamp(action, self.action_min, self.action_max)).tolist()
 
-    def target_act(self, staten, noise: float=0.0):
-        with torch.no_grad():
-            staten = to_tensor(staten).float().to(self.device)
-            action = self.target_actor(staten) + noise*self.noise.sample()
-            return torch.clamp(action, self.action_min, self.action_max).cpu().numpy().astype(np.float32)
+    @torch.no_grad()
+    def target_act(self, obs: ObsType, noise: float=0.0):
+        t_obs = to_tensor(obs).float().to(self.device)
+        action = self.target_actor(t_obs) + noise*self.noise.sample()
+        return torch.clamp(action, self.action_min, self.action_max).cpu().numpy().astype(np.float32)
 
-    def step(self, state, action, reward, next_state, done):
+    def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType):
         self.iteration += 1
-        self.buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
+        self.buffer.add(state=obs, action=action, reward=reward, next_state=next_obs, done=done)
 
         if (self.iteration % self.noise_reset_freq) == 0:
             self.noise.reset_states()

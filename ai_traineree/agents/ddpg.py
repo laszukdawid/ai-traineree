@@ -3,7 +3,10 @@ from typing import Dict, List, Optional
 
 import torch
 import torch.nn as nn
+from torch.nn.functional import mse_loss
+from torch.optim import Adam
 from torch.tensor import Tensor
+
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import hard_update, soft_update
@@ -13,9 +16,8 @@ from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.noise import GaussianNoise
 from ai_traineree.types import AgentState, BufferState, NetworkState
+from ai_traineree.types.primitive import ActionType, DoneType, ObsType, RewardType
 from ai_traineree.utils import to_numbers_seq, to_tensor
-from torch.nn.functional import mse_loss
-from torch.optim import Adam
 
 
 class DDPGAgent(AgentBase):
@@ -129,21 +131,25 @@ class DDPGAgent(AgentBase):
             and self.get_network_state() == o.get_network_state()
 
     @torch.no_grad()
-    def act(self, obs, noise: float=0.0) -> List[float]:
+    def act(self, obs: ObsType, noise: float=0.0) -> List[float]:
         """Acting on the observations. Returns action.
+
+        Parameters:
+            obs (array_like): current state
+            eps (optional float): epsilon, for epsilon-greedy action selection. Default 0.
 
         Returns:
             action: (list float) Action values.
         """
-        obs = to_tensor(obs).float().to(self.device)
-        action = self.actor(obs)
+        t_obs = to_tensor(obs).float().to(self.device)
+        action = self.actor(t_obs)
         action += noise*self.noise.sample()
         action = torch.clamp(action*self.action_scale, self.action_min, self.action_max)
         return action.cpu().numpy().tolist()
 
-    def step(self, state, action, reward, next_state, done) -> None:
+    def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType) -> None:
         self.iteration += 1
-        self.buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
+        self.buffer.add(state=obs, action=action, reward=reward, next_state=next_obs, done=done)
 
         if self.iteration < self.warm_up:
             return

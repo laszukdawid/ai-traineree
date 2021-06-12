@@ -1,5 +1,6 @@
-import ai_traineree.networks.heads as h
 import torch
+
+import ai_traineree.networks.heads as h
 from ai_traineree.networks.bodies import FcNet
 
 

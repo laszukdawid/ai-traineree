@@ -1,11 +1,12 @@
 import copy
 import itertools
-from typing import Dict, Tuple
+from typing import Dict, List
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import compute_gae, normalize, revert_norm_returns
@@ -14,6 +15,7 @@ from ai_traineree.buffers.buffer_factory import BufferFactory
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody
 from ai_traineree.policies import MultivariateGaussianPolicy, MultivariateGaussianPolicySimple
+from ai_traineree.types.primitive import ActionType, DoneType, ObsType, RewardType
 from ai_traineree.types.state import AgentState, BufferState, NetworkState
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
@@ -148,18 +150,28 @@ class PPOAgent(AgentBase):
         self.buffer.clear()
 
     @torch.no_grad()
-    def act(self, state, epsilon: float=0.):
-        actions = []
+    def act(self, obs: ObsType, epsilon: float=0.):
+        """Acting on the observations. Returns action.
+
+        Parameters:
+            obs (array_like): current state
+            eps (float): epsilon, for epsilon-greedy action selection
+
+        Returns:
+            action: (list float) Action values.
+
+        """
+        actions: List[ActionType] = []
         logprobs = []
         values = []
-        state = to_tensor(state).view(self.num_workers, self.obs_size).float().to(self.device)
+        t_obs = to_tensor(obs).view(self.num_workers, self.obs_size).float().to(self.device)
         for worker in range(self.num_workers):
-            actor_est = self.actor.act(state[worker].unsqueeze(0))
+            actor_est = self.actor.act(t_obs[worker].unsqueeze(0))
             assert not torch.any(torch.isnan(actor_est))
 
             dist = self.policy(actor_est)
             action = dist.sample()
-            value = self.critic.act(state[worker].unsqueeze(0))  # Shape: (1, 1)
+            value = self.critic.act(t_obs[worker].unsqueeze(0))  # Shape: (1, 1)
             logprob = self.policy.log_prob(dist, action)  # Shape: (1,)
             values.append(value)
             logprobs.append(logprob)
@@ -176,11 +188,11 @@ class PPOAgent(AgentBase):
         assert len(actions) == self.num_workers
         return actions if self.num_workers > 1 else actions[0]
 
-    def step(self, state, action, reward, next_state, done, **kwargs):
+    def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType, **kwargs):
         self.iteration += 1
 
         self.buffer.add(
-            state=torch.tensor(state).reshape(self.num_workers, self.obs_size).float(),
+            state=torch.tensor(obs).reshape(self.num_workers, self.obs_size).float(),
             action=torch.tensor(action).reshape(self.num_workers, self.action_size).float(),
             reward=torch.tensor(reward).reshape(self.num_workers, 1),
             done=torch.tensor(done).reshape(self.num_workers, 1),

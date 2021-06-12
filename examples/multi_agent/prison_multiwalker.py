@@ -1,11 +1,12 @@
+from collections import defaultdict
+
 import pylab as plt
+from pettingzoo.sisl import multiwalker_v7
 
 from ai_traineree.loggers import TensorboardLogger
 from ai_traineree.multi_agent.maddpg import MADDPGAgent
 from ai_traineree.multiagent_env_runner import MultiAgentCycleEnvRunner
 from ai_traineree.tasks import PettingZooTask
-from collections import defaultdict
-from pettingzoo.sisl import multiwalker_v7
 
 env = multiwalker_v7.env()
 ma_task = PettingZooTask(env)

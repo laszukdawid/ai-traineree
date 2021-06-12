@@ -1,10 +1,10 @@
-import pylab as plt
+from collections import defaultdict
 
+import pylab as plt
 from ai_traineree.loggers import TensorboardLogger
 from ai_traineree.multi_agent.iql import IQLAgents
 from ai_traineree.multiagent_env_runner import MultiAgentCycleEnvRunner
 from ai_traineree.tasks import PettingZooTask
-from collections import defaultdict
 from pettingzoo.butterfly import prison_v2 as prison
 
 env = prison.env(vector_observation=True)

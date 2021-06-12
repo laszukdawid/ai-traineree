@@ -1,11 +1,12 @@
-import mock
 import random
+from typing import List
+
+import mock
 
 from ai_traineree.agents.ppo import PPOAgent
 from ai_traineree.env_runner import EnvRunner, MultiSyncEnvRunner
 from ai_traineree.tasks import GymTask
 from ai_traineree.types import TaskType
-from typing import List
 
 # NOTE: Some of these tests use `test_task` and `test_agent` which are real instances.
 #       This is partially to make sure that the tricky part is covered, and not hid
