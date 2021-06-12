@@ -15,13 +15,14 @@ some special pipeping when attaching to your agent.
 """
 from functools import lru_cache, reduce
 from operator import mul
-from typing import Callable, List, Optional, Sequence, Tuple
+from typing import Callable, List, Optional, Sequence
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from ai_traineree.networks import NetworkType, NetworkTypeClass
 from ai_traineree.networks.bodies import FcNet, NoisyNet
+from ai_traineree.types.primitive import FeatureType
 
 
 class NetChainer(NetworkType):
@@ -62,8 +63,8 @@ class DoubleCritic(NetworkType):
     def __init__(self, in_features: Sequence[int], action_size: int, body_cls: NetworkTypeClass, **kwargs):
         super(DoubleCritic, self).__init__()
         hidden_layers = kwargs.pop("hidden_layers", (200, 200))
-        self.critic_1 = body_cls(in_features=in_features, action_size=action_size, hidden_layers=hidden_layers, **kwargs)
-        self.critic_2 = body_cls(in_features=in_features, action_size=action_size, hidden_layers=hidden_layers, **kwargs)
+        self.critic_1 = body_cls(in_features=in_features, inj_action_size=action_size, hidden_layers=hidden_layers, **kwargs)
+        self.critic_2 = body_cls(in_features=in_features, inj_action_size=action_size, hidden_layers=hidden_layers, **kwargs)
 
     def reset_parameters(self):
         self.critic_1.reset_parameters()
@@ -98,8 +99,8 @@ class DuelingNet(NetworkType):
             self.value_net = net_class(input_shape, (1,), hidden_layers=hidden_layers, device=device)
             self.advantage_net = net_class(input_shape, output_shape, hidden_layers=hidden_layers, device=device)
         else:
-            self.value_net = FcNet(input_shape, (1,), hidden_layers=hidden_layers, gate_out=None, device=device)
-            self.advantage_net = FcNet(input_shape, output_shape, hidden_layers=hidden_layers, gate_out=None, device=device)
+            self.value_net = FcNet(input_shape, (1,), hidden_layers=hidden_layers, gate_out=nn.Identity(), device=device)
+            self.advantage_net = FcNet(input_shape, output_shape, hidden_layers=hidden_layers, gate_out=nn.Identity(), device=device)
 
     def reset_parameters(self) -> None:
         self.value_net.reset_parameters()
@@ -136,8 +137,8 @@ class CategoricalNet(NetworkType):
         num_atoms: int=21,
         v_min: float=-20.,
         v_max: float=20.,
-        obs_space: Optional[int]=None,
-        action_size: Optional[int]=None,
+        in_features: Optional[FeatureType]=None,
+        out_features: Optional[FeatureType]=None,
         hidden_layers: Sequence[int]=(200, 200),
         net: Optional[NetworkType]=None,
         device: Optional[torch.device]=None,
@@ -167,13 +168,16 @@ class CategoricalNet(NetworkType):
 
         if net is not None:
             self.net = net
-        elif obs_space is not None and action_size is not None:
-            self.net = FcNet(obs_space, action_size*self.num_atoms, hidden_layers=hidden_layers, device=self.device)
+        elif in_features is not None and out_features is not None:
+            assert len(out_features) == 1, "Expecting single dimension for output features"
+            _out_features = (out_features[0]*self.num_atoms, )
+            self.net = FcNet(in_features, _out_features, hidden_layers=hidden_layers, device=self.device)
         else:
             raise ValueError("CategoricalNet needs to be instantiated either with `net` or (`obs_space` and `action_size`)")
 
+        assert len(self.net.out_features) == 1, "Expecting single dimension for output features"
         self.in_featores = self.net.in_features
-        self.out_features = (self.net.out_features // self.num_atoms, self.num_atoms)
+        self.out_features = (self.net.out_features[0] // self.num_atoms, self.num_atoms)
         self.to(device=device)
 
     def reset_paramters(self):
@@ -241,8 +245,8 @@ class RainbowNet(NetworkType, nn.Module):
     """
     def __init__(
         self,
-        in_features: Tuple[int],
-        out_features: Tuple[int],
+        in_features: FeatureType,
+        out_features: FeatureType,
         hidden_layers=(200, 200),
         **kwargs
     ):
@@ -281,11 +285,11 @@ class RainbowNet(NetworkType, nn.Module):
         out_size = reduce(mul, out_features)
         self.noisy = kwargs.get("noisy", False)
         if self.noisy:
-            self.value_net = NoisyNet(in_size, num_atoms, hidden_layers=hidden_layers, device=device)
-            self.advantage_net = NoisyNet(in_size, out_size*num_atoms, hidden_layers=hidden_layers, device=device)
+            self.value_net = NoisyNet((in_size,), out_features=(num_atoms,), hidden_layers=hidden_layers, device=device)
+            self.advantage_net = NoisyNet((in_size,), out_size*num_atoms, hidden_layers=hidden_layers, device=device)
         else:
-            self.value_net = FcNet(in_features, num_atoms, hidden_layers=hidden_layers, gate_out=None, device=device)
-            self.advantage_net = FcNet(in_features, (out_size*num_atoms,), hidden_layers=hidden_layers, gate_out=None, device=device)
+            self.value_net = FcNet(in_features, out_features=(num_atoms,), hidden_layers=hidden_layers, device=device)
+            self.advantage_net = FcNet(in_features, (out_size*num_atoms,), hidden_layers=hidden_layers, device=device)
 
         if self.pre_network is not None:
             pif = self.pre_network.in_features

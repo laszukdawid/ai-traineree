@@ -1,14 +1,16 @@
 import math
+from functools import lru_cache
+from typing import Optional, Tuple
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.distributions import Beta, Dirichlet, MultivariateNormal, Normal
+from torch.distributions.distribution import Distribution
 
 from ai_traineree.networks import NetworkType
 from ai_traineree.networks.bodies import FcNet
-from functools import lru_cache
-from torch.distributions import Beta, Dirichlet, MultivariateNormal, Normal
-from torch.distributions.distribution import Distribution
-from typing import Optional, Tuple
+from ai_traineree.types.primitive import FeatureType
 
 
 class PolicyType(NetworkType):
@@ -148,7 +150,7 @@ class GaussianPolicy(PolicyType):
     Has two heads; one for location estimate and one for standard deviation.
     """
 
-    def __init__(self, in_features: int, out_features: int, out_scale: float=1, **kwargs):
+    def __init__(self, in_features: FeatureType, out_features: FeatureType, out_scale: float=1, **kwargs):
         """
         Parameters:
             size: Observation's dimensionality upon sampling.
@@ -156,8 +158,8 @@ class GaussianPolicy(PolicyType):
         """
         super(GaussianPolicy, self).__init__()
 
-        self.in_features: int = in_features
-        self.out_features: int = out_features
+        self.in_features = in_features
+        self.out_features = out_features
         self.out_scale = out_scale
 
         hidden_layers = kwargs.get("hidden_layers")

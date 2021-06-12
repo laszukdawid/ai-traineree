@@ -68,6 +68,9 @@ class D4PGAgent(AgentBase):
         self.device = self._register_param(kwargs, "device", DEVICE)
         self.obs_size = obs_size
         self.action_size = action_size
+        self._config['obs_size'] = self.obs_size
+        self._config['action_size'] = self.action_size
+        obs_shape = (obs_size,)
 
         self.num_atoms = int(self._register_param(kwargs, 'num_atoms', 51))
         v_min = float(self._register_param(kwargs, 'v_min', -10))
@@ -103,22 +106,22 @@ class D4PGAgent(AgentBase):
 
         # This looks messy but it's not that bad. Actor, critic_net and Critic(critic_net). Then the same for `target_`.
         self.actor = ActorBody(
-            obs_size, self.policy.param_dim*action_size, hidden_layers=self.actor_hidden_layers,
+            obs_shape, (self.policy.param_dim*action_size,), hidden_layers=self.actor_hidden_layers,
             gate_out=torch.tanh, device=self.device
         )
         critic_net = CriticBody(
-            obs_size, action_size, out_features=self.num_atoms, hidden_layers=self.critic_hidden_layers, device=self.device
+            obs_shape, action_size, out_features=(self.num_atoms,), hidden_layers=self.critic_hidden_layers, device=self.device
         )
         self.critic = CategoricalNet(
             num_atoms=self.num_atoms, v_min=v_min, v_max=v_max, net=critic_net, device=self.device
         )
 
         self.target_actor = ActorBody(
-            obs_size, self.policy.param_dim*action_size, hidden_layers=self.actor_hidden_layers,
+            obs_shape, (self.policy.param_dim*action_size,), hidden_layers=self.actor_hidden_layers,
             gate_out=torch.tanh, device=self.device
         )
         target_critic_net = CriticBody(
-            obs_size, action_size, out_features=self.num_atoms, hidden_layers=self.critic_hidden_layers, device=self.device
+            obs_shape, action_size, out_features=(self.num_atoms,), hidden_layers=self.critic_hidden_layers, device=self.device
         )
         self.target_critic = CategoricalNet(
             num_atoms=self.num_atoms, v_min=v_min, v_max=v_max, net=target_critic_net, device=self.device

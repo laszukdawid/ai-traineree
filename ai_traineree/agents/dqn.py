@@ -33,8 +33,8 @@ class DQNAgent(AgentBase):
 
     def __init__(
         self,
-        input_shape: Union[Sequence[int], int],
-        output_shape: Union[Sequence[int], int],
+        obs_size: int,
+        action_size: int,
         network_fn: Callable[[], NetworkType]=None,
         network_class: Type[NetworkTypeClass]=None,
         state_transform: Optional[Callable]=None,
@@ -44,6 +44,14 @@ class DQNAgent(AgentBase):
         """Initiates the DQN agent.
 
         Parameters:
+            obs_size: Number of input dimensions.
+            action_size: Number of output dimensions
+            network_fn (optional func): Function used to instantiate a network used by the agent.
+            network_class (optional cls): Class of network that is instantiated with internal params to create network.
+            state_transform (optional func): Function to transform (encode) state before used by the network.
+            reward_transform (optional func): Function to transform reward before use.
+
+        Keyword parameters:
             hidden_layers (tuple of ints): Tuple defining hidden dimensions in fully connected nets. Default: (64, 64).
             lr (float): Learning rate value. Default: 3e-4.
             gamma (float): Discount factor. Default: 0.99.
@@ -61,13 +69,11 @@ class DQNAgent(AgentBase):
         super().__init__(**kwargs)
 
         self.device = self._register_param(kwargs, "device", DEVICE, update=True)
-        # TODO: All this should be condensed with some structure, e.g. gym spaces
-        self.input_shape: Sequence[int] = input_shape if not isinstance(input_shape, int) else (input_shape,)
-        self.obs_size: int = self.input_shape[0]
-        self.output_shape: Sequence[int] = output_shape if not isinstance(output_shape, int) else (output_shape,)
-        self.action_size: int = self.output_shape[0]
+        self.obs_size: int = obs_size
+        self.action_size = action_size
         self._config['obs_size'] = self.obs_size
         self._config['action_size'] = self.action_size
+        obs_shape, action_shape = (obs_size,), (action_size,)
 
         self.lr = float(self._register_param(kwargs, 'lr', 3e-4))  # Learning rate
         self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))  # Discount value
@@ -94,13 +100,13 @@ class DQNAgent(AgentBase):
             self.net = network_fn()
             self.target_net = network_fn()
         elif network_class is not None:
-            self.net = network_class(self.input_shape, self.action_size, hidden_layers=hidden_layers, device=self.device)
-            self.target_net = network_class(self.input_shape, self.action_size, hidden_layers=hidden_layers, device=self.device)
+            self.net = network_class(obs_shape, action_shape, hidden_layers=hidden_layers, device=self.device)
+            self.target_net = network_class(obs_shape, action_shape, hidden_layers=hidden_layers, device=self.device)
         else:
-            self.net = DuelingNet(self.input_shape, self.output_shape, hidden_layers=hidden_layers, device=self.device)
-            self.target_net = DuelingNet(self.input_shape, self.output_shape, hidden_layers=hidden_layers, device=self.device)
+            self.net = DuelingNet(obs_shape, action_shape, hidden_layers=hidden_layers, device=self.device)
+            self.target_net = DuelingNet(obs_shape, action_shape, hidden_layers=hidden_layers, device=self.device)
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
-        self._loss: float = float('inf')
+        self._loss: float = float('nan')
 
     @property
     def loss(self) -> Dict[str, float]:

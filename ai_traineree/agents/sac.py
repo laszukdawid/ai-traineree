@@ -32,6 +32,10 @@ class SACAgent(AgentBase):
     def __init__(self, obs_size: int, action_size: int, **kwargs):
         """
         Parameters:
+            obs_size (int): Dimension of the observation.
+            action_size (int): Dimension of expected action.
+
+        Keyword parameters:
             hidden_layers: (default: (128, 128)) Shape of the hidden layers that are fully connected networks.
             gamma: (default: 0.99) Discount value.
             tau: (default: 0.02) Soft copy fraction.
@@ -53,6 +57,9 @@ class SACAgent(AgentBase):
         self.device = kwargs.get("device", DEVICE)
         self.obs_size = obs_size
         self.action_size = action_size
+        self._config['obs_size'] = self.obs_size
+        self._config['action_size'] = self.action_size
+        obs_shape = (obs_size,)
 
         self.gamma: float = float(self._register_param(kwargs, 'gamma', 0.99))
         self.tau: float = float(self._register_param(kwargs, 'tau', 0.02))
@@ -78,15 +85,15 @@ class SACAgent(AgentBase):
         self.simple_policy = bool(self._register_param(kwargs, "simple_policy", False))
         if self.simple_policy:
             self.policy = MultivariateGaussianPolicySimple(self.action_size, **kwargs)
-            self.actor = ActorBody(self.obs_size, self.policy.param_dim*self.action_size, hidden_layers=actor_hidden_layers, device=self.device)
+            self.actor = ActorBody(obs_shape, (self.policy.param_dim*self.action_size,), hidden_layers=actor_hidden_layers, device=self.device)
         else:
-            self.policy = GaussianPolicy(actor_hidden_layers[-1], self.action_size, out_scale=self.action_scale, device=self.device)
-            self.actor = ActorBody(self.obs_size, actor_hidden_layers[-1], hidden_layers=actor_hidden_layers[:-1], device=self.device)
+            self.policy = GaussianPolicy((actor_hidden_layers[-1],), (self.action_size,), out_scale=self.action_scale, device=self.device)
+            self.actor = ActorBody(obs_shape, (actor_hidden_layers[-1],), hidden_layers=actor_hidden_layers[:-1], device=self.device)
 
         self.double_critic = DoubleCritic(
-            (self.obs_size,), self.action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device)
+            obs_shape, self.action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device)
         self.target_double_critic = DoubleCritic(
-            (self.obs_size,), self.action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device)
+            obs_shape, self.action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device)
 
         # Target sequence initiation
         hard_update(self.target_double_critic, self.double_critic)

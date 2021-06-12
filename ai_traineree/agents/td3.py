@@ -60,12 +60,15 @@ class TD3Agent(AgentBase):
         # Reason sequence initiation.
         self.obs_size = obs_size
         self.action_size = action_size
+        self._config['obs_size'] = self.obs_size
+        self._config['action_size'] = self.action_size
+        obs_shape, action_shape = (obs_size,), (action_size,)
 
         hidden_layers = to_numbers_seq(self._register_param(kwargs, 'hidden_layers', (128, 128)))
-        self.actor = ActorBody(obs_size, action_size, hidden_layers=hidden_layers).to(self.device)
-        self.critic = DoubleCritic((obs_size,), action_size, CriticBody, hidden_layers=hidden_layers).to(self.device)
-        self.target_actor = ActorBody(obs_size, action_size, hidden_layers=hidden_layers).to(self.device)
-        self.target_critic = DoubleCritic((obs_size,), action_size, CriticBody, hidden_layers=hidden_layers).to(self.device)
+        self.actor = ActorBody(obs_shape, action_shape, hidden_layers=hidden_layers).to(self.device)
+        self.critic = DoubleCritic(obs_shape, action_size, CriticBody, hidden_layers=hidden_layers).to(self.device)
+        self.target_actor = ActorBody(obs_shape, action_shape, hidden_layers=hidden_layers).to(self.device)
+        self.target_critic = DoubleCritic(obs_shape, action_size, CriticBody, hidden_layers=hidden_layers).to(self.device)
 
         # Noise sequence initiation
         # self.noise = GaussianNoise(shape=(action_size,), mu=1e-8, sigma=noise_sigma, scale=noise_scale, device=device)

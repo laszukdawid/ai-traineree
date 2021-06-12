@@ -53,6 +53,10 @@ class RainbowAgent(AgentBase):
         Parameters:
             obs_size (int): Number of dimensions or the observation.
             action_size (int): Dimensionality for the action.
+            state_transform (optional func):
+            reward_transform (optional func):
+
+        Keyword parameters:
             pre_network_fn (function that takes input_shape and returns network):
                 Used to preprocess state before it is used in the value- and advantage-function in the dueling nets.
             hidden_layers (tuple of ints): Shape and sizes of fully connected networks used. Default: (100, 100).
@@ -77,6 +81,9 @@ class RainbowAgent(AgentBase):
 
         self.obs_size: int = obs_size
         self.action_size: int = action_size
+        self._config['obs_size'] = self.obs_size
+        self._config['action_size'] = self.action_size
+        obs_shape, action_shape = (obs_size,), (action_size,)
 
         self.lr = float(self._register_param(kwargs, 'lr', 3e-4))
         self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))
@@ -109,9 +116,8 @@ class RainbowAgent(AgentBase):
         # Note that in case a pre_network is provided, e.g. a shared net that extracts pixels values,
         # it should be explicitly passed in kwargs
         kwargs["hidden_layers"] = to_numbers_seq(self._register_param(kwargs, "hidden_layers", (100, 100)))
-        in_features, out_features = (obs_size,), (action_size,)
-        self.net = RainbowNet(in_features, out_features, num_atoms=self.num_atoms, **kwargs)
-        self.target_net = RainbowNet(in_features, out_features, num_atoms=self.num_atoms, **kwargs)
+        self.net = RainbowNet(obs_shape, action_shape, num_atoms=self.num_atoms, **kwargs)
+        self.target_net = RainbowNet(obs_shape, action_shape, num_atoms=self.num_atoms, **kwargs)
 
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
         self.dist_probs = None

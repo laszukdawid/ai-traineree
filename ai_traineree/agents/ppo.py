@@ -66,6 +66,8 @@ class PPOAgent(AgentBase):
 
         self.obs_size = obs_size
         self.action_size = action_size
+        self._config['obs_size'] = self.obs_size
+        self._config['action_size'] = self.action_size
         self.hidden_layers = to_numbers_seq(self._register_param(kwargs, "hidden_layers", (100, 100)))
         self.iteration = 0
 
@@ -74,9 +76,9 @@ class PPOAgent(AgentBase):
         self.gae_lambda = float(self._register_param(kwargs, "gae_lambda", 0.96))
 
         self.actor_lr = float(self._register_param(kwargs, 'actor_lr', 3e-4))
-        self.actor_betas: Tuple[float, float] = to_numbers_seq(self._register_param(kwargs, 'actor_betas', (0.9, 0.999)))
+        self.actor_betas = to_numbers_seq(self._register_param(kwargs, 'actor_betas', (0.9, 0.999)))
         self.critic_lr = float(self._register_param(kwargs, 'critic_lr', 1e-3))
-        self.critic_betas: Tuple[float, float] = to_numbers_seq(self._register_param(kwargs, 'critic_betas', (0.9, 0.999)))
+        self.critic_betas = to_numbers_seq(self._register_param(kwargs, 'critic_betas', (0.9, 0.999)))
         self.gamma = float(self._register_param(kwargs, "gamma", 0.99))
         self.ppo_ratio_clip = float(self._register_param(kwargs, "ppo_ratio_clip", 0.25))
 
@@ -109,11 +111,11 @@ class PPOAgent(AgentBase):
 
         self.buffer = RolloutBuffer(batch_size=self.batch_size, buffer_size=self.rollout_length)
         self.actor = ActorBody(
-            obs_size, self.policy.param_dim*action_size,
+            (obs_size,), (self.policy.param_dim*action_size,),
             gate_out=torch.tanh, hidden_layers=self.hidden_layers, device=self.device)
         self.critic = ActorBody(
-            obs_size, 1,
-            gate_out=None, hidden_layers=self.hidden_layers, device=self.device)
+            (obs_size,), (1,),
+            gate_out=nn.Identity(), hidden_layers=self.hidden_layers, device=self.device)
         self.actor_params = list(self.actor.parameters()) + list(self.policy.parameters())
         self.critic_params = list(self.critic.parameters())
 

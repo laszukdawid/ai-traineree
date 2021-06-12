@@ -79,8 +79,8 @@ class MADDPGAgent(MultiAgentType):
         self.update_freq = int(self._register_param(kwargs, 'update_freq', 1))
         self.number_updates = int(self._register_param(kwargs, 'number_updates', 1))
 
-        self.critic = CriticBody(num_agents*obs_size, num_agents*action_size, hidden_layers=hidden_layers).to(self.device)
-        self.target_critic = CriticBody(num_agents*obs_size, num_agents*action_size, hidden_layers=hidden_layers).to(self.device)
+        self.critic = CriticBody((num_agents*obs_size,), num_agents*action_size, hidden_layers=hidden_layers).to(self.device)
+        self.target_critic = CriticBody((num_agents*obs_size,), num_agents*action_size, hidden_layers=hidden_layers).to(self.device)
         self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=critic_lr)
         hard_update(self.target_critic, self.critic)
 
