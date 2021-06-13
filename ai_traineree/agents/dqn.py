@@ -54,7 +54,7 @@ class DQNAgent(AgentBase):
             reward_transform (optional func): Function to transform reward before use.
 
         Keyword parameters:
-            hidden_layers (tuple of ints): Tuple defining hidden dimensions in fully connected nets. Default: (64, 64).
+            hidden_layers (tuple of ints): Shape of the hidden layers in fully connected network. Default: (64, 64).
             lr (float): Learning rate value. Default: 3e-4.
             gamma (float): Discount factor. Default: 0.99.
             tau (float): Soft-copy factor. Default: 0.002.
@@ -122,6 +122,7 @@ class DQNAgent(AgentBase):
 
     def __eq__(self, o: object) -> bool:
         return super().__eq__(o) \
+            and isinstance(o, type(self)) \
             and self._config == o._config \
             and self.buffer == o.buffer \
             and self.n_buffer == o.n_buffer \

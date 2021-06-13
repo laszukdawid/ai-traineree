@@ -38,21 +38,22 @@ class SACAgent(AgentBase):
             action_size (int): Dimension of expected action.
 
         Keyword parameters:
-            hidden_layers: (default: (128, 128)) Shape of the hidden layers that are fully connected networks.
-            gamma: (default: 0.99) Discount value.
-            tau: (default: 0.02) Soft copy fraction.
-            batch_size: (default 64) Number of samples in a batch.
-            buffer_size: (default: 1e6) Size of the prioritized experience replay buffer.
-            warm_up: (default: 0) Number of samples that needs to be observed before starting to learn.
-            update_freq: (default: 1) Number of samples between policy updates.
-            number_updates: (default: 1) Number of times of batch sampling/training per `update_freq`.
-            alpha: (default: 0.2) Weight of log probs in value function.
-            alpha_lr: (default: None) If provided, it will add alpha as a training parameters and `alpha_lr` is its learning rate.
-            action_scale: (default: 1.) Scale for returned action values.
-            max_grad_norm_alpha: (default: 1.) Gradient clipping for the alpha.
-            max_grad_norm_actor: (default 10.) Gradient clipping for the actor.
-            max_grad_norm_critic: (default: 10.) Gradient clipping for the critic.
-            device: Defaults to CUDA if available.
+            hidden_layers (tuple of ints): Shape of the hidden layers in fully connected network. Default: (128, 128).
+            gamma (float):  Discount value. Default: 0.99.
+            tau (float): Soft copy fraction. Default: 0.02.
+            batch_size (int): Number of samples in a batch. Default: 64.
+            buffer_size (int): Size of the prioritized experience replay buffer. Default: 1e6.
+            warm_up: (default: 0) Number of samples that needs to be observed before starting to learn. Default: 0.
+            update_freq (int): Number of samples between policy updates. Default: 1.
+            number_updates (int):  Number of times of batch sampling/training per `update_freq`. Default: 1.
+            alpha (float): Weight of log probs in value function. Default: 0.2.
+            alpha_lr (Optional float): If not None, it adds alpha as a training parameters with `alpha_lr` as its
+                learning rate. Default: None.
+            action_scale (float):  Scale for returned action values. Default: 1.
+            max_grad_norm_alpha (float): Gradient clipping for the alpha. Default: 1.
+            max_grad_norm_actor (float): Gradient clipping for the actor. Default: 10.
+            max_grad_norm_critic (float):  Gradient clipping for the critic. Default: 10.
+            device: Defaults to CUDA if available. Default: CUDA if available.
 
         """
         super().__init__(**kwargs)
@@ -87,10 +88,13 @@ class SACAgent(AgentBase):
         self.simple_policy = bool(self._register_param(kwargs, "simple_policy", False))
         if self.simple_policy:
             self.policy = MultivariateGaussianPolicySimple(self.action_size, **kwargs)
-            self.actor = ActorBody(obs_shape, (self.policy.param_dim*self.action_size,), hidden_layers=actor_hidden_layers, device=self.device)
+            self.actor = ActorBody(
+                obs_shape, (self.policy.param_dim*self.action_size,), hidden_layers=actor_hidden_layers, device=self.device)
         else:
-            self.policy = GaussianPolicy((actor_hidden_layers[-1],), (self.action_size,), out_scale=self.action_scale, device=self.device)
-            self.actor = ActorBody(obs_shape, (actor_hidden_layers[-1],), hidden_layers=actor_hidden_layers[:-1], device=self.device)
+            self.policy = GaussianPolicy(
+                (actor_hidden_layers[-1],), (self.action_size,), out_scale=self.action_scale, device=self.device)
+            self.actor = ActorBody(
+                obs_shape, (actor_hidden_layers[-1],), hidden_layers=actor_hidden_layers[:-1], device=self.device)
 
         self.double_critic = DoubleCritic(
             obs_shape, self.action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device)
@@ -123,8 +127,8 @@ class SACAgent(AgentBase):
         # Breath, my child.
         self.iteration = 0
 
-        self._loss_actor = float('inf')
-        self._loss_critic = float('inf')
+        self._loss_actor = float('nan')
+        self._loss_critic = float('nan')
         self._metrics: Dict[str, Union[float, Dict[str, float]]] = {}
 
     @property
@@ -132,7 +136,7 @@ class SACAgent(AgentBase):
         return self.log_alpha.exp()
 
     @property
-    def loss(self):
+    def loss(self) -> Dict[str, float]:
         return {'actor': self._loss_actor, 'critic': self._loss_critic}
 
     @loss.setter
@@ -275,7 +279,7 @@ class SACAgent(AgentBase):
             value_loss.backward()
             nn.utils.clip_grad_norm_(self.critic_params, self.max_grad_norm_critic)
             self.critic_optimizer.step()
-            self._loss_critic = value_loss.item()
+            self._loss_critic = float(value_loss.item())
 
         # Actor (policy) update
         for _ in range(self.actor_number_updates):
@@ -284,7 +288,7 @@ class SACAgent(AgentBase):
             policy_loss.backward()
             nn.utils.clip_grad_norm_(self.actor_params, self.max_grad_norm_actor)
             self.actor_optimizer.step()
-            self._loss_actor = policy_loss.item()
+            self._loss_actor = float(policy_loss.item())
 
         if hasattr(self.memory, 'priority_update'):
             assert any(~torch.isnan(error))

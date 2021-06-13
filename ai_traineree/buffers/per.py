@@ -1,11 +1,11 @@
 import copy
 import math
-import numpy
-import torch
 import random
-
 from collections import defaultdict
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
+
+import numpy
+
 from ai_traineree.types.state import BufferState
 
 from . import BufferBase, Experience, ReferenceBuffer
@@ -60,10 +60,7 @@ class PERBuffer(BufferBase):
         return len(self.tree)
 
     def __eq__(self, o: object) -> bool:
-        return super().__eq__(o) \
-            and self.type == o.type \
-            and self.buffer_size == o.buffer_size \
-            and self.data == o.data
+        return super().__eq__(o) and isinstance(o, type(self))
 
     def seed(self, seed: int):
         self._rng = random.Random(seed)
@@ -134,7 +131,7 @@ class PERBuffer(BufferBase):
                 all_experiences[key].append(value)
         return all_experiences
 
-    def priority_update(self, indices: Sequence[int], priorities: torch.Tensor) -> None:
+    def priority_update(self, indices: Sequence[int], priorities: List) -> None:
         """Updates prioprities for elements on provided indices."""
         for i, p in zip(indices, priorities):
             self.tree.weight_update(i, math.pow(p, self.alpha))
@@ -162,7 +159,7 @@ class PERBuffer(BufferBase):
             # yield Experience(**exp).get_dict(serialize=serialize)
             yield exp.get_dict(serialize=serialize)
 
-    def load_buffer(self, buffer: List[Dict[str, List]]):
+    def load_buffer(self, buffer: List[Experience]):
         for experience in buffer:
             self.add(**experience.data)
 
@@ -225,7 +222,11 @@ class SumTree(object):
 
     def _find(self, weight, index) -> Tuple[Any, float, int]:
         if self.leaf_offset <= index:  # Moved to the leaf layer
-            return self.data[min(index - self.leaf_offset, self.leafs_num-1)], self.tree[index], index - self.leaf_offset
+            return (
+                self.data[min(index - self.leaf_offset, self.leafs_num-1)],
+                self.tree[index],
+                index - self.leaf_offset
+            )
 
         left_idx = 2*index + 1
         left_weight = self.tree[left_idx]

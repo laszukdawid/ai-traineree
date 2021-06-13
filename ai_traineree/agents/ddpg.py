@@ -38,7 +38,7 @@ class DDPGAgent(AgentBase):
             noise_sigma (float): Added noise variance. Default: 0.1.
 
         Keyword parameters:
-            hidden_layers (tuple of ints): Tuple defining hidden dimensions in fully connected nets. Default: (64, 64).
+            hidden_layers (tuple of ints): Shape of the hidden layers in fully connected network. Default: (64, 64).
             gamma (float): Discount value. Default: 0.99.
             tau (float): Soft-copy factor. Default: 0.002.
             actor_lr (float): Learning rate for the actor (policy). Default: 0.0003.
@@ -66,13 +66,18 @@ class DDPGAgent(AgentBase):
 
         # Reason sequence initiation.
         hidden_layers = to_numbers_seq(self._register_param(kwargs, 'hidden_layers', (64, 64)))
-        self.actor = ActorBody(obs_shape, action_shape, hidden_layers=hidden_layers, gate_out=torch.tanh).to(self.device)
-        self.critic = CriticBody(obs_shape, action_size, hidden_layers=hidden_layers).to(self.device)
-        self.target_actor = ActorBody(obs_shape, action_shape, hidden_layers=hidden_layers, gate_out=torch.tanh).to(self.device)
-        self.target_critic = CriticBody(obs_shape, action_size, hidden_layers=hidden_layers).to(self.device)
+        self.actor = ActorBody(
+            obs_shape, action_shape, hidden_layers=hidden_layers, gate_out=torch.tanh).to(self.device)
+        self.critic = CriticBody(
+            obs_shape, action_size, hidden_layers=hidden_layers).to(self.device)
+        self.target_actor = ActorBody(
+            obs_shape, action_shape, hidden_layers=hidden_layers, gate_out=torch.tanh).to(self.device)
+        self.target_critic = CriticBody(
+            obs_shape, action_size, hidden_layers=hidden_layers).to(self.device)
 
         # Noise sequence initiation
-        self.noise = GaussianNoise(shape=(action_size,), mu=1e-8, sigma=noise_sigma, scale=noise_scale, device=self.device)
+        self.noise = GaussianNoise(
+            shape=(action_size,), mu=1e-8, sigma=noise_sigma, scale=noise_scale, device=self.device)
 
         # Target sequence initiation
         hard_update(self.target_actor, self.actor)
@@ -126,6 +131,7 @@ class DDPGAgent(AgentBase):
 
     def __eq__(self, o: object) -> bool:
         return super().__eq__(o) \
+            and isinstance(o, type(self)) \
             and self._config == o._config \
             and self.buffer == o.buffer \
             and self.get_network_state() == o.get_network_state()

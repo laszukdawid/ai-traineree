@@ -215,17 +215,18 @@ class CriticBody(NetworkType):
     ):
         """
         Parameters:
-            in_features: Dimension of the input features.
-            inj_action_size: Dimension of the action vector that is injected into `inj_action_layer`.
-            out_features: Dimension of critic's action. Default: (1,).
-            hidden_layers: Shape of the hidden layers. Default: (100, 100).
-            inj_action_layer: An index for the layer that will have `actions` injected as an additional input.
+            in_features (tuple of ints): Dimension of the input features.
+            inj_action_size (int): Dimension of the action vector that is injected into `inj_action_layer`.
+            out_features (tuple of ints): Dimension of critic's action. Default: (1,).
+            hidden_layers (tuple of ints): Shape of the hidden layers. Default: (100, 100).
+            inj_action_layer (int): An index for the layer that will have `actions` injected as an additional input.
                 By default that's a first hidden layer, i.e. (state) -> (out + actions) -> (out) ... -> (output).
+                Default: 1.
 
         Keyword parameters
             gate: Activation function for each layer, expect the last. Default: Identity layer.
             gate_out: Activation function after the last layer. Default: Identity layer.
-            device: Device where to allocate memory. CPU or CUDA.
+            device: Device where to allocate memory. CPU or CUDA. Default CUDA if available.
 
         """
         super().__init__()

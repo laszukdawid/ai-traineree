@@ -40,7 +40,7 @@ class PPOAgent(AgentBase):
             action_size (int): Number of output dimensions
 
         Keyword parameters:
-            hidden_layers (tuple of ints): Tuple defining hidden dimensions in fully connected nets. Default: (100, 100).
+            hidden_layers (tuple of ints): Shape of the hidden layers in fully connected network. Default: (128, 128).
             is_discrete (bool): Whether return discrete action. Default: False.
             kl_div (bool): Whether to use KL divergence in loss. Default: False.
             using_gae (bool): Whether to use General Advantage Estimator. Default: True.
@@ -70,7 +70,7 @@ class PPOAgent(AgentBase):
         self.action_size = action_size
         self._config['obs_size'] = self.obs_size
         self._config['action_size'] = self.action_size
-        self.hidden_layers = to_numbers_seq(self._register_param(kwargs, "hidden_layers", (100, 100)))
+        self.hidden_layers = to_numbers_seq(self._register_param(kwargs, "hidden_layers", (128, 128)))
         self.iteration = 0
 
         self.is_discrete = bool(self._register_param(kwargs, "is_discrete", False))
@@ -91,7 +91,7 @@ class PPOAgent(AgentBase):
 
         self.num_workers = int(self._register_param(kwargs, "num_workers", 1))
         self.num_epochs = int(self._register_param(kwargs, "num_epochs", 1))
-        self.rollout_length = int(self._register_param(kwargs, "rollout_length", 48))  # "Much less than the episode length"
+        self.rollout_length = int(self._register_param(kwargs, "rollout_length", 48))  # "Much shorter than episode"
         self.batch_size = int(self._register_param(kwargs, "batch_size", self.rollout_length))
         self.actor_number_updates = int(self._register_param(kwargs, "actor_number_updates", 10))
         self.critic_number_updates = int(self._register_param(kwargs, "critic_number_updates", 10))
@@ -142,6 +142,7 @@ class PPOAgent(AgentBase):
 
     def __eq__(self, o: object) -> bool:
         return super().__eq__(o) \
+            and isinstance(o, type(self)) \
             and self._config == o._config \
             and self.buffer == o.buffer \
             and self.get_network_state() == o.get_network_state()  # TODO @dawid: Currently net isn't compared properly
@@ -216,8 +217,10 @@ class PPOAgent(AgentBase):
         values = to_tensor(experiences['value']).to(self.device)
         logprobs = to_tensor(experiences['logprob']).to(self.device)
         assert rewards.shape == dones.shape == values.shape == logprobs.shape
-        assert states.shape == (self.rollout_length, self.num_workers, self.obs_size), f"Wrong states shape: {states.shape}"
-        assert actions.shape == (self.rollout_length, self.num_workers, self.action_size), f"Wrong action shape: {actions.shape}"
+        assert states.shape == (self.rollout_length, self.num_workers, self.obs_size), \
+            f"Wrong states shape: {states.shape}"
+        assert actions.shape == (self.rollout_length, self.num_workers, self.action_size), \
+            f"Wrong action shape: {actions.shape}"
 
         with torch.no_grad():
             if self.using_gae:

@@ -1,18 +1,20 @@
+from collections import OrderedDict, defaultdict
+from typing import Any, Dict, List, Optional
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
 from ai_traineree import DEVICE
-from ai_traineree.buffers import ReplayBuffer
-from ai_traineree.agents.ddpg import DDPGAgent
 from ai_traineree.agents.agent_utils import hard_update, soft_update
+from ai_traineree.agents.ddpg import DDPGAgent
+from ai_traineree.buffers import ReplayBuffer
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import CriticBody
 from ai_traineree.types import ActionType, MultiAgentType, StateType
+from ai_traineree.types.primitive import ObsType
 from ai_traineree.utils import to_numbers_seq, to_tensor
-from collections import defaultdict, OrderedDict
-from typing import Any, Dict, List, Optional
 
 
 class MADDPGAgent(MultiAgentType):
@@ -85,8 +87,8 @@ class MADDPGAgent(MultiAgentType):
         hard_update(self.target_critic, self.critic)
 
         self._step_data = {}
-        self._loss_critic: float = float('inf')
-        self._loss_actor: Dict[str, float] = {name: float('inf') for name in self.agent_names}
+        self._loss_critic: float = float('nan')
+        self._loss_actor: Dict[str, float] = {name: float('nan') for name in self.agent_names}
         self.reset()
 
     @property
@@ -138,7 +140,7 @@ class MADDPGAgent(MultiAgentType):
             self.update_targets()
 
     @torch.no_grad()
-    def act(self, agent_name: str, states: List[StateType], noise: float=0.0) -> List[float]:
+    def act(self, agent_name: str, obss: List[ObsType], noise: float=0.0) -> List[float]:
         """Get actions from all agents. Synchronized action.
 
         Parameters:
@@ -149,9 +151,9 @@ class MADDPGAgent(MultiAgentType):
             actions: List of actions that each agent wants to perform
 
         """
-        tensor_states = torch.tensor(states).reshape(-1)
+        t_obss = torch.tensor(obss).reshape(-1)
         agent = self.agents[agent_name]
-        action = agent.act(tensor_states, noise)
+        action = agent.act(t_obss, noise)
         return action
 
     def __flatten_actions(self, actions):

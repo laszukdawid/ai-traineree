@@ -20,9 +20,11 @@ from typing import Callable, List, Optional, Sequence
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 from ai_traineree.networks import NetworkType, NetworkTypeClass
 from ai_traineree.networks.bodies import FcNet, NoisyNet
 from ai_traineree.types.primitive import FeatureType
+from ai_traineree.utils import to_numbers_seq
 
 
 class NetChainer(NetworkType):
@@ -63,8 +65,10 @@ class DoubleCritic(NetworkType):
     def __init__(self, in_features: Sequence[int], action_size: int, body_cls: NetworkTypeClass, **kwargs):
         super(DoubleCritic, self).__init__()
         hidden_layers = kwargs.pop("hidden_layers", (200, 200))
-        self.critic_1 = body_cls(in_features=in_features, inj_action_size=action_size, hidden_layers=hidden_layers, **kwargs)
-        self.critic_2 = body_cls(in_features=in_features, inj_action_size=action_size, hidden_layers=hidden_layers, **kwargs)
+        self.critic_1 = body_cls(
+            in_features=in_features, inj_action_size=action_size, hidden_layers=hidden_layers, **kwargs)
+        self.critic_2 = body_cls(
+            in_features=in_features, inj_action_size=action_size, hidden_layers=hidden_layers, **kwargs)
 
     def reset_parameters(self):
         self.critic_1.reset_parameters()
@@ -79,28 +83,37 @@ class DoubleCritic(NetworkType):
 
 class DuelingNet(NetworkType):
     def __init__(
-        self, input_shape: Sequence[int], output_shape: Sequence[int], hidden_layers: Sequence[int],
+        self, in_features: Sequence[int], out_features: Sequence[int], hidden_layers: Sequence[int],
         net_fn: Optional[Callable[..., NetworkType]]=None,
         net_class: Optional[NetworkTypeClass]=None,
         **kwargs
     ):
         """
         Parameters:
-            input_shape (Tuple of ints): Shape of the input. Even in case when input is 1D, a single item tuple is expected, e.g. (4,).
-            output_shape (Tuple of ints): Shape of the output. Same as with the `input_shape`.
+            in_features (tuple of ints): Dimension of the input features.
+            out_features (tuple of ints): Dimension of critic's action. Default: (1,).
+            hidden_layers (tuple of ints): Shape of the hidden layers.
+            net_fn (optional func):
+            net_class (optional class)
+        
+        Keyword parameters:
+            device: Device where to allocate memory. CPU or CUDA. Default CUDA if available.
+
         """
         super(DuelingNet, self).__init__()
         device = kwargs.get("device")
         # We only care about the leading size, e.g. (4,) -> 4
         if net_fn is not None:
-            self.value_net = net_fn(input_shape, (1,), hidden_layers=hidden_layers)
-            self.advantage_net = net_fn(input_shape, output_shape, hidden_layers=hidden_layers)
+            self.value_net = net_fn(in_features, (1,), hidden_layers=hidden_layers)
+            self.advantage_net = net_fn(in_features, out_features, hidden_layers=hidden_layers)
         elif net_class is not None:
-            self.value_net = net_class(input_shape, (1,), hidden_layers=hidden_layers, device=device)
-            self.advantage_net = net_class(input_shape, output_shape, hidden_layers=hidden_layers, device=device)
+            self.value_net = net_class(in_features, (1,), hidden_layers=hidden_layers, device=device)
+            self.advantage_net = net_class(in_features, out_features, hidden_layers=hidden_layers, device=device)
         else:
-            self.value_net = FcNet(input_shape, (1,), hidden_layers=hidden_layers, gate_out=nn.Identity(), device=device)
-            self.advantage_net = FcNet(input_shape, output_shape, hidden_layers=hidden_layers, gate_out=nn.Identity(), device=device)
+            self.value_net = FcNet(
+                in_features, (1,), hidden_layers=hidden_layers, gate_out=nn.Identity(), device=device)
+            self.advantage_net = FcNet(
+                in_features, out_features, hidden_layers=hidden_layers, gate_out=nn.Identity(), device=device)
 
     def reset_parameters(self) -> None:
         self.value_net.reset_parameters()
@@ -247,16 +260,15 @@ class RainbowNet(NetworkType, nn.Module):
         self,
         in_features: FeatureType,
         out_features: FeatureType,
-        hidden_layers=(200, 200),
         **kwargs
     ):
         """
         Parameters
             in_features (tuple of ints): Shape of the input.
             out_features (tuple of ints): Shape of the expected output.
-            hidden_layers (tuple of ints): Shape of fully connected networks. Default: (200, 200).
 
         Keyword parameters:
+            hidden_layers (tuple of ints): Shape of fully connected networks. Default: (200, 200).
             num_atoms (int): Number of atoms used in estimating distribution. Default: 21.
             v_min (float): Value distribution minimum (left most) value. Default -10.
             v_max (float): Value distribution maximum (right most) value. Default 10.
@@ -281,8 +293,8 @@ class RainbowNet(NetworkType, nn.Module):
         self.z_atoms = torch.linspace(self.v_min, self.v_max, self.num_atoms, device=self.device)
         self.z_delta = self.z_atoms[1] - self.z_atoms[0]
 
-        in_size = reduce(mul, in_features)
-        out_size = reduce(mul, out_features)
+        in_size, out_size = reduce(mul, in_features), reduce(mul, out_features)
+        hidden_layers = to_numbers_seq(kwargs.get('hidden_layers', (128, 128)))
         self.noisy = kwargs.get("noisy", False)
         if self.noisy:
             self.value_net = NoisyNet((in_size,), out_features=(num_atoms,), hidden_layers=hidden_layers, device=device)

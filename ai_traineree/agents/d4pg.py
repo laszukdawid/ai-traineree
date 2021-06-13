@@ -1,5 +1,5 @@
 import itertools
-from typing import Dict, List, Sequence
+from typing import Dict, List
 
 import torch
 import torch.nn as nn
@@ -35,14 +35,14 @@ class D4PGAgent(AgentBase):
 
     name = "D4PG"
 
-    def __init__(self, obs_size: int, action_size: int, hidden_layers: Sequence[int]=(128, 128), **kwargs):
+    def __init__(self, obs_size: int, action_size: int, **kwargs):
         """
         Parameters:
             obs_size (int): Number of input dimensions.
             action_size (int): Number of output dimensions
-            hidden_layers (tuple of ints): Dimensions of hidden layers in fully connected nets. Default: (128, 128).
 
         Keyword parameters:
+            hidden_layers (tuple of ints): Shape of the hidden layers in fully connected network. Default: (128, 128).
             gamma (float): Discount value. Default: 0.99.
             tau (float): Soft-copy factor. Default: 0.02.
             actor_lr (float): Learning rate for the actor (policy). Default: 0.0003.
@@ -95,6 +95,7 @@ class D4PGAgent(AgentBase):
         self.warm_up = int(self._register_param(kwargs, 'warm_up', 0))
         self.update_freq = int(self._register_param(kwargs, 'update_freq', 1))
 
+        hidden_layers = to_numbers_seq(self._register_param(kwargs, 'hidden_layers', (128, 128)))
         self.actor_hidden_layers = to_numbers_seq(self._register_param(kwargs, 'actor_hidden_layers', hidden_layers))
         self.critic_hidden_layers = to_numbers_seq(self._register_param(kwargs, 'critic_hidden_layers', hidden_layers))
 
@@ -239,16 +240,16 @@ class D4PGAgent(AgentBase):
         next_actions = self.policy(next_action_seeds).sample()
         assert next_actions.shape == (self.batch_size, self.action_size)
 
-        target_value_dist_estimate = self.target_critic.act(states, next_actions)
-        assert target_value_dist_estimate.shape == (self.batch_size, 1, self.num_atoms)
-        target_value_dist_estimate = target_value_dist_estimate.squeeze()
-        assert target_value_dist_estimate.shape == (self.batch_size, self.num_atoms)
+        target_value_dist_est = self.target_critic.act(states, next_actions)
+        assert target_value_dist_est.shape == (self.batch_size, 1, self.num_atoms)
+        target_value_dist_est = target_value_dist_est.squeeze()
+        assert target_value_dist_est.shape == (self.batch_size, self.num_atoms)
 
         discount = self.gamma ** self.n_steps
-        target_value_projected = self.target_critic.dist_projection(rewards, 1 - dones, discount, target_value_dist_estimate)
+        target_value_projected = self.target_critic.dist_projection(rewards, 1 - dones, discount, target_value_dist_est)
         assert target_value_projected.shape == (self.batch_size, self.num_atoms)
 
-        target_value_dist = F.softmax(target_value_dist_estimate, dim=-1).detach()
+        target_value_dist = F.softmax(target_value_dist_est, dim=-1).detach()
         assert target_value_dist.shape == (self.batch_size, self.num_atoms)
 
         # Comparing Q_w with Q_w'

@@ -1,10 +1,10 @@
-from ai_traineree.types.state import BufferState
 import random
-
 from typing import Dict, Iterator, List, Optional, Sequence
 
-from . import BufferBase, Experience
 from ai_traineree.buffers import ReferenceBuffer
+from ai_traineree.types.state import BufferState
+
+from . import BufferBase, Experience
 
 
 class ReplayBuffer(BufferBase):
@@ -35,10 +35,7 @@ class ReplayBuffer(BufferBase):
         return len(self.data)
 
     def __eq__(self, o: object) -> bool:
-        return super().__eq__(o) \
-            and self.type == o.type \
-            and self.buffer_size == o.buffer_size \
-            and self.data == o.data
+        return super().__eq__(o) and isinstance(o, type(self))
 
     def seed(self, seed: int):
         self._rng = random.Random(seed)
@@ -95,7 +92,7 @@ class ReplayBuffer(BufferBase):
         for data in self.data:
             yield data.get_dict(serialize=serialize)
 
-    def load_buffer(self, buffer: List[Dict[str, List]]):
+    def load_buffer(self, buffer: List[Experience]):
         for experience in buffer:
             # self.add(**experience)
             self.add(**experience.data)

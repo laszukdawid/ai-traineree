@@ -164,9 +164,9 @@ class EnvRunner:
         To help debugging one can set the `gif_every_episodes` to a positive integer which relates to how often a gif
         of the episode evaluation is written to the disk.
 
-        Every `checkpoint_every` (default: 200) iterations the Runner will store current state of the runner and the agent.
-        These states can be used to resume previous run. By default the runner checks whether there is ongoing run for
-        the combination of the environment and the agent.
+        Every `checkpoint_every` (default: 200) iterations the Runner will store current state of the runner
+        and the agent. These states can be used to resume previous run. By default the runner checks whether
+        there is ongoing run for the combination of the environment and the agent.
 
         Parameters:
             reward_goal: Goal to achieve on the average reward.

@@ -61,7 +61,7 @@ class RainbowAgent(AgentBase):
         Keyword parameters:
             pre_network_fn (function that takes input_shape and returns network):
                 Used to preprocess state before it is used in the value- and advantage-function in the dueling nets.
-            hidden_layers (tuple of ints): Shape and sizes of fully connected networks used. Default: (100, 100).
+            hidden_layers (tuple of ints): Shape of the hidden layers in fully connected network. Default: (100, 100).
             lr (default: 1e-3): Learning rate value.
             gamma (float): Discount factor. Default: 0.99.
             tau (float): Soft-copy factor. Default: 0.002.
@@ -123,7 +123,7 @@ class RainbowAgent(AgentBase):
 
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
         self.dist_probs = None
-        self._loss = float('inf')
+        self._loss = float('nan')
 
     @property
     def loss(self):
@@ -365,6 +365,7 @@ class RainbowAgent(AgentBase):
 
     def __eq__(self, o: object) -> bool:
         return super().__eq__(o) \
+            and isinstance(o, type(self)) \
             and self._config == o._config \
             and self.buffer == o.buffer \
             and self.get_network_state() == o.get_network_state()

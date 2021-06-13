@@ -65,7 +65,7 @@ def test_rainbow_set_loss():
     # Assign
     agent = RainbowAgent(1, 1, device='cpu')
     new_loss = 1
-    assert agent.loss == {'loss': float('inf')} # Check default
+    assert str(agent.loss) == str({'loss': float('nan')})  # Check default
 
     # Act
     agent.loss = new_loss

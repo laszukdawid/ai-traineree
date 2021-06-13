@@ -1,12 +1,12 @@
 import math
 import torch
-from typing import Union, Sequence
+from typing import Tuple
 
 from ai_traineree import DEVICE
 
 
 class GaussianNoise:
-    def __init__(self, shape: Union[int, Sequence[int]], mu=0., sigma=1., scale=1., device=None):
+    def __init__(self, shape: Tuple[int], mu=0., sigma=1., scale=1., device=None):
         self.shape = shape
         self.mu = torch.zeros(shape) + mu
         self.std = torch.zeros(shape) + math.sqrt(sigma)

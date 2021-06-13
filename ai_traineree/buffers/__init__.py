@@ -1,24 +1,33 @@
 import abc
 from collections import defaultdict
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Sequence, Union
 
 import numpy as np
 import torch
+
 from ai_traineree.types import BufferState
 
 from .experience import Experience
 
-# *Note*: Below these classes are additional imports to keep things backward compatible and easier to import.
+# *Note*: Below classes are additional imports to keep things backward compatible and easier to import.
 
 
 class BufferBase(abc.ABC):
     """Abstract class that defines buffer."""
 
     type: str
-    data: List  # Experience
+    data: Sequence  # Experience
+    batch_size: int
+    buffer_size: int
 
     def __eq__(self, o: object) -> bool:
-        return super().__eq__(o) and self.type == o.type and self.data == o.data
+        return isinstance(o, type(self)) \
+            and self.batch_size == o.batch_size \
+            and self.buffer_size == o.buffer_size \
+            and self.data == o.data
+
+    def __len__(self):
+        return len(self.data)
 
     def add(self, **kwargs):
         """Add samples to the buffer."""
@@ -32,7 +41,7 @@ class BufferBase(abc.ABC):
         """Return the whole buffer, e.g. for storing."""
         raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
 
-    def load_buffer(self, buffer: List[Dict]) -> None:
+    def load_buffer(self, buffer: List[Experience]) -> None:
         """Loads provided data into the buffer."""
         raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
 
@@ -42,6 +51,9 @@ class BufferBase(abc.ABC):
             # state.data = [d.data for d in self.data]  # In case we want to serialize
             state.data = self.data
         return state
+
+    def seed(self, seed: int) -> None:
+        raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
 
 
 class ReferenceBuffer(object):

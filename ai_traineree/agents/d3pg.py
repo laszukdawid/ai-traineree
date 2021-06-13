@@ -34,14 +34,14 @@ class D3PGAgent(AgentBase):
 
     name = "D3PG"
 
-    def __init__(self, obs_size: int, action_size: int, hidden_layers: Sequence[int]=(128, 128), **kwargs):
+    def __init__(self, obs_size: int, action_size: int, **kwargs):
         """
         Parameters:
             obs_size (int): Number of input dimensions.
             action_size (int): Number of output dimensions
-            hidden_layers (tuple of ints): Dimensions of hidden layers in fully connected nets. Default: (128, 128).
 
         Keyword parameters:
+            hidden_layers (tuple of ints): Shape of the hidden layers in fully connected network. Default: (128, 128).
             gamma (float): Discount value. Default: 0.99.
             tau (float): Soft-copy factor. Default: 0.02.
             actor_lr (float): Learning rate for the actor (policy). Default: 0.0003.
@@ -102,6 +102,7 @@ class D3PGAgent(AgentBase):
         else:
             self.policy = MultivariateGaussianPolicy(self.action_size, device=self.device)
 
+        hidden_layers = to_numbers_seq(self._register_param(kwargs, 'hidden_layers', (128, 128)))
         self.actor_hidden_layers = to_numbers_seq(self._register_param(kwargs, 'actor_hidden_layers', hidden_layers))
         self.critic_hidden_layers = to_numbers_seq(self._register_param(kwargs, 'critic_hidden_layers', hidden_layers))
 

@@ -1,10 +1,10 @@
-
 from collections import defaultdict, deque
-from typing import Dict, Iterator, List, Optional
+from typing import Deque, Dict, Iterator, List, Optional
 
-from . import BufferBase, Experience
 from ai_traineree.buffers import ReferenceBuffer
 from ai_traineree.types.state import BufferState
+
+from . import BufferBase, Experience
 
 
 class RolloutBuffer(BufferBase):
@@ -29,7 +29,7 @@ class RolloutBuffer(BufferBase):
         super().__init__()
         self.batch_size = batch_size
         self.buffer_size = buffer_size
-        self.data = deque()
+        self.data: Deque = deque()
 
         self._states_mng = kwargs.get('compress_state', False)
         self._states = ReferenceBuffer(buffer_size + 20)
@@ -98,7 +98,7 @@ class RolloutBuffer(BufferBase):
         for data in self.data:
             yield data.get_dict(serialize=serialize)
 
-    def load_buffer(self, buffer: List[Dict[str, List]]):
+    def load_buffer(self, buffer: List[Experience]):
         for experience in buffer:
             self.add(**experience.data)
 

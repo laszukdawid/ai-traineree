@@ -1,13 +1,15 @@
 from collections import deque
-from typing import Dict, List
+from typing import Deque, List
+
+from ai_traineree.types import BufferState
 
 from . import BufferBase, Experience
-from ai_traineree.types import BufferState
 
 
 class NStepBuffer(BufferBase):
 
     type = "NStep"
+    gamma: float
 
     def __init__(self, n_steps: int, gamma: float):
         super().__init__()
@@ -15,7 +17,7 @@ class NStepBuffer(BufferBase):
         self.n_steps = n_steps
         self.n_gammas = [gamma**i for i in range(1, n_steps+1)]
 
-        self.data = deque(maxlen=n_steps)
+        self.data: Deque = deque(maxlen=n_steps)
 
         # For consistency with other buffers
         self.buffer_size = n_steps
@@ -25,7 +27,7 @@ class NStepBuffer(BufferBase):
         return len(self.data)
 
     def __eq__(self, o: object) -> bool:
-        return super().__eq__(o) and self.gamma == o.gamma
+        return super().__eq__(o) and isinstance(o, type(self)) and self.gamma == o.gamma
 
     @property
     def available(self):
@@ -57,12 +59,14 @@ class NStepBuffer(BufferBase):
         if state.type != NStepBuffer.type:
             raise ValueError(f"Can only populate own type. '{NStepBuffer.type}' != '{state.type}'")
         if state.batch_size != 1:
-            raise ValueError(f"Provided batch_size={state.batch_size} for {state.type}. Only batch_size=1 is currently supported.")
+            raise ValueError(
+                f"Provided batch_size={state.batch_size} for {state.type}. Only batch_size=1 is currently supported."
+            )
         buffer = NStepBuffer(n_steps=state.buffer_size, gamma=state.extra.get("gamma", 1.0))
         if state.data:
             buffer.load_buffer(state.data)
         return buffer
 
-    def load_buffer(self, buffer: List[Dict[str, List]]):
+    def load_buffer(self, buffer: List[Experience]):
         for experience in buffer:
             self.add(**experience.data)

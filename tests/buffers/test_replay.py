@@ -7,8 +7,8 @@ from ai_traineree.types.state import BufferState
 
 
 def generate_sample_SARS(iterations, obs_size: int=4, action_size: int=2, dict_type=False):
-    state_fn = lambda: numpy.random.random(obs_size)
-    action_fn = lambda: numpy.random.random(action_size)
+    state_fn = lambda: list(numpy.random.random(obs_size))
+    action_fn = lambda: list(numpy.random.random(action_size))
     reward_fn = lambda: float(numpy.random.random() - 0.5)
     done_fn = lambda: numpy.random.random() > 0.5
     state = state_fn()
@@ -17,10 +17,10 @@ def generate_sample_SARS(iterations, obs_size: int=4, action_size: int=2, dict_t
         next_state = state_fn()
         if dict_type:
             yield dict(
-                state=list(state), action=list(action_fn()), reward=[reward_fn()], next_state=list(next_state), done=[bool(done_fn())]
+                state=state, action=action_fn(), reward=[reward_fn()], next_state=next_state, done=[bool(done_fn())]
             )
         else:
-            yield (list(state), list(action_fn()), reward_fn(), list(next_state), bool(done_fn()))
+            yield (state, action_fn(), reward_fn(), next_state, bool(done_fn()))
         state = next_state
 
 
