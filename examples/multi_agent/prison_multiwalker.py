@@ -1,17 +1,18 @@
+from collections import defaultdict
+
 import pylab as plt
+from pettingzoo.sisl import multiwalker_v7
 
 from ai_traineree.loggers import TensorboardLogger
 from ai_traineree.multi_agent.maddpg import MADDPGAgent
 from ai_traineree.multiagent_env_runner import MultiAgentCycleEnvRunner
 from ai_traineree.tasks import PettingZooTask
-from collections import defaultdict
-from pettingzoo.sisl import multiwalker_v7
 
 env = multiwalker_v7.env()
 ma_task = PettingZooTask(env)
 ma_task.reset()
 
-state_size = int(ma_task.state_size[0])
+obs_size = int(ma_task.obs_size[0])
 action_size = int(ma_task.action_size.shape[0])
 agent_number = ma_task.num_agents
 config = {
@@ -21,7 +22,7 @@ config = {
     'agent_names': env.agents,
     'hidden_layers': (500, 300, 100),
 }
-ma_agent = MADDPGAgent(state_size, action_size, agent_number, **config)
+ma_agent = MADDPGAgent(obs_size, action_size, agent_number, **config)
 data_logger = TensorboardLogger(log_dir="runs/Multiwalkers-MADDPG")
 # data_logger = None
 

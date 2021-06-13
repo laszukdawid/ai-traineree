@@ -1,9 +1,10 @@
 import copy
-from typing import Callable, Dict, List, Optional, Sequence, Union
+from typing import Callable, Dict, List, Optional
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
+
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import soft_update
@@ -12,6 +13,7 @@ from ai_traineree.buffers.buffer_factory import BufferFactory
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.heads import RainbowNet
 from ai_traineree.types import AgentState, BufferState, NetworkState
+from ai_traineree.types.primitive import ActionType, DoneType, ObsType, RewardType
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 
@@ -38,8 +40,8 @@ class RainbowAgent(AgentBase):
 
     def __init__(
         self,
-        input_shape: Union[Sequence[int], int],
-        output_shape: Union[Sequence[int], int],
+        obs_size: int,
+        action_size: int,
         state_transform: Optional[Callable]=None,
         reward_transform: Optional[Callable]=None,
         **kwargs
@@ -51,8 +53,12 @@ class RainbowAgent(AgentBase):
         from such distributions.
 
         Parameters:
-            input_shape (tuple of ints): Most likely that's your *state* shape.
-            output_shape (tuple of ints): Most likely that's you *action* shape.
+            obs_size (int): Number of dimensions or the observation.
+            action_size (int): Dimensionality for the action.
+            state_transform (optional func):
+            reward_transform (optional func):
+
+        Keyword parameters:
             pre_network_fn (function that takes input_shape and returns network):
                 Used to preprocess state before it is used in the value- and advantage-function in the dueling nets.
             hidden_layers (tuple of ints): Shape and sizes of fully connected networks used. Default: (100, 100).
@@ -74,11 +80,12 @@ class RainbowAgent(AgentBase):
         """
         super().__init__(**kwargs)
         self.device = self._register_param(kwargs, "device", DEVICE, update=True)
-        self.input_shape: Sequence[int] = input_shape if not isinstance(input_shape, int) else (input_shape,)
 
-        self.state_size: int = self.input_shape[0]
-        self.output_shape: Sequence[int] = output_shape if not isinstance(output_shape, int) else (output_shape,)
-        self.action_size: int = self.output_shape[0]
+        self.obs_size: int = obs_size
+        self.action_size: int = action_size
+        self._config['obs_size'] = self.obs_size
+        self._config['action_size'] = self.action_size
+        obs_shape, action_shape = (obs_size,), (action_size,)
 
         self.lr = float(self._register_param(kwargs, 'lr', 3e-4))
         self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))
@@ -111,8 +118,8 @@ class RainbowAgent(AgentBase):
         # Note that in case a pre_network is provided, e.g. a shared net that extracts pixels values,
         # it should be explicitly passed in kwargs
         kwargs["hidden_layers"] = to_numbers_seq(self._register_param(kwargs, "hidden_layers", (100, 100)))
-        self.net = RainbowNet(self.input_shape, self.output_shape, num_atoms=self.num_atoms, **kwargs)
-        self.target_net = RainbowNet(self.input_shape, self.output_shape, num_atoms=self.num_atoms, **kwargs)
+        self.net = RainbowNet(obs_shape, action_shape, num_atoms=self.num_atoms, **kwargs)
+        self.target_net = RainbowNet(obs_shape, action_shape, num_atoms=self.num_atoms, **kwargs)
 
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
         self.dist_probs = None
@@ -128,27 +135,30 @@ class RainbowAgent(AgentBase):
             value = value['loss']
         self._loss = value
 
-    def step(self, state, action, reward, next_state, done) -> None:
+    def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType) -> None:
         """Letting the agent to take a step.
 
         On some steps the agent will initiate learning step. This is dependent on
         the `update_freq` value.
 
         Parameters:
-            state: S(t)
-            action: A(t)
-            reward: R(t)
-            nexxt_state: S(t+1)
-            done: (bool) Whether the state is terminal.
+            obs (ObservationType): Observation.
+            action (int): Discrete action associated with observation.
+            reward (float): Reward obtained for taking action at state.
+            next_obs (ObservationType): Observation in a state where the action took.
+            done: (bool) Whether in terminal (end of episode) state.
 
         """
+        assert isinstance(action, int), "Rainbow expects discrete action (int)"
         self.iteration += 1
-        state = to_tensor(self.state_transform(state)).float().to("cpu")
-        next_state = to_tensor(self.state_transform(next_state)).float().to("cpu")
+        t_obs = to_tensor(self.state_transform(obs)).float().to("cpu")
+        t_next_obs = to_tensor(self.state_transform(next_obs)).float().to("cpu")
         reward = self.reward_transform(reward)
 
         # Delay adding to buffer to account for n_steps (particularly the reward)
-        self.n_buffer.add(state=state.numpy(), action=[int(action)], reward=[reward], done=[done], next_state=next_state.numpy())
+        self.n_buffer.add(
+            state=t_obs.numpy(), action=[int(action)], reward=[reward], done=[done], next_state=t_next_obs.numpy()
+        )
         if not self.n_buffer.available:
             return
 
@@ -164,7 +174,7 @@ class RainbowAgent(AgentBase):
             # Update networks only once - sync local & target
             soft_update(self.target_net, self.net, self.tau)
 
-    def act(self, state, eps: float = 0.) -> int:
+    def act(self, obs: ObsType, eps: float = 0.) -> int:
         """
         Returns actions for given state as per current policy.
 
@@ -177,9 +187,8 @@ class RainbowAgent(AgentBase):
         if self._rng.random() < eps:
             return self._rng.randint(0, self.action_size-1)
 
-        state = to_tensor(self.state_transform(state)).float().unsqueeze(0).to(self.device)
-        # state = to_tensor(self.state_transform(state)).float().to(self.device)
-        self.dist_probs = self.net.act(state)
+        t_obs = to_tensor(self.state_transform(obs)).float().unsqueeze(0).to(self.device)
+        self.dist_probs = self.net.act(t_obs)
         q_values = (self.dist_probs * self.z_atoms).sum(-1)
         return int(q_values.argmax(-1))  # Action maximizes state-action value Q(s, a)
 
@@ -197,7 +206,7 @@ class RainbowAgent(AgentBase):
         next_states = to_tensor(experiences['next_state']).float().to(self.device)
         actions = to_tensor(experiences['action']).type(torch.long).to(self.device)
         assert rewards.shape == dones.shape == (self.batch_size, 1)
-        assert states.shape == next_states.shape == (self.batch_size, self.state_size)
+        assert states.shape == next_states.shape == (self.batch_size, self.obs_size)
         assert actions.shape == (self.batch_size, 1)  # Discrete domain
 
         with torch.no_grad():
@@ -278,7 +287,7 @@ class RainbowAgent(AgentBase):
         """Provides agent's internal state."""
         return AgentState(
             model=self.name,
-            state_space=self.state_size,
+            obs_space=self.obs_size,
             action_space=self.action_size,
             config=self._config,
             buffer=copy.deepcopy(self.buffer.get_state()),
@@ -291,7 +300,7 @@ class RainbowAgent(AgentBase):
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
         config = copy.copy(state.config)
-        config.update({'input_shape': state.state_space, 'output_shape': state.action_space})
+        config.update({'obs_size': state.obs_space, 'action_size': state.action_space})
         agent = RainbowAgent(**config)
         if state.network is not None:
             agent.set_network(state.network)

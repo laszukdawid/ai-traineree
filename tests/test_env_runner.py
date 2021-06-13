@@ -1,11 +1,12 @@
-import mock
 import random
+from typing import List
+
+import mock
 
 from ai_traineree.agents.ppo import PPOAgent
 from ai_traineree.env_runner import EnvRunner, MultiSyncEnvRunner
 from ai_traineree.tasks import GymTask
 from ai_traineree.types import TaskType
-from typing import List
 
 # NOTE: Some of these tests use `test_task` and `test_agent` which are real instances.
 #       This is partially to make sure that the tricky part is covered, and not hid
@@ -13,7 +14,7 @@ from typing import List
 #       This results in unnecessary performance hit. A lightweight env would be nice.
 
 test_task = GymTask('LunarLanderContinuous-v2')
-test_agent = PPOAgent(test_task.state_size, test_task.action_size)
+test_agent = PPOAgent(test_task.obs_size, test_task.action_size)
 
 
 @mock.patch("ai_traineree.env_runner.AgentBase")
@@ -243,7 +244,7 @@ def test_multi_sync_env_runner_run_single_step_single_task():
 def test_multi_sync_env_runner_run_single_step_multiple_task():
     # Assign
     tasks: List[TaskType] = [test_task, test_task]
-    agent = PPOAgent(test_task.state_size, test_task.action_size, num_workers=len(tasks))
+    agent = PPOAgent(test_task.obs_size, test_task.action_size, num_workers=len(tasks))
     multi_sync_env_runner = MultiSyncEnvRunner(tasks, agent)
 
     # Act
@@ -256,7 +257,7 @@ def test_multi_sync_env_runner_run_single_step_multiple_task():
 def test_multi_sync_env_runner_run_multiple_step_multiple_task():
     # Assign
     tasks: List[TaskType] = [test_task, test_task]
-    agent = PPOAgent(test_task.state_size, test_task.action_size, num_workers=len(tasks))
+    agent = PPOAgent(test_task.obs_size, test_task.action_size, num_workers=len(tasks))
     multi_sync_env_runner = MultiSyncEnvRunner(tasks, agent)
 
     # Act

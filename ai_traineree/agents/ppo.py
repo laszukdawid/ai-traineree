@@ -1,11 +1,12 @@
 import copy
 import itertools
-from typing import Dict, Tuple
+from typing import Dict, List
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import compute_gae, normalize, revert_norm_returns
@@ -14,6 +15,7 @@ from ai_traineree.buffers.buffer_factory import BufferFactory
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody
 from ai_traineree.policies import MultivariateGaussianPolicy, MultivariateGaussianPolicySimple
+from ai_traineree.types.primitive import ActionType, DoneType, ObsType, RewardType
 from ai_traineree.types.state import AgentState, BufferState, NetworkState
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
@@ -31,10 +33,10 @@ class PPOAgent(AgentBase):
 
     name = "PPO"
 
-    def __init__(self, state_size: int, action_size: int, **kwargs):
+    def __init__(self, obs_size: int, action_size: int, **kwargs):
         """
         Parameters:
-            state_size (int): Number of input dimensions.
+            obs_size (int): Number of input dimensions.
             action_size (int): Number of output dimensions
 
         Keyword parameters:
@@ -64,8 +66,10 @@ class PPOAgent(AgentBase):
 
         self.device = self._register_param(kwargs, "device", DEVICE)  # Default device is CUDA if available
 
-        self.state_size = state_size
+        self.obs_size = obs_size
         self.action_size = action_size
+        self._config['obs_size'] = self.obs_size
+        self._config['action_size'] = self.action_size
         self.hidden_layers = to_numbers_seq(self._register_param(kwargs, "hidden_layers", (100, 100)))
         self.iteration = 0
 
@@ -74,9 +78,9 @@ class PPOAgent(AgentBase):
         self.gae_lambda = float(self._register_param(kwargs, "gae_lambda", 0.96))
 
         self.actor_lr = float(self._register_param(kwargs, 'actor_lr', 3e-4))
-        self.actor_betas: Tuple[float, float] = to_numbers_seq(self._register_param(kwargs, 'actor_betas', (0.9, 0.999)))
+        self.actor_betas = to_numbers_seq(self._register_param(kwargs, 'actor_betas', (0.9, 0.999)))
         self.critic_lr = float(self._register_param(kwargs, 'critic_lr', 1e-3))
-        self.critic_betas: Tuple[float, float] = to_numbers_seq(self._register_param(kwargs, 'critic_betas', (0.9, 0.999)))
+        self.critic_betas = to_numbers_seq(self._register_param(kwargs, 'critic_betas', (0.9, 0.999)))
         self.gamma = float(self._register_param(kwargs, "gamma", 0.99))
         self.ppo_ratio_clip = float(self._register_param(kwargs, "ppo_ratio_clip", 0.25))
 
@@ -109,11 +113,11 @@ class PPOAgent(AgentBase):
 
         self.buffer = RolloutBuffer(batch_size=self.batch_size, buffer_size=self.rollout_length)
         self.actor = ActorBody(
-            state_size, self.policy.param_dim*action_size,
+            (obs_size,), (self.policy.param_dim*action_size,),
             gate_out=torch.tanh, hidden_layers=self.hidden_layers, device=self.device)
         self.critic = ActorBody(
-            state_size, 1,
-            gate_out=None, hidden_layers=self.hidden_layers, device=self.device)
+            (obs_size,), (1,),
+            gate_out=nn.Identity(), hidden_layers=self.hidden_layers, device=self.device)
         self.actor_params = list(self.actor.parameters()) + list(self.policy.parameters())
         self.critic_params = list(self.critic.parameters())
 
@@ -146,18 +150,28 @@ class PPOAgent(AgentBase):
         self.buffer.clear()
 
     @torch.no_grad()
-    def act(self, state, epsilon: float=0.):
-        actions = []
+    def act(self, obs: ObsType, epsilon: float=0.):
+        """Acting on the observations. Returns action.
+
+        Parameters:
+            obs (array_like): current state
+            eps (float): epsilon, for epsilon-greedy action selection
+
+        Returns:
+            action: (list float) Action values.
+
+        """
+        actions: List[ActionType] = []
         logprobs = []
         values = []
-        state = to_tensor(state).view(self.num_workers, self.state_size).float().to(self.device)
+        t_obs = to_tensor(obs).view(self.num_workers, self.obs_size).float().to(self.device)
         for worker in range(self.num_workers):
-            actor_est = self.actor.act(state[worker].unsqueeze(0))
+            actor_est = self.actor.act(t_obs[worker].unsqueeze(0))
             assert not torch.any(torch.isnan(actor_est))
 
             dist = self.policy(actor_est)
             action = dist.sample()
-            value = self.critic.act(state[worker].unsqueeze(0))  # Shape: (1, 1)
+            value = self.critic.act(t_obs[worker].unsqueeze(0))  # Shape: (1, 1)
             logprob = self.policy.log_prob(dist, action)  # Shape: (1,)
             values.append(value)
             logprobs.append(logprob)
@@ -174,11 +188,11 @@ class PPOAgent(AgentBase):
         assert len(actions) == self.num_workers
         return actions if self.num_workers > 1 else actions[0]
 
-    def step(self, state, action, reward, next_state, done, **kwargs):
+    def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType, **kwargs):
         self.iteration += 1
 
         self.buffer.add(
-            state=torch.tensor(state).reshape(self.num_workers, self.state_size).float(),
+            state=torch.tensor(obs).reshape(self.num_workers, self.obs_size).float(),
             action=torch.tensor(action).reshape(self.num_workers, self.action_size).float(),
             reward=torch.tensor(reward).reshape(self.num_workers, 1),
             done=torch.tensor(done).reshape(self.num_workers, 1),
@@ -202,7 +216,7 @@ class PPOAgent(AgentBase):
         values = to_tensor(experiences['value']).to(self.device)
         logprobs = to_tensor(experiences['logprob']).to(self.device)
         assert rewards.shape == dones.shape == values.shape == logprobs.shape
-        assert states.shape == (self.rollout_length, self.num_workers, self.state_size), f"Wrong states shape: {states.shape}"
+        assert states.shape == (self.rollout_length, self.num_workers, self.obs_size), f"Wrong states shape: {states.shape}"
         assert actions.shape == (self.rollout_length, self.num_workers, self.action_size), f"Wrong action shape: {actions.shape}"
 
         with torch.no_grad():
@@ -223,7 +237,7 @@ class PPOAgent(AgentBase):
             idx = 0
             self.kl_div = 0
             while idx < self.rollout_length:
-                _states = states[idx:idx+self.batch_size].view(-1, self.state_size).detach()
+                _states = states[idx:idx+self.batch_size].view(-1, self.obs_size).detach()
                 _actions = actions[idx:idx+self.batch_size].view(-1, self.action_size).detach()
                 _logprobs = logprobs[idx:idx+self.batch_size].view(-1, 1).detach()
                 _returns = returns[idx:idx+self.batch_size].view(-1, 1).detach()
@@ -325,7 +339,7 @@ class PPOAgent(AgentBase):
     def get_state(self) -> AgentState:
         return AgentState(
             model=self.name,
-            state_space=self.state_size,
+            obs_space=self.obs_size,
             action_space=self.action_size,
             config=self._config,
             buffer=copy.deepcopy(self.buffer.get_state()),
@@ -350,7 +364,7 @@ class PPOAgent(AgentBase):
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
         config = copy.copy(state.config)
-        config.update({'state_size': state.state_space, 'action_size': state.action_space})
+        config.update({'obs_size': state.obs_space, 'action_size': state.action_space})
         agent = PPOAgent(**config)
         if state.network is not None:
             agent.set_network(state.network)

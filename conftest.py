@@ -1,11 +1,13 @@
 import copy
+import random
+from typing import Any, List, Sequence, Tuple
+
 import mock
 import numpy as np
 import pytest
-import random
 
-from typing import Any, List, Sequence, Tuple
 from ai_traineree.agents import AgentBase
+from ai_traineree.types.agent import AgentType
 
 
 class MockContinuousSpace:
@@ -43,15 +45,15 @@ def fix_env():
     return mock_env
 
 
-def deterministic_interactions(agent, num_iters=50):
-    state = [0]*agent.state_size
+def deterministic_interactions(agent: AgentType, num_iters=50):
+    state = [0]*agent.obs_size
     next_state = copy.copy(state)
     actions = []
     for i in range(num_iters):
         action = agent.act(state)
         actions.append(action)
 
-        next_state[i % agent.state_size] = (next_state[i % agent.state_size] + 1) % 2
+        next_state[i % agent.obs_size] = (next_state[i % agent.obs_size] + 1) % 2
         reward = (i % 4 - 2) / 2.
         done = (i + 1) % 100 == 0
 
@@ -69,14 +71,14 @@ def fake_step(step_shape: Sequence[int]) -> Tuple[List[Any], float, bool]:
 
 def feed_agent(agent: AgentBase, num_samples: int, discrete_action=True, as_list=False):
     for _ in range(num_samples):
-        s, r, d = fake_step(agent.state_size)
+        s, r, d = fake_step(agent.obs_size)
         if discrete_action:
             a = random.randint(0, agent.action_size-1)
         else:
             a = np.random.random(agent.action_size).tolist()
 
         if as_list:
-            agent.step(state=s, action=[a], reward=[r], next_state=s, done=[d])
+            agent.step(obs=s, action=[a], reward=[r], next_obs=s, done=[d])
         else:
-            agent.step(state=s, action=a, reward=r, next_state=s, done=d)
+            agent.step(obs=s, action=a, reward=r, next_obs=s, done=d)
     return agent

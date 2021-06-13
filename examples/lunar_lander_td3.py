@@ -15,7 +15,7 @@ config = {
     'update_freq': 10,
     'update_policy_freq': 10,
 }
-agent = Agent(task.state_size, task.action_size, **config)
+agent = Agent(task.obs_size, task.action_size, **config)
 env_runner = EnvRunner(task, agent)
 
 # interact_episode(task, agent, 0, render=True)

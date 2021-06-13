@@ -17,9 +17,9 @@ def test_scalenet():
 
 def test_fc_default():
     # Assign
-    in_features, out_features = 8, 2
+    in_features, out_features = (8,), (2,)
     net = bodies.FcNet(in_features, out_features)
-    test_tensor = torch.randn((1, in_features))
+    test_tensor = torch.randn((1,) + in_features)
 
     # Act
     out_tensor = net(test_tensor)
@@ -27,14 +27,14 @@ def test_fc_default():
     # Assert
     assert net.in_features == in_features
     assert net.out_features == out_features
-    assert out_tensor.shape == (1, out_features)
+    assert out_tensor.shape == (1,) + out_features
 
 
 def test_fc_hidden_layers_none():
     # Assign
-    in_features, out_features = 9, 3
+    in_features, out_features = (9,), (3,)
     net = bodies.FcNet(in_features, out_features, hidden_layers=None)
-    test_tensor = torch.randn((3, in_features))
+    test_tensor = torch.randn((3,) + in_features)
 
     # Act
     out_tensor = net(test_tensor)
@@ -43,7 +43,7 @@ def test_fc_hidden_layers_none():
     assert net.in_features == in_features
     assert net.out_features == out_features
     assert len(net.layers) == 1
-    assert out_tensor.shape == (3, out_features)
+    assert out_tensor.shape == (3,) + out_features
 
 
 def test_actor_body():
@@ -53,19 +53,19 @@ def test_actor_body():
 
 def test_critic_body_default():
     # Assign
-    in_features, action_dim = 10, 4
-    test_tensor = torch.randn((1, in_features))
-    test_action = torch.randn((1, action_dim))
-    net = bodies.CriticBody(in_features, action_dim)
-    
+    in_features, action_size = (10,), 4
+    test_tensor = torch.randn((1,) + in_features)
+    test_action = torch.randn((1, action_size))
+    net = bodies.CriticBody(in_features, action_size)
+
     # Act
     out_tensor = net(test_tensor, test_action)
 
     # Assert
     assert net.in_features == in_features
-    assert net.out_features == 1
+    assert net.out_features == (1,)
     assert out_tensor.shape == (1, 1)
-    assert net.layers[1].in_features == net.layers[0].out_features + action_dim
+    assert net.layers[1].in_features == int(net.layers[0].out_features) + action_size
 
 
 if __name__ == "__main__":

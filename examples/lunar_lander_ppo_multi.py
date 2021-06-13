@@ -41,7 +41,7 @@ kwargs = {
     "action_max": 20,
 }
 tasks: List[TaskType] = [GymTask(env_name) for _ in range(num_workers)]
-agent = Agent(tasks[0].state_size, tasks[0].action_size, hidden_layers=(100, 64, 64), **kwargs)
+agent = Agent(tasks[0].obs_size, tasks[0].action_size, hidden_layers=(100, 64, 64), **kwargs)
 env_runner = MultiSyncEnvRunner(tasks, agent, processes=processes, data_logger=data_logger)
 scores = env_runner.run(reward_goal=80, max_episodes=5000, force_new=True)
 

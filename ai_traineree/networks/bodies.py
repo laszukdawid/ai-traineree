@@ -136,39 +136,46 @@ class FcNet(NetworkType):
         Link: https://arxiv.org/abs/2006.05990
     """
     def __init__(
-        self, in_features: Union[Sequence[int], int], out_features: Union[Sequence[int], int],
-        hidden_layers: Optional[Sequence[int]]=(200, 100), last_layer_range=(-3e-4, 3e-4),
-        gate=torch.tanh, gate_out=None,
+        self,
+        in_features: FeatureType,
+        out_features: FeatureType,
+        hidden_layers: Optional[Sequence[int]]=(200, 100),
+        last_layer_range=(-3e-4, 3e-4),
         bias: bool=True,
-        device: Optional[torch.device]=None,
+        **kwargs
     ):
-        """Fully Connected network that with default APIs.
+        """Fully Connected network with default APIs.
 
         Parameters:
-            in_features (int or tuple of ints): Shape of the input.
-            out_features (int or tuple of ints): Shape of the output.
+            in_features (sequence of ints): Shape of the input.
+            out_features (sequence of ints): Shape of the output.
             hidden_layers: Shape of the hidden layers. If None, then the output is directly computed from the input.
             last_layer_range: The range for the uniform distribution that initiates the last layer.
-            gate: Activation function after each layer, except the last.
-            gate_out: Activation function after the last layer.
-            device: Where the data is processed.
+
+        Keyword parameters
+            gate (optional torch.nn.layer): Activation function for each layer, expect the last. Default: torch.tanh.
+            gate_out (optional torch.nn.layer): Activation function after the last layer. Default: Identity layer.
+            device (torch.devce or str): Device where to allocate memory. CPU or CUDA.
+
 
         """
         super(FcNet, self).__init__()
+        assert len(in_features) == 1, "Expected only one dimension"
+        assert len(out_features) == 1, "Expected only one dimension"
 
-        self.in_features = in_features if isinstance(in_features, int) else in_features[0]
-        self.out_features = out_features if isinstance(out_features, int) else out_features[0]
-        num_layers = list(hidden_layers) if hidden_layers is not None else []
-        num_layers = [self.in_features] + num_layers + [self.out_features]
+        self.in_features = tuple(in_features)
+        self.out_features = tuple(out_features)
+        num_layers = tuple(hidden_layers) if hidden_layers is not None else tuple()
+        num_layers = self.in_features + num_layers + self.out_features
         layers = [nn.Linear(dim_in, dim_out, bias=bias) for dim_in, dim_out in zip(num_layers[:-1], num_layers[1:])]
 
         self.last_layer_range = last_layer_range
         self.layers = nn.ModuleList(layers)
         self.reset_parameters()
 
-        self.gate = gate if gate is not None else nn.Identity()
-        self.gate_out = gate_out if gate_out is not None else nn.Identity()
-        self.to(device=device)
+        self.gate = kwargs.get("gate", torch.tanh)
+        self.gate_out = kwargs.get("gate_out", nn.Identity())
+        self.to(kwargs.get("device"))
 
     def reset_parameters(self):
         for layer in self.layers[:-1]:
@@ -197,43 +204,52 @@ class CriticBody(NetworkType):
     Since the main purpose for this is value function estimation the output is a single value.
     """
     def __init__(
-            self, in_features: FeatureType, action_size: int, out_features: int=1, hidden_layers: Optional[Sequence[int]]=(200, 100),
-            actions_layer: int=1, gate=torch.tanh, gate_out=None,
+            self,
+            in_features: FeatureType,
+            inj_action_size: int,
+            out_features: FeatureType = (1,),
+            hidden_layers: Optional[Sequence[int]]=(100, 100),
+            inj_actions_layer: int=1,
             bias: bool=True,
             **kwargs
     ):
         """
         Parameters:
             in_features: Dimension of the input features.
-            action_size: Dimension of the action vector that is inected into `action_layer`.
-            hidden_layers: Shape of the hidden layers.
-            action_layer: An index for the layer that will have `actions` injected as an additional input.
+            inj_action_size: Dimension of the action vector that is injected into `inj_action_layer`.
+            out_features: Dimension of critic's action. Default: (1,).
+            hidden_layers: Shape of the hidden layers. Default: (100, 100).
+            inj_action_layer: An index for the layer that will have `actions` injected as an additional input.
                 By default that's a first hidden layer, i.e. (state) -> (out + actions) -> (out) ... -> (output).
-            gate: Activation function for each layer, expect the last.
-            gate_out: Activation function after the last layer.
+
+        Keyword parameters
+            gate: Activation function for each layer, expect the last. Default: Identity layer.
+            gate_out: Activation function after the last layer. Default: Identity layer.
+            device: Device where to allocate memory. CPU or CUDA.
+
         """
         super().__init__()
 
-        self.in_features: int = in_features if isinstance(in_features, int) else in_features[0]
-        self.out_features = out_features
-        num_layers = list(hidden_layers) if hidden_layers is not None else []
-        num_layers = [self.in_features] + num_layers + [self.out_features]
-        self.actions_layer = actions_layer
-        if not (0 <= actions_layer < len(num_layers)):
+        self.in_features = tuple(in_features)
+        self.out_features = tuple(out_features)
+        num_layers = tuple(hidden_layers) if hidden_layers is not None else tuple()
+        num_layers = self.in_features + num_layers + self.out_features
+        self.actions_layer = inj_actions_layer
+        if not (0 <= inj_actions_layer < len(num_layers)):
             raise ValueError("Action layer needs to be within the network")
 
         layers = []
         for in_idx in range(len(num_layers)-1):
             in_dim, out_dim = num_layers[in_idx], num_layers[in_idx+1]
-            if in_idx == actions_layer:  # Injects `actions` into the second layer of the Critic
-                in_dim += action_size
+            if in_idx == inj_actions_layer:  # Injects `actions` into the second layer of the Critic
+                in_dim += inj_action_size
             layers.append(nn.Linear(in_dim, out_dim, bias=bias))
 
         self.layers = nn.ModuleList(layers)
         self.reset_parameters()
 
-        self.gate = gate if gate is not None else nn.Identity()
-        self.gate_out = gate_out if gate_out is not None else nn.Identity()
+        self.gate = kwargs.get('gate', nn.Identity())
+        self.gate_out = kwargs.get('gate_out', nn.Identity())
         self.to(kwargs.get("device"))
 
     def reset_parameters(self):
@@ -255,7 +271,7 @@ class CriticBody(NetworkType):
 
 
 class NoisyLayer(nn.Module):
-    def __init__(self, in_features: int, out_features: int, sigma: float=0.4, factorised: bool=True):
+    def __init__(self, in_features: FeatureType, out_features: FeatureType, sigma: float=0.4, factorised: bool=True):
         """
         A Linear layer with values being pertrubed by the noise while training.
 
@@ -268,26 +284,28 @@ class NoisyLayer(nn.Module):
             [1] "Noisy Networks for Exploration" by Fortunato et al. (ICLR 2018), https://arxiv.org/abs/1706.10295.
         """
         super(NoisyLayer, self).__init__()
+        assert len(in_features) == 1, "Expected only one dimension"
+        assert len(out_features) == 1, "Expected only one dimension"
 
         self.in_features = in_features
         self.out_features = out_features
         self.sigma_0 = sigma
         self.factorised = factorised
 
-        self.weight_mu = nn.Parameter(torch.zeros((out_features, in_features)))
-        self.weight_sigma = nn.Parameter(torch.zeros((out_features, in_features)))
+        self.weight_mu = nn.Parameter(torch.zeros((out_features[0], in_features[0])))
+        self.weight_sigma = nn.Parameter(torch.zeros((out_features[0], in_features[0])))
 
-        self.bias_mu = nn.Parameter(torch.zeros(out_features))
-        self.bias_sigma = nn.Parameter(torch.zeros(out_features))
+        self.bias_mu = nn.Parameter(torch.zeros(out_features[0]))
+        self.bias_sigma = nn.Parameter(torch.zeros(out_features[0]))
 
-        self.register_buffer('weight_eps', torch.zeros((out_features, in_features)))
-        self.register_buffer('bias_eps', torch.zeros(out_features))
+        self.register_buffer('weight_eps', torch.zeros((out_features[0], in_features[0])))
+        self.register_buffer('bias_eps', torch.zeros(out_features[0]))
 
-        self.bias_noise = torch.zeros(out_features)
+        self.bias_noise = torch.zeros(out_features[0])
         if factorised:
-            self.weight_noise = torch.zeros(in_features)
+            self.weight_noise = torch.zeros(in_features[0])
         else:
-            self.weight_noise = torch.zeros(out_features, in_features)
+            self.weight_noise = torch.zeros(out_features[0], in_features[0])
 
         self.reset_parameters()
         self.reset_noise()
@@ -303,10 +321,10 @@ class NoisyLayer(nn.Module):
 
     def reset_parameters(self):
         if self.factorised:
-            bound = sqrt(1./self.in_features)
+            bound = sqrt(1./self.in_features[0])
             sigma = self.sigma_0 * bound
         else:
-            bound = sqrt(3./self.in_features)
+            bound = sqrt(3./self.in_features[0])
             sigma = 0.017  # Yes, that's correct. [1]
 
         self.weight_mu.data.uniform_(-bound, bound)
@@ -332,7 +350,7 @@ class NoisyLayer(nn.Module):
 
 
 class NoisyNet(NetworkType):
-    def __init__(self, in_features: int, out_features: int, hidden_layers: Optional[Sequence[int]]=(100, 100), sigma=0.4,
+    def __init__(self, in_features: FeatureType, out_features: FeatureType, hidden_layers: Optional[Sequence[int]]=(100, 100), sigma=0.4,
                  gate=None, gate_out=None, factorised=True, device: Optional[torch.device]=None):
         """
         Parameters:
@@ -344,12 +362,14 @@ class NoisyNet(NetworkType):
 
         """
         super(NoisyNet, self).__init__()
+        assert len(in_features) == 1, "Expected only one dimension"
+        assert len(out_features) == 1, "Expected only one dimension"
 
         self.in_features = in_features
         self.out_features = out_features
         num_layers = list(hidden_layers) if hidden_layers is not None else []
-        num_layers = [self.in_features] + num_layers + [self.out_features]
-        layers = [NoisyLayer(dim_in, dim_out, sigma=sigma, factorised=factorised) for dim_in, dim_out in zip(num_layers[:-1], num_layers[1:])]
+        num_layers = [self.in_features[0]] + num_layers + [self.out_features[0]]
+        layers = [NoisyLayer((dim_in,), (dim_out,), sigma=sigma, factorised=factorised) for dim_in, dim_out in zip(num_layers[:-1], num_layers[1:])]
         self.layers = nn.ModuleList(layers)
 
         self.gate = gate if gate is not None else nn.Identity()

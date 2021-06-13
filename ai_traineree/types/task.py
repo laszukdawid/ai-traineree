@@ -16,7 +16,7 @@ class TaskType(abc.ABC):
 
     name: str
     action_size: int
-    state_size: int
+    obs_size: int
     is_discrete: bool
 
     @abc.abstractmethod

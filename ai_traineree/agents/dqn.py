@@ -1,10 +1,11 @@
 import copy
-from typing import Callable, Dict, Optional, Sequence, Type, Union
+from typing import Callable, Dict, Optional, Type
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import soft_update
@@ -14,6 +15,7 @@ from ai_traineree.loggers import DataLogger
 from ai_traineree.networks import NetworkType, NetworkTypeClass
 from ai_traineree.networks.heads import DuelingNet
 from ai_traineree.types import AgentState, BufferState, NetworkState
+from ai_traineree.types.primitive import ActionType, DoneType, ObsType, RewardType
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 
@@ -33,8 +35,8 @@ class DQNAgent(AgentBase):
 
     def __init__(
         self,
-        input_shape: Union[Sequence[int], int],
-        output_shape: Union[Sequence[int], int],
+        obs_size: int,
+        action_size: int,
         network_fn: Callable[[], NetworkType]=None,
         network_class: Type[NetworkTypeClass]=None,
         state_transform: Optional[Callable]=None,
@@ -44,6 +46,14 @@ class DQNAgent(AgentBase):
         """Initiates the DQN agent.
 
         Parameters:
+            obs_size: Number of input dimensions.
+            action_size: Number of output dimensions
+            network_fn (optional func): Function used to instantiate a network used by the agent.
+            network_class (optional cls): Class of network that is instantiated with internal params to create network.
+            state_transform (optional func): Function to transform (encode) state before used by the network.
+            reward_transform (optional func): Function to transform reward before use.
+
+        Keyword parameters:
             hidden_layers (tuple of ints): Tuple defining hidden dimensions in fully connected nets. Default: (64, 64).
             lr (float): Learning rate value. Default: 3e-4.
             gamma (float): Discount factor. Default: 0.99.
@@ -61,13 +71,11 @@ class DQNAgent(AgentBase):
         super().__init__(**kwargs)
 
         self.device = self._register_param(kwargs, "device", DEVICE, update=True)
-        # TODO: All this should be condensed with some structure, e.g. gym spaces
-        self.input_shape: Sequence[int] = input_shape if not isinstance(input_shape, int) else (input_shape,)
-        self.state_size: int = self.input_shape[0]
-        self.output_shape: Sequence[int] = output_shape if not isinstance(output_shape, int) else (output_shape,)
-        self.action_size: int = self.output_shape[0]
-        self._config['state_size'] = self.state_size
+        self.obs_size: int = obs_size
+        self.action_size = action_size
+        self._config['obs_size'] = self.obs_size
         self._config['action_size'] = self.action_size
+        obs_shape, action_shape = (obs_size,), (action_size,)
 
         self.lr = float(self._register_param(kwargs, 'lr', 3e-4))  # Learning rate
         self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))  # Discount value
@@ -94,13 +102,13 @@ class DQNAgent(AgentBase):
             self.net = network_fn()
             self.target_net = network_fn()
         elif network_class is not None:
-            self.net = network_class(self.input_shape, self.action_size, hidden_layers=hidden_layers, device=self.device)
-            self.target_net = network_class(self.input_shape, self.action_size, hidden_layers=hidden_layers, device=self.device)
+            self.net = network_class(obs_shape, action_shape, hidden_layers=hidden_layers, device=self.device)
+            self.target_net = network_class(obs_shape, action_shape, hidden_layers=hidden_layers, device=self.device)
         else:
-            self.net = DuelingNet(self.input_shape, self.output_shape, hidden_layers=hidden_layers, device=self.device)
-            self.target_net = DuelingNet(self.input_shape, self.output_shape, hidden_layers=hidden_layers, device=self.device)
+            self.net = DuelingNet(obs_shape, action_shape, hidden_layers=hidden_layers, device=self.device)
+            self.target_net = DuelingNet(obs_shape, action_shape, hidden_layers=hidden_layers, device=self.device)
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
-        self._loss: float = float('inf')
+        self._loss: float = float('nan')
 
     @property
     def loss(self) -> Dict[str, float]:
@@ -124,27 +132,30 @@ class DQNAgent(AgentBase):
         self.target_net.reset_parameters()
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
 
-    def step(self, state, action, reward, next_state, done) -> None:
+    def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType) -> None:
         """Letting the agent to take a step.
 
         On some steps the agent will initiate learning step. This is dependent on
         the `update_freq` value.
 
         Parameters:
-            state: S(t)
-            action: A(t)
-            reward: R(t)
-            next_state: S(t+1)
-            done: (bool) Whether the state is terminal.
+            obs (ObservationType): Observation.
+            action (int): Discrete action associated with observation.
+            reward (float): Reward obtained for taking action at state.
+            next_obs (ObservationType): Observation in a state where the action took.
+            done: (bool) Whether in terminal (end of episode) state.
 
         """
+        assert isinstance(action, int), "DQN expects discrete actions (int)"
         self.iteration += 1
-        state = to_tensor(self.state_transform(state)).float().to("cpu")
-        next_state = to_tensor(self.state_transform(next_state)).float().to("cpu")
+        t_obs = to_tensor(self.state_transform(obs)).float().to("cpu")
+        t_next_obs = to_tensor(self.state_transform(next_obs)).float().to("cpu")
         reward = self.reward_transform(reward)
 
         # Delay adding to buffer to account for n_steps (particularly the reward)
-        self.n_buffer.add(state=state.numpy(), action=[int(action)], reward=[reward], done=[done], next_state=next_state.numpy())
+        self.n_buffer.add(
+            state=t_obs.numpy(), action=[int(action)], reward=[reward], done=[done], next_state=t_next_obs.numpy()
+        )
         if not self.n_buffer.available:
             return
 
@@ -160,12 +171,12 @@ class DQNAgent(AgentBase):
             # Update networks only once - sync local & target
             soft_update(self.target_net, self.net, self.tau)
 
-    def act(self, state, eps: float = 0.) -> int:
+    def act(self, obs: ObsType, eps: float = 0.) -> int:
         """Returns actions for given state as per current policy.
 
         Parameters:
-            state (array_like): current state
-            eps (float): epsilon, for epsilon-greedy action selection
+            obs (array_like): current state
+            eps (optional float): epsilon, for epsilon-greedy action selection. Default 0.
 
         Returns:
             Categorical value for the action.
@@ -175,9 +186,9 @@ class DQNAgent(AgentBase):
         if self._rng.random() < eps:
             return self._rng.randint(0, self.action_size-1)
 
-        state = to_tensor(self.state_transform(state)).float()
-        state = state.unsqueeze(0).to(self.device)
-        action_values = self.net.act(state)
+        t_obs = to_tensor(self.state_transform(obs)).float()
+        t_obs = t_obs.unsqueeze(0).to(self.device)
+        action_values = self.net.act(t_obs)
         return int(torch.argmax(action_values.cpu()))
 
     def learn(self, experiences: Dict[str, list]) -> None:
@@ -189,19 +200,19 @@ class DQNAgent(AgentBase):
         """
         rewards = to_tensor(experiences['reward']).type(torch.float32).to(self.device)
         dones = to_tensor(experiences['done']).type(torch.int).to(self.device)
-        states = to_tensor(experiences['state']).type(torch.float32).to(self.device)
-        next_states = to_tensor(experiences['next_state']).type(torch.float32).to(self.device)
+        obss = to_tensor(experiences['state']).type(torch.float32).to(self.device)
+        next_obss = to_tensor(experiences['next_state']).type(torch.float32).to(self.device)
         actions = to_tensor(experiences['action']).type(torch.long).to(self.device)
 
         with torch.no_grad():
-            Q_targets_next = self.target_net.act(next_states).detach()
+            Q_targets_next = self.target_net.act(next_obss).detach()
             if self.using_double_q:
-                _a = torch.argmax(self.net(next_states), dim=-1).unsqueeze(-1)
+                _a = torch.argmax(self.net(next_obss), dim=-1).unsqueeze(-1)
                 max_Q_targets_next = Q_targets_next.gather(1, _a)
             else:
                 max_Q_targets_next = Q_targets_next.max(1)[0].unsqueeze(1)
         Q_targets = rewards + self.n_buffer.n_gammas[-1] * max_Q_targets_next * (1 - dones)
-        Q_expected: torch.Tensor = self.net(states).gather(1, actions)
+        Q_expected: torch.Tensor = self.net(obss).gather(1, actions)
         loss = F.mse_loss(Q_expected, Q_targets)
 
         self.optimizer.zero_grad()
@@ -241,7 +252,7 @@ class DQNAgent(AgentBase):
         """Provides agent's internal state."""
         return AgentState(
             model=self.name,
-            state_space=self.state_size,
+            obs_space=self.obs_size,
             action_space=self.action_size,
             config=self._config,
             buffer=copy.deepcopy(self.buffer.get_state()),
@@ -254,7 +265,7 @@ class DQNAgent(AgentBase):
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
         config = copy.copy(state.config)
-        config.update({'input_shape': state.state_space, 'output_shape': state.action_space})
+        config.update({'input_shape': state.obs_space, 'output_shape': state.action_space})
         agent = DQNAgent(**config)
         if state.network is not None:
             agent.set_network(state.network)

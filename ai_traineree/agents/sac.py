@@ -1,11 +1,11 @@
 import itertools
-import operator
-from functools import reduce
 from typing import Dict, List, Tuple, Union
 
 import numpy as np
 import torch
 import torch.nn as nn
+from torch import Tensor, optim
+
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import hard_update, soft_update
@@ -14,9 +14,8 @@ from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import DoubleCritic
 from ai_traineree.policies import GaussianPolicy, MultivariateGaussianPolicySimple
-from ai_traineree.types import FeatureType
+from ai_traineree.types.primitive import ActionType, DoneType, ObsType, RewardType
 from ai_traineree.utils import to_numbers_seq, to_tensor
-from torch import Tensor, optim
 
 
 class SACAgent(AgentBase):
@@ -32,9 +31,13 @@ class SACAgent(AgentBase):
 
     name = "SAC"
 
-    def __init__(self, in_features: FeatureType, action_size: int, **kwargs):
+    def __init__(self, obs_size: int, action_size: int, **kwargs):
         """
         Parameters:
+            obs_size (int): Dimension of the observation.
+            action_size (int): Dimension of expected action.
+
+        Keyword parameters:
             hidden_layers: (default: (128, 128)) Shape of the hidden layers that are fully connected networks.
             gamma: (default: 0.99) Discount value.
             tau: (default: 0.02) Soft copy fraction.
@@ -54,9 +57,11 @@ class SACAgent(AgentBase):
         """
         super().__init__(**kwargs)
         self.device = kwargs.get("device", DEVICE)
-        self.in_features: Tuple[int] = (in_features,) if isinstance(in_features, int) else tuple(in_features)
-        self.state_size: int = in_features if isinstance(in_features, int) else reduce(operator.mul, in_features)
+        self.obs_size = obs_size
         self.action_size = action_size
+        self._config['obs_size'] = self.obs_size
+        self._config['action_size'] = self.action_size
+        obs_shape = (obs_size,)
 
         self.gamma: float = float(self._register_param(kwargs, 'gamma', 0.99))
         self.tau: float = float(self._register_param(kwargs, 'tau', 0.02))
@@ -82,15 +87,15 @@ class SACAgent(AgentBase):
         self.simple_policy = bool(self._register_param(kwargs, "simple_policy", False))
         if self.simple_policy:
             self.policy = MultivariateGaussianPolicySimple(self.action_size, **kwargs)
-            self.actor = ActorBody(self.state_size, self.policy.param_dim*self.action_size, hidden_layers=actor_hidden_layers, device=self.device)
+            self.actor = ActorBody(obs_shape, (self.policy.param_dim*self.action_size,), hidden_layers=actor_hidden_layers, device=self.device)
         else:
-            self.policy = GaussianPolicy(actor_hidden_layers[-1], self.action_size, out_scale=self.action_scale, device=self.device)
-            self.actor = ActorBody(self.state_size, actor_hidden_layers[-1], hidden_layers=actor_hidden_layers[:-1], device=self.device)
+            self.policy = GaussianPolicy((actor_hidden_layers[-1],), (self.action_size,), out_scale=self.action_scale, device=self.device)
+            self.actor = ActorBody(obs_shape, (actor_hidden_layers[-1],), hidden_layers=actor_hidden_layers[:-1], device=self.device)
 
         self.double_critic = DoubleCritic(
-            self.in_features, self.action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device)
+            obs_shape, self.action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device)
         self.target_double_critic = DoubleCritic(
-            self.in_features, self.action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device)
+            obs_shape, self.action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device)
 
         # Target sequence initiation
         hard_update(self.target_double_critic, self.double_critic)
@@ -158,21 +163,32 @@ class SACAgent(AgentBase):
         }
 
     @torch.no_grad()
-    def act(self, state, epsilon: float=0.0, deterministic=False) -> List[float]:
+    def act(self, obs: ObsType, epsilon: float=0.0, deterministic: bool=False) -> List[float]:
+        """Acting on the observations. Returns action.
+
+        Parameters:
+            obs (array_like): current state
+            eps (float): epsilon, for epsilon-greedy action selection
+            deterministic (optional bool): Whether to use deterministic policy.
+
+        Returns:
+            action: (list float) Action values.
+
+        """
         if self.iteration < self.warm_up or self._rng.random() < epsilon:
             random_action = torch.rand(self.action_size) * (self.action_max + self.action_min) + self.action_min
             return random_action.cpu().tolist()
 
-        state = to_tensor(state).view(1, self.state_size).float().to(self.device)
-        proto_action = self.actor(state)
+        t_obs = to_tensor(obs).view(1, self.obs_size).float().to(self.device)
+        proto_action = self.actor(t_obs)
         action = self.policy(proto_action, deterministic)
 
         return action.flatten().tolist()
 
-    def step(self, state, action, reward, next_state, done):
+    def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType):
         self.iteration += 1
         self.memory.add(
-            state=state, action=action, reward=reward, next_state=next_state, done=done,
+            state=obs, action=action, reward=reward, next_state=next_obs, done=done,
         )
 
         if self.iteration < self.warm_up:
@@ -204,20 +220,20 @@ class SACAgent(AgentBase):
 
         Q1_diff = Q1_expected - Q_target
         error_1 = Q1_diff.pow(2)
-        mse_loss_1 = error_1.mean()
+        mse_loss_1: Tensor = error_1.mean()
         self._metrics['value/critic1'] = {'mean': float(Q1_expected.mean()), 'std': float(Q1_expected.std())}
         self._metrics['value/critic1_lse'] = float(mse_loss_1.item())
 
         Q2_diff = Q2_expected - Q_target
         error_2 = Q2_diff.pow(2)
-        mse_loss_2 = error_2.mean()
+        mse_loss_2: Tensor = error_2.mean()
         self._metrics['value/critic2'] = {'mean': float(Q2_expected.mean()), 'std': float(Q2_expected.std())}
         self._metrics['value/critic2_lse'] = float(mse_loss_2.item())
 
         Q_diff = Q1_expected - Q2_expected
         self._metrics['value/Q_diff'] = {'mean': float(Q_diff.mean()), 'std': float(Q_diff.std())}
 
-        error = torch.min(error_1, error_2)
+        error: Tensor = torch.min(error_1, error_2)
         loss = mse_loss_1 + mse_loss_2
         return loss, error
 
@@ -248,8 +264,8 @@ class SACAgent(AgentBase):
 
         rewards = to_tensor(samples['reward']).float().to(self.device).view(self.batch_size, 1)
         dones = to_tensor(samples['done']).int().to(self.device).view(self.batch_size, 1)
-        states = to_tensor(samples['state']).float().to(self.device).view(self.batch_size, self.state_size)
-        next_states = to_tensor(samples['next_state']).float().to(self.device).view(self.batch_size, self.state_size)
+        states = to_tensor(samples['state']).float().to(self.device).view(self.batch_size, self.obs_size)
+        next_states = to_tensor(samples['next_state']).float().to(self.device).view(self.batch_size, self.obs_size)
         actions = to_tensor(samples['action']).to(self.device).view(self.batch_size, self.action_size)
 
         # Critic (value) update

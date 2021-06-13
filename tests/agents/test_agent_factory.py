@@ -10,7 +10,7 @@ from ai_traineree.types.state import AgentState
 def test_agent_factory_agent_from_state_wrong_state():
     # Assign
     state = AgentState(
-        model="WrongModel", state_space=4, action_space=4,
+        model="WrongModel", obs_space=4, action_space=4,
         config={}, network=None, buffer=None,
     )
 
@@ -20,8 +20,8 @@ def test_agent_factory_agent_from_state_wrong_state():
 
 def test_agent_factory_dqn_agent_from_state_network_buffer_none():
     # Assign
-    state_size, action_size = 10, 5
-    agent = DQNAgent(state_size, action_size, device="cpu")
+    obs_size, action_size = 10, 5
+    agent = DQNAgent(obs_size, action_size, device="cpu")
     state = agent.get_state()
     state.network = None
     state.buffer = None
@@ -37,8 +37,8 @@ def test_agent_factory_dqn_agent_from_state_network_buffer_none():
 
 def test_agent_factory_dqn_agent_from_state():
     # Assign
-    state_size, action_size = 10, 5
-    agent = DQNAgent(state_size, action_size, device="cpu")
+    obs_size, action_size = 10, 5
+    agent = DQNAgent(obs_size, action_size, device="cpu")
     state = agent.get_state()
 
     # Act
@@ -54,8 +54,8 @@ def test_agent_factory_dqn_agent_from_state():
 
 def test_agent_factory_ppo_agent_from_state():
     # Assign
-    state_size, action_size = 10, 5
-    agent = PPOAgent(state_size, action_size, device="cpu")
+    obs_size, action_size = 10, 5
+    agent = PPOAgent(obs_size, action_size, device="cpu")
     state = agent.get_state()
 
     # Act
@@ -71,8 +71,8 @@ def test_agent_factory_ppo_agent_from_state():
 
 def test_agent_factory_ppo_agent_from_state_network_buffer_none():
     # Assign
-    state_size, action_size = 10, 5
-    agent = PPOAgent(state_size, action_size, device="cpu")
+    obs_size, action_size = 10, 5
+    agent = PPOAgent(obs_size, action_size, device="cpu")
     state = agent.get_state()
     state.network = None
     state.buffer = None
@@ -88,8 +88,8 @@ def test_agent_factory_ppo_agent_from_state_network_buffer_none():
 
 def test_agent_factory_ddpg_agent_from_state():
     # Assign
-    state_size, action_size = 10, 5
-    agent = DDPGAgent(state_size, action_size, device="cpu")
+    obs_size, action_size = 10, 5
+    agent = DDPGAgent(obs_size, action_size, device="cpu")
     state = agent.get_state()
 
     # Act
@@ -105,8 +105,8 @@ def test_agent_factory_ddpg_agent_from_state():
 
 def test_agent_factory_ddpg_agent_from_state_network_buffer_none():
     # Assign
-    state_size, action_size = 10, 5
-    agent = DDPGAgent(state_size, action_size, device="cpu")
+    obs_size, action_size = 10, 5
+    agent = DDPGAgent(obs_size, action_size, device="cpu")
     state = agent.get_state()
     state.network = None
     state.buffer = None

@@ -3,6 +3,10 @@ from typing import Dict, List, Optional
 
 import torch
 import torch.nn as nn
+from torch.nn.functional import mse_loss
+from torch.optim import Adam
+from torch.tensor import Tensor
+
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import hard_update, soft_update
@@ -12,9 +16,8 @@ from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.noise import GaussianNoise
 from ai_traineree.types import AgentState, BufferState, NetworkState
+from ai_traineree.types.primitive import ActionType, DoneType, ObsType, RewardType
 from ai_traineree.utils import to_numbers_seq, to_tensor
-from torch.nn.functional import mse_loss
-from torch.optim import Adam
 
 
 class DDPGAgent(AgentBase):
@@ -26,10 +29,10 @@ class DDPGAgent(AgentBase):
 
     name = "DDPG"
 
-    def __init__(self, state_size: int, action_size: int, noise_scale: float=0.2, noise_sigma: float=0.1, **kwargs):
+    def __init__(self, obs_size: int, action_size: int, noise_scale: float=0.2, noise_sigma: float=0.1, **kwargs):
         """
         Parameters:
-            state_size: Number of input dimensions.
+            obs_size: Number of input dimensions.
             action_size: Number of output dimensions
             noise_scale (float): Added noise amplitude. Default: 0.2.
             noise_sigma (float): Added noise variance. Default: 0.1.
@@ -54,15 +57,19 @@ class DDPGAgent(AgentBase):
         """
         super().__init__(**kwargs)
         self.device = self._register_param(kwargs, "device", DEVICE)
-        self.state_size = state_size
+        self.obs_size = obs_size
         self.action_size = action_size
+        self._config['obs_size'] = self.obs_size
+        self._config['action_size'] = self.action_size
+        obs_shape = (obs_size,)
+        action_shape = (action_size,)
 
         # Reason sequence initiation.
         hidden_layers = to_numbers_seq(self._register_param(kwargs, 'hidden_layers', (64, 64)))
-        self.actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers, gate_out=torch.tanh).to(self.device)
-        self.critic = CriticBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
-        self.target_actor = ActorBody(state_size, action_size, hidden_layers=hidden_layers, gate_out=torch.tanh).to(self.device)
-        self.target_critic = CriticBody(state_size, action_size, hidden_layers=hidden_layers).to(self.device)
+        self.actor = ActorBody(obs_shape, action_shape, hidden_layers=hidden_layers, gate_out=torch.tanh).to(self.device)
+        self.critic = CriticBody(obs_shape, action_size, hidden_layers=hidden_layers).to(self.device)
+        self.target_actor = ActorBody(obs_shape, action_shape, hidden_layers=hidden_layers, gate_out=torch.tanh).to(self.device)
+        self.target_critic = CriticBody(obs_shape, action_size, hidden_layers=hidden_layers).to(self.device)
 
         # Noise sequence initiation
         self.noise = GaussianNoise(shape=(action_size,), mu=1e-8, sigma=noise_sigma, scale=noise_scale, device=self.device)
@@ -124,21 +131,25 @@ class DDPGAgent(AgentBase):
             and self.get_network_state() == o.get_network_state()
 
     @torch.no_grad()
-    def act(self, obs, noise: float=0.0) -> List[float]:
+    def act(self, obs: ObsType, noise: float=0.0) -> List[float]:
         """Acting on the observations. Returns action.
+
+        Parameters:
+            obs (array_like): current state
+            eps (optional float): epsilon, for epsilon-greedy action selection. Default 0.
 
         Returns:
             action: (list float) Action values.
         """
-        obs = to_tensor(obs).float().to(self.device)
-        action = self.actor(obs)
+        t_obs = to_tensor(obs).float().to(self.device)
+        action = self.actor(t_obs)
         action += noise*self.noise.sample()
         action = torch.clamp(action*self.action_scale, self.action_min, self.action_max)
         return action.cpu().numpy().tolist()
 
-    def step(self, state, action, reward, next_state, done) -> None:
+    def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType) -> None:
         self.iteration += 1
-        self.buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
+        self.buffer.add(state=obs, action=action, reward=reward, next_state=next_obs, done=done)
 
         if self.iteration < self.warm_up:
             return
@@ -156,7 +167,7 @@ class DDPGAgent(AgentBase):
         assert Q_expected.shape == Q_target.shape == Q_target_next.shape
         return mse_loss(Q_expected, Q_target)
 
-    def compute_policy_loss(self, states) -> None:
+    def compute_policy_loss(self, states) -> Tensor:
         """Compute Policy loss based on provided states.
 
         Loss = Mean(-Q(s, _a) ),
@@ -173,7 +184,7 @@ class DDPGAgent(AgentBase):
         actions = to_tensor(experiences['action']).to(self.device)
         next_states = to_tensor(experiences['next_state']).float().to(self.device)
         assert rewards.shape == dones.shape == (self.batch_size, 1)
-        assert states.shape == next_states.shape == (self.batch_size, self.state_size)
+        assert states.shape == next_states.shape == (self.batch_size, self.obs_size)
         assert actions.shape == (self.batch_size, self.action_size)
 
         # Value (critic) optimization
@@ -230,7 +241,7 @@ class DDPGAgent(AgentBase):
     def get_state(self) -> AgentState:
         return AgentState(
             model=self.name,
-            state_space=self.state_size,
+            obs_space=self.obs_size,
             action_space=self.action_size,
             config=self._config,
             buffer=copy.deepcopy(self.buffer.get_state()),
@@ -249,7 +260,7 @@ class DDPGAgent(AgentBase):
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
         config = copy.copy(state.config)
-        config.update({'state_size': state.state_space, 'action_size': state.action_space})
+        config.update({'obs_size': state.obs_space, 'action_size': state.action_space})
         agent = DDPGAgent(**config)
         if state.network is not None:
             agent.set_network(state.network)

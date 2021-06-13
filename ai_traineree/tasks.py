@@ -1,10 +1,13 @@
 import logging
+from collections import deque
+from functools import reduce
+from operator import mul
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+
 import numpy as np
 import torch
 
 from ai_traineree.types import ActionType, MultiAgentTaskType, StateType, TaskType
-from collections import deque
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 try:
     import gym
@@ -81,8 +84,8 @@ class GymTask(TaskType):
         self.can_render = can_render
         self.is_discrete = "Discrete" in str(type(self.env.action_space))
 
-        state_shape = self.env.observation_space.shape
-        self.state_size = state_shape[0] if len(state_shape) == 1 else state_shape
+        obs_space = self.env.observation_space.shape
+        self.obs_size = obs_space[0] if len(obs_space) == 1 else obs_space
         self.action_size = self.__determine_action_size(self.env.action_space)
         self.state_transform = state_transform
         self.reward_transform = reward_transform
@@ -100,14 +103,18 @@ class GymTask(TaskType):
             return sum(action_space.shape)
 
     @property
-    def actual_state_size(self) -> Sequence[int]:
+    def actual_obs_size(self) -> int:
+        return reduce(mul, self.reset().shape)
+
+    @property
+    def actual_obs_shape(self) -> Sequence[int]:
         return self.reset().shape
 
     def seed(self, seed):
         if isinstance(seed, (int, float)):
             return self.env.seed(seed)
 
-    def reset(self) -> StateType:
+    def reset(self) -> Union[torch.Tensor, np.ndarray]:
         state = self.env.reset()
         if self.state_transform is not None:
             state = self.state_transform(state)
@@ -173,7 +180,7 @@ class PettingZooTask(MultiAgentTaskType):
         self.agent_iter = self.env.agent_iter
 
     @property
-    def state_size(self):
+    def obs_size(self):
         return self.env.observe(self.env.agents[0]).shape
 
     @property

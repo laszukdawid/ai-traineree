@@ -1,17 +1,16 @@
 import abc
+from typing import Any, Dict, List
 
 from ai_traineree.loggers import DataLogger
-from typing import Any, Dict, List, Tuple
 
-from .primitive import ActionType, DoneType, StateType, RewardType
+from .primitive import ActionType, DoneType, ObsType, RewardType
 from .state import AgentState
 
 
 class AgentType(abc.ABC):
 
     name: str
-    in_features: Tuple[int]
-    state_size: int
+    obs_size: int
     action_size: int
     loss: Dict[str, float]
     _config: Dict = {}
@@ -31,11 +30,11 @@ class AgentType(abc.ABC):
         return value
 
     @abc.abstractmethod
-    def act(self, state: StateType, noise: Any):
+    def act(self, obs: ObsType, noise: Any):
         pass
 
     @abc.abstractmethod
-    def step(self, state: StateType, action: ActionType, reward: RewardType, next_state: StateType, done: DoneType):
+    def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType):
         pass
 
     @abc.abstractmethod
@@ -61,8 +60,7 @@ class AgentType(abc.ABC):
 class MultiAgentType(abc.ABC):
 
     name: str
-    in_features: Tuple[int]
-    state_size: int
+    obs_size: int
     action_size: int
     loss: Dict[str, float]
     agents: List[AgentType]
@@ -84,14 +82,15 @@ class MultiAgentType(abc.ABC):
             source[name] = value
         return value
 
-    def act(self, agent_name: str, states: List[StateType], noise: Any) -> List[ActionType]:
+    def act(self, agent_name: str, observations: List[ObsType], noise: Any) -> List[ActionType]:
         raise NotImplementedError
 
     @abc.abstractmethod
     def step(
+        self,
         agent_name: str,
-        self, states: List[StateType], actions: List[ActionType], rewards: List[RewardType],
-        next_states: List[StateType], dones: List[DoneType]
+        observations: List[ObsType], actions: List[ActionType], rewards: List[RewardType],
+        next_observations: List[ObsType], dones: List[DoneType]
     ):
         pass
 

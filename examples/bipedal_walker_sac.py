@@ -25,7 +25,7 @@ config = {
     "max_grad_norm_actor": 10.0,
     "max_grad_norm_critic": 10.0,
 }
-agent = Agent(task.state_size, task.action_size, hidden_layers=(100, 100), **config)
+agent = Agent(task.obs_size, task.action_size, hidden_layers=(100, 100), **config)
 
 env_runner = EnvRunner(task, agent, max_iterations=10000, data_logger=data_logger)
 # env_runner.interact_episode(render=True)

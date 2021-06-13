@@ -4,6 +4,8 @@ from typing import Dict, List, Sequence
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.optim import Adam
+
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import hard_update, soft_update
@@ -12,8 +14,8 @@ from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import CategoricalNet
 from ai_traineree.policies import MultivariateGaussianPolicy, MultivariateGaussianPolicySimple
+from ai_traineree.types.primitive import ActionType, DoneType, ObsType, RewardType
 from ai_traineree.utils import to_numbers_seq, to_tensor
-from torch.optim import Adam
 
 
 class D3PGAgent(AgentBase):
@@ -32,12 +34,12 @@ class D3PGAgent(AgentBase):
 
     name = "D3PG"
 
-    def __init__(self, state_size: int, action_size: int, hidden_layers: Sequence[int]=(128, 128), **kwargs):
+    def __init__(self, obs_size: int, action_size: int, hidden_layers: Sequence[int]=(128, 128), **kwargs):
         """
         Parameters:
-            state_size (int): Number of input dimensions.
+            obs_size (int): Number of input dimensions.
             action_size (int): Number of output dimensions
-            hidden_layers (tuple of ints): Tuple defining hidden dimensions in fully connected nets. Default: (128, 128).
+            hidden_layers (tuple of ints): Dimensions of hidden layers in fully connected nets. Default: (128, 128).
 
         Keyword parameters:
             gamma (float): Discount value. Default: 0.99.
@@ -63,8 +65,11 @@ class D3PGAgent(AgentBase):
         """
         super().__init__(**kwargs)
         self.device = self._register_param(kwargs, "device", DEVICE)
-        self.state_size = state_size
+        self.obs_size = obs_size
         self.action_size = action_size
+        self._config['obs_size'] = self.obs_size
+        self._config['action_size'] = self.action_size
+        obs_shape = (obs_size,)
 
         self.num_atoms = int(self._register_param(kwargs, 'num_atoms', 51))
         v_min = float(self._register_param(kwargs, 'v_min', -10))
@@ -91,7 +96,9 @@ class D3PGAgent(AgentBase):
             std_init = kwargs.get("std_init", 1.0)
             std_max = kwargs.get("std_max", 1.5)
             std_min = kwargs.get("std_min", 0.25)
-            self.policy = MultivariateGaussianPolicySimple(self.action_size, std_init=std_init, std_min=std_min, std_max=std_max, device=self.device)
+            self.policy = MultivariateGaussianPolicySimple(
+                self.action_size, std_init=std_init, std_min=std_min, std_max=std_max, device=self.device,
+            )
         else:
             self.policy = MultivariateGaussianPolicy(self.action_size, device=self.device)
 
@@ -100,22 +107,24 @@ class D3PGAgent(AgentBase):
 
         # This looks messy but it's not that bad. Actor, critic_net and Critic(critic_net). Then the same for `target_`.
         self.actor = ActorBody(
-            state_size, self.policy.param_dim*action_size, hidden_layers=self.actor_hidden_layers,
+            obs_shape, (self.policy.param_dim*action_size,), hidden_layers=self.actor_hidden_layers,
             gate_out=torch.tanh, device=self.device
         )
         critic_net = CriticBody(
-            state_size, action_size, out_features=self.num_atoms, hidden_layers=self.critic_hidden_layers, device=self.device
+            obs_shape, action_size, out_features=(self.num_atoms,),
+            hidden_layers=self.critic_hidden_layers, device=self.device
         )
         self.critic = CategoricalNet(
             num_atoms=self.num_atoms, v_min=v_min, v_max=v_max, net=critic_net, device=self.device
         )
 
         self.target_actor = ActorBody(
-            state_size, self.policy.param_dim*action_size, hidden_layers=self.actor_hidden_layers,
+            obs_shape, (self.policy.param_dim*action_size,), hidden_layers=self.actor_hidden_layers,
             gate_out=torch.tanh, device=self.device
         )
         target_critic_net = CriticBody(
-            state_size, action_size, out_features=self.num_atoms, hidden_layers=self.critic_hidden_layers, device=self.device
+            obs_shape, action_size, out_features=(self.num_atoms,),
+            hidden_layers=self.critic_hidden_layers, device=self.device
         )
         self.target_critic = CategoricalNet(
             num_atoms=self.num_atoms, v_min=v_min, v_max=v_max, net=target_critic_net, device=self.device
@@ -159,37 +168,37 @@ class D3PGAgent(AgentBase):
             self._loss_critic = value
 
     @torch.no_grad()
-    def act(self, state, epsilon: float=0.0) -> List[float]:
+    def act(self, obs: ObsType, epsilon: float=0.0) -> List[float]:
         """
-        Returns actions for given state as per current policy.
+        Returns actions for given observation as per current policy.
 
         Parameters:
-            state: Current available state from the environment.
+            obs: Current available observation from the environment.
             epislon: Epsilon value in the epislon-greedy policy.
 
         """
-        state = to_tensor(state).float().to(self.device)
+        t_obs = to_tensor(obs).float().to(self.device)
         if self._rng.random() < epsilon:
             action = self.action_scale*(torch.rand(self.action_size) - 0.5)
 
         else:
-            action_seed = self.actor.act(state).view(1, -1)
+            action_seed = self.actor.act(t_obs).view(1, -1)
             action_dist = self.policy(action_seed)
             action = action_dist.sample()
             action *= self.action_scale
             action = action.squeeze()
 
         # Purely for logging
-        self._display_dist = self.target_critic.act(state, action.to(self.device)).squeeze().cpu()
+        self._display_dist = self.target_critic.act(t_obs, action.to(self.device)).squeeze().cpu()
         self._display_dist = F.softmax(self._display_dist, dim=0)
 
         return torch.clamp(action, self.action_min, self.action_max).cpu().tolist()
 
-    def step(self, state, action, reward, next_state, done):
+    def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType) -> None:
         self.iteration += 1
 
         # Delay adding to buffer to account for n_steps (particularly the reward)
-        self.n_buffer.add(state=state, action=action, reward=[reward], done=[done], next_state=next_state)
+        self.n_buffer.add(state=obs, action=action, reward=[reward], done=[done], next_state=next_obs)
         if not self.n_buffer.available:
             return
 
@@ -255,7 +264,7 @@ class D3PGAgent(AgentBase):
         actions = to_tensor(experiences['action']).to(self.device)
         next_states = to_tensor(experiences['next_state']).float().to(self.device)
         assert rewards.shape == dones.shape == (self.batch_size, 1)
-        assert states.shape == next_states.shape == (self.batch_size, self.state_size)
+        assert states.shape == next_states.shape == (self.batch_size, self.obs_size)
         assert actions.shape == (self.batch_size, self.action_size)
 
         indices = None

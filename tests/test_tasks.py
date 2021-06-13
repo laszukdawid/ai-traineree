@@ -16,7 +16,7 @@ def test_gym_task_actual_openai_discrete():
     assert task.env is not None
     assert task.can_render is True
     assert task.is_discrete is True
-    assert task.state_size == 4
+    assert task.obs_size == 4
     assert task.action_size == 2
 
 
@@ -32,7 +32,7 @@ def test_gym_task_actual_openai_continious():
     assert task.env is not None
     assert task.can_render is False
     assert task.is_discrete is False
-    assert task.state_size == 3
+    assert task.obs_size == 3
     assert task.action_size == 1
 
 

@@ -12,7 +12,7 @@ config = {
     "device": "cuda",
 }
 task = GymTask(env_name)
-agent = DQNAgent(task.state_size, task.action_size, **config)
+agent = DQNAgent(task.obs_size, task.action_size, **config)
 env_runner = EnvRunner(task, agent)
 
 # env_runner.interact_episode(0, render=True)

@@ -25,7 +25,7 @@ config = {
     "critic_lr": 0.001,
     "actor_lr": 0.0004,
 }
-agent = Agent(task.state_size, task.action_size, hidden_layers=(100, 100, 50), **config)
+agent = Agent(task.obs_size, task.action_size, hidden_layers=(100, 100, 50), **config)
 env_runner = EnvRunner(task, agent, data_logger=data_logger)
 # env_runner.interact_episode(0, render=True)
 scores = env_runner.run(80, 2000, eps_decay=0.99, force_new=True, checkpoint_every=20)
