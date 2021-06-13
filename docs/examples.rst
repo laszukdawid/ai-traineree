@@ -1,8 +1,6 @@
 Examples
 ========
 
-Here are only some selected examples. There are many more examples provided in the repository as individual files.
-There is `examples` directory or directly here https://github.com/laszukdawid/ai-traineree/tree/master/examples.
 
 Single agent
 ------------
@@ -37,7 +35,7 @@ Multi agent
 IQL on Prison
 `````````````
 
-This example uses the Prison environment provided by the `PettingZoo <https://www.pettingzoo.ml/>`.
+This example uses the Prison environment provided by the `PettingZoo <https://www.pettingzoo.ml/>`_.
 The *Prison* is simple environment where all agents are independent with a simple task alternatively
 touch walls. To install the environment execute ``pip install pettingzoo[butterfly]``.
 
@@ -62,3 +60,23 @@ touch walls. To install the environment execute ``pip install pettingzoo[butterf
 
     env_runner = MultiAgentCycleEnvRunner(task, agents, max_iterations=9000, data_logger=data_logger)
     scores = env_runner.run(reward_goal=20, max_episodes=50, eps_decay=0.95, log_episode_freq=1, force_new=True)
+
+
+More examples
+-------------
+
+Here are only some selected examples. There are many more examples provided in the repository as individual files.
+There is `examples` directory or directly here https://github.com/laszukdawid/ai-traineree/tree/master/examples.
+
+The easiest way to run them is to checkout git package and install it (see note below).
+Examples can be run as modules from the root directory, i.e. directory with ``setup.cfg`` file.
+To run `cart_dqn` example execute:
+
+.. code-block:: bash
+
+    $ python -m examples.cart_dqn
+
+.. note::
+    Examples use some libraries that aren't provided in the default package installation.
+    To install all necessary packages make sure to install AI Traineree with ``[examples]`` conditions.
+    If you are using `pip` to install packages then you should use ``pip install -e .[examples]``.
