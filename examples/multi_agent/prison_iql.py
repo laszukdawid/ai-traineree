@@ -5,13 +5,13 @@ from ai_traineree.loggers import TensorboardLogger
 from ai_traineree.multi_agent.iql import IQLAgents
 from ai_traineree.multiagent_env_runner import MultiAgentCycleEnvRunner
 from ai_traineree.tasks import PettingZooTask
-from pettingzoo.butterfly import prison_v2 as prison
+from pettingzoo.butterfly import prison_v3 as prison
 
 env = prison.env(vector_observation=True)
 ma_task = PettingZooTask(env)
 ma_task.reset()
 
-obs_size = ma_task.obs_size
+obs_size = ma_task.obs_size[0]
 action_size = ma_task.action_size.n
 agent_number = ma_task.num_agents
 config = {

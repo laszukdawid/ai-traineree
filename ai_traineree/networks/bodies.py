@@ -27,6 +27,8 @@ def layer_init(layer: nn.Module, range_value: Optional[Tuple[float, float]]=None
     nn.init.xavier_uniform_(layer.weight)
 
 
+FlattenNet = nn.Flatten
+
 class ScaleNet(NetworkType):
     def __init__(self, scale: Union[float, int]) -> None:
         super(ScaleNet, self).__init__()

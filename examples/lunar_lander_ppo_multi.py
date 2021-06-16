@@ -3,7 +3,7 @@ import os
 
 from ai_traineree.agents.ppo import PPOAgent as Agent
 from ai_traineree.env_runner import MultiSyncEnvRunner
-from ai_traineree.loggers import NeptuneLogger
+# from ai_traineree.loggers import NeptuneLogger
 from ai_traineree.tasks import GymTask
 from ai_traineree.types import TaskType
 from typing import List
@@ -12,7 +12,8 @@ from typing import List
 neptune_api_key = os.getenv("NEPTUNE_API_TOKEN")
 
 env_name = 'LunarLanderContinuous-v2'
-data_logger = NeptuneLogger("kretyn/PPO-LunarLander-Multi", api_token=neptune_api_key)
+# data_logger = NeptuneLogger("kretyn/PPO-LunarLander-Multi", api_token=neptune_api_key)
+data_logger= None
 processes = 4
 num_workers = processes
 kwargs = {

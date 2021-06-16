@@ -45,7 +45,7 @@ def revert_norm_returns(rewards: Tensor, dones: Tensor, gamma: float=0.99) -> Te
         dones: Tensor with termination flag. Expected ints {0, 1} in shape (..., 1)
         gamma: Discount factor.
     """
-    discounted_reward = torch.zeros(rewards.shape[1:])
+    discounted_reward = torch.zeros(rewards.shape[1:], dtype=rewards.dtype, device=rewards.device)
     returns = torch.zeros_like(rewards).float()
     len_returns = returns.shape[0]
     for idx, (reward, done) in enumerate(zip(reversed(rewards), reversed(dones.int()))):
