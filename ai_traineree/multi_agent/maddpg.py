@@ -12,8 +12,7 @@ from ai_traineree.agents.ddpg import DDPGAgent
 from ai_traineree.buffers import ReplayBuffer
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import CriticBody
-from ai_traineree.types import ActionType, MultiAgentType, StateType
-from ai_traineree.types.primitive import ObsType
+from ai_traineree.types import ActionType, MultiAgentType, ObsType, StateType
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 

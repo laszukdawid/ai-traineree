@@ -1,18 +1,19 @@
+from typing import Dict
+
 import torch
 
 from ai_traineree import DEVICE
 from ai_traineree.agents.dqn import DQNAgent
 from ai_traineree.loggers import DataLogger
+from ai_traineree.types import ActionType, DoneType, MultiAgentType, ObsType, RewardType
 from ai_traineree.utils import to_numbers_seq
-from ai_traineree.types import ActionType, MultiAgentType, StateType
-from typing import Dict
 
 
 class IQLAgents(MultiAgentType):
 
     name = "IQL"
 
-    def __init__(self, obs_space: int, action_size: int, num_agents: int, **kwargs):
+    def __init__(self, obs_size: int, action_size: int, num_agents: int, **kwargs):
         """Independent Q-Learning
 
         A set of independent Q-Learning agents (:py:class:`DQN <DQNAgent>` implementation) that are organized
@@ -40,7 +41,7 @@ class IQLAgents(MultiAgentType):
 
         """
 
-        self.obs_space: int = obs_space
+        self.obs_size: int = obs_size
         self.action_size = action_size
         self.num_agents = num_agents
         self.agent_names = kwargs.get("agent_names", map(str, range(self.num_agents)))
@@ -57,7 +58,7 @@ class IQLAgents(MultiAgentType):
         kwargs['number_updates'] = int(self._register_param(kwargs, 'number_updates', 1))
 
         self.agents: Dict[str, DQNAgent] = {
-            agent_name: DQNAgent(obs_space, action_size, name=agent_name, **kwargs)
+            agent_name: DQNAgent(obs_size, action_size, name=agent_name, **kwargs)
             for agent_name in self.agent_names
         }
 
@@ -88,12 +89,12 @@ class IQLAgents(MultiAgentType):
         for agent in self.agents.values():
             agent.reset()
 
-    def step(self, agent_name: str, state: StateType, action: ActionType, reward, next_state, done) -> None:
-        return self.agents[agent_name].step(state, action, reward, next_state, done)
+    def step(self, agent_name: str, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType) -> None:
+        return self.agents[agent_name].step(obs, action, reward, next_obs, done)
 
     @torch.no_grad()
-    def act(self, agent_name: str, state: StateType, noise: float=0.0) -> int:
-        return self.agents[agent_name].act(state, noise)
+    def act(self, agent_name: str, obs: ObsType, noise: float=0.0) -> int:
+        return self.agents[agent_name].act(obs, noise)
 
     def commit(self) -> None:
         """This method does nothing.

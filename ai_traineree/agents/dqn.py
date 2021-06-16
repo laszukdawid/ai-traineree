@@ -14,8 +14,7 @@ from ai_traineree.buffers.buffer_factory import BufferFactory
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks import NetworkType, NetworkTypeClass
 from ai_traineree.networks.heads import DuelingNet
-from ai_traineree.types import AgentState, BufferState, NetworkState
-from ai_traineree.types.primitive import ActionType, DoneType, ObsType, RewardType
+from ai_traineree.types import ActionType, AgentState, BufferState, DoneType, NetworkState, ObsType, RewardType
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 

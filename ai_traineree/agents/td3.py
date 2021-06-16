@@ -14,7 +14,7 @@ from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import DoubleCritic
 from ai_traineree.noise import OUProcess
-from ai_traineree.types.primitive import ActionType, DoneType, ObsType, RewardType
+from ai_traineree.types import ActionType, DoneType, ObsType, RewardType
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 

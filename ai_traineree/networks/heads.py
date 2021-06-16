@@ -23,7 +23,7 @@ import torch.nn.functional as F
 
 from ai_traineree.networks import NetworkType, NetworkTypeClass
 from ai_traineree.networks.bodies import FcNet, NoisyNet
-from ai_traineree.types.primitive import FeatureType
+from ai_traineree.types import FeatureType
 from ai_traineree.utils import to_numbers_seq
 
 

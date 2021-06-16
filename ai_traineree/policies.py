@@ -10,7 +10,7 @@ from torch.distributions.distribution import Distribution
 
 from ai_traineree.networks import NetworkType
 from ai_traineree.networks.bodies import FcNet
-from ai_traineree.types.primitive import FeatureType
+from ai_traineree.types import FeatureType
 
 
 class PolicyType(NetworkType):
