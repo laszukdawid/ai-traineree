@@ -3,9 +3,9 @@ from typing import Dict, List, Optional
 
 import torch
 import torch.nn as nn
+from torch import Tensor
 from torch.nn.functional import mse_loss
 from torch.optim import Adam
-from torch.tensor import Tensor
 
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase

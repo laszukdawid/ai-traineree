@@ -1,5 +1,5 @@
 # As intended, this is mainly short hand for development.
 # Please keep in sync with setup.cfg
-numpy~=1.19
-torch~=1.8
+numpy~=1.19.0
+torch~=1.9.0
 jsons~=1.4
