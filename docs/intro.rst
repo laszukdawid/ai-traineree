@@ -49,3 +49,22 @@ must have the same question. Be a friend and help them discover the answer.
 
 In case you want some questions or offers that would like to ask in private then feel free
 to reach me at ai-traineree@dawid.lasz.uk .
+
+
+Citing
+------
+
+If you found this project useful and would like to cite then we suggest the following BibTeX format.
+
+
+
+.. code::
+
+    @misc{ai-traineree,
+        author = {Laszuk, Dawid},
+        title = {AI Traineree: Reinforcement learning toolset},
+        year = {2020},
+        publisher = {GitHub},
+        journal = {GitHub repository},
+        howpublished = {\url{https://github.com/laszukdawid/ai-traineree}},
+    }

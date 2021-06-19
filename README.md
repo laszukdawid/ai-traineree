@@ -114,3 +114,14 @@ There are other potential things on the roadmap but haven't dedicated to them ye
 
 Should I focus on something specificallly? Let me know by leaving opening a feature request issue or contacting through [ai-traineree@dawid.lasz.uk](mailto:ai-traineree@dawid.lasz.uk).
 
+
+## Citing project
+
+@misc{ai-traineree,
+  author = {Laszuk, Dawid},
+  title = {AI Traineree: Reinforcement learning toolset},
+  year = {2020},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\url{https://github.com/laszukdawid/ai-traineree}},
+}
