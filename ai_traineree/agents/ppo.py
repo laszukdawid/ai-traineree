@@ -1,5 +1,6 @@
 import copy
 import itertools
+import logging
 from typing import Dict, List
 
 import torch
@@ -31,6 +32,7 @@ class PPOAgent(AgentBase):
     """
 
     name = "PPO"
+    logger = logging.getLogger("PPO")
 
     def __init__(self, obs_size: int, action_size: int, **kwargs):
         """
@@ -63,7 +65,7 @@ class PPOAgent(AgentBase):
         """
         super().__init__(**kwargs)
 
-        self.device = self._register_param(kwargs, "device", DEVICE)  # Default device is CUDA if available
+        self.device = self._register_param(kwargs, "device", DEVICE, update=True)  # Default device is CUDA if available
 
         self.obs_size = obs_size
         self.action_size = action_size
@@ -179,7 +181,7 @@ class PPOAgent(AgentBase):
             if self.is_discrete:  # *Technically* it's the max of Softmax but that's monotonic.
                 action = int(torch.argmax(action))
             else:
-                action = torch.clamp(action*self.action_scale, self.action_min, self.action_max)
+                # action = torch.clamp(action*self.action_scale, self.action_min, self.action_max)
                 action = action.cpu().numpy().flatten().tolist()
             actions.append(action)
 
@@ -247,11 +249,17 @@ class PPOAgent(AgentBase):
                 idx += self.batch_size
                 self.learn((_states, _actions, _logprobs, _returns, _advantages))
 
-            self.kl_div = abs(self.kl_div) / (self.actor_number_updates * self.rollout_length / self.batch_size)
-            if self.kl_div > self.target_kl * 1.75:
-                self.kl_beta = min(2 * self.kl_beta, 1e2)  # Max 100
-            if self.kl_div < self.target_kl / 1.75:
-                self.kl_beta = max(0.5 * self.kl_beta, 1e-6)  # Min 0.000001
+            self.kl_div = abs(self.kl_div) / (self.actor_number_updates * self.num_workers * self.rollout_length / self.batch_size)
+
+            if self.using_kl_div:
+                if self.kl_div > self.target_kl * 1.5:
+                    self.kl_beta = min(1.5 * self.kl_beta, 1e2)  # Max 100
+                elif self.kl_div < self.target_kl / 1.5:
+                    self.kl_beta = max(0.75 * self.kl_beta, 1e-6)  # Min 0.000001
+
+            if self.kl_div > self.target_kl * 1.5:
+                self.logger.warning("Early stopping")
+                break
             self._metrics['policy/kl_beta'] = self.kl_beta
 
     def compute_policy_loss(self, samples):
@@ -295,13 +303,13 @@ class PPOAgent(AgentBase):
     def learn(self, samples):
         self._loss_actor = 0.
 
-        for _ in range(self.actor_number_updates):
+        for actor_iter in range(self.actor_number_updates):
             self.actor_opt.zero_grad()
             loss_actor, kl_div = self.compute_policy_loss(samples)
             self.kl_div += kl_div
             if kl_div > 1.5 * self.target_kl:
                 # Early break
-                # print(f"Iter: {i:02} Early break")
+                self.logger.warning("Early break after %i iterations. %f > %f", actor_iter, kl_div, 1.5*self.target_kl)
                 break
             loss_actor.backward()
             nn.utils.clip_grad_norm_(self.actor_params, self.max_grad_norm_actor)

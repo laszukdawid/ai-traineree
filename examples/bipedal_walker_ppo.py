@@ -12,32 +12,29 @@ data_logger = TensorboardLogger()
 task: TaskType = GymTask(env_name)
 config = {
     'device': 'cuda',
-    'num_epochs': 10,
-    'rollout_length': 2048,
-    'batch_size': 64,
+    'num_epochs': 1,
+    'rollout_length': 2000,
+    'batch_size': 2000,
     'simple_policy': True,
-    'actor_number_updates': 1,
-    'critic_number_updates': 1,
-
+    'number_updates': 40,
+    'hidden_layers': (100, 100), 
     "gae_lambda": 0.95,
     "ppo_ratio_clip": 0.20,
     "entropy_weight": 0.005,
     "gamma": 0.99,
-    "std_init": 0.5,
-    "std_max": 1.0,
-    "std_min": 0.1,
+    'std_min': 0,
+    'std_max': 10,
+    'std_init': 0.6,
 
     "max_grad_norm_actor": 200.0,
     "max_grad_norm_critic": 200.0,
-    "critic_lr": 3e-4,
-    "critic_betas": (0.9, 0.999),
+    "critic_lr": 1e-3,
     "actor_lr": 3e-4,
-    "actor_betas": (0.9, 0.999),
 }
-agent = Agent(task.obs_size, task.action_size, hidden_layers=(100, 100), **config)
+agent = Agent(task.obs_size, task.action_size, **config)
 env_runner = EnvRunner(task, agent, max_iterations=2000, data_logger=data_logger)
 # env_runner.interact_episode(render=True)
-scores = env_runner.run(300, 1000, log_episode_freq=1, gif_every_episodes=500, force_new=True)
+scores = env_runner.run(300, 2000, eps_end=0.01, eps_decay=0.9, log_episode_freq=10, gif_every_episodes=500, force_new=True)
 env_runner.interact_episode(render=True)
 
 # plot the scores
