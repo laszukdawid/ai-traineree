@@ -95,8 +95,8 @@ class DuelingNet(NetworkType):
             hidden_layers (tuple of ints): Shape of the hidden layers.
             net_fn (optional func):
             net_class (optional class)
-        
-        Keyword parameters:
+
+        Keyword arguments:
             device: Device where to allocate memory. CPU or CUDA. Default CUDA if available.
 
         """
@@ -142,8 +142,10 @@ class CategoricalNet(NetworkType):
 
     The algorithm is used in the RainbowNet but not this particular net.
 
-    [1] "A Distributional Perspective on Reinforcement Learning" (2017) by M. G. Bellemare, W. Dabney, R. Munos.
-        Link: http://arxiv.org/abs/1707.06887
+    References:
+        .. [1] "A Distributional Perspective on Reinforcement Learning" (2017) by M. G. Bellemare, W. Dabney, R. Munos.
+            Link: http://arxiv.org/abs/1707.06887
+
     """
     def __init__(
         self,
@@ -256,18 +258,13 @@ class RainbowNet(NetworkType, nn.Module):
     """Rainbow networks combines dueling and categorical networks.
 
     """
-    def __init__(
-        self,
-        in_features: FeatureType,
-        out_features: FeatureType,
-        **kwargs
-    ):
+    def __init__(self, in_features: FeatureType, out_features: FeatureType, **kwargs):
         """
         Parameters
             in_features (tuple of ints): Shape of the input.
             out_features (tuple of ints): Shape of the expected output.
 
-        Keyword parameters:
+        Keyword arguments:
             hidden_layers (tuple of ints): Shape of fully connected networks. Default: (200, 200).
             num_atoms (int): Number of atoms used in estimating distribution. Default: 21.
             v_min (float): Value distribution minimum (left most) value. Default -10.
@@ -276,6 +273,7 @@ class RainbowNet(NetworkType, nn.Module):
             pre_network_fn (func): A shared network that is used before *value* and *advantage* networks.
             device (None, str or torch.device): Device where to cast the network. Can be assigned with strings, or
                 directly passing torch.device type. If `None` then it tries to use CUDA then CPU. Default: None.
+
         """
         super(RainbowNet, self).__init__()
         self.device = device = kwargs.get("device", None)

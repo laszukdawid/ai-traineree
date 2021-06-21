@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 import torch
 from ai_traineree.utils import (serialize, str_to_list, str_to_number,
-                                str_to_seq, str_to_tuple, to_tensor)
+                                str_to_seq, str_to_tuple, to_numbers_seq, to_tensor)
 from conftest import deterministic_interactions
 
 
@@ -245,6 +245,53 @@ def test_serialize_agent_state_actual():
     assert des['model'] == DQNAgent.name
     assert len(des['buffer']['data']) == 30
     assert set(des['network']['net'].keys()) == set(('target_net', 'net'))
+
+
+def test_to_numbers_seq_tuple_list():
+    t_in = (1, 2, 3)
+    l_in = [1, 2, 3]
+
+    t_out = to_numbers_seq(t_in)
+    l_out = to_numbers_seq(l_in)
+
+    assert t_out == t_in
+    assert l_out == l_in
+
+
+def test_to_numbers_seq_str():
+    s_t1_in = "(1,2,3)"
+    s_t2_in = "(1, 2, 3)"
+    s_l1_in = "[1,2,3]"
+    s_l2_in = "[1, 2, 3]"
+
+    s_t1_out = to_numbers_seq(s_t1_in)
+    s_t2_out = to_numbers_seq(s_t2_in)
+    s_l1_out = to_numbers_seq(s_l1_in)
+    s_l2_out = to_numbers_seq(s_l2_in)
+
+    assert s_t1_out == (1, 2, 3)
+    assert s_t2_out == (1, 2, 3)
+    assert s_l1_out == [1, 2, 3]
+    assert s_l2_out == [1, 2, 3]
+
+
+def test_to_numbers_seq_num():
+    int_in = 2
+    float_in = 2.123
+
+    int_out = to_numbers_seq(int_in)
+    float_out = to_numbers_seq(float_in)
+
+    assert int_out == (2,)
+    assert float_out == (2.123,)
+
+
+def test_to_numbers_seq_unknown():
+    test_cases = ['asd', '[2,1', {'key': 'value'}]
+
+    for test_case in test_cases:
+        with pytest.raises(ValueError):
+            to_numbers_seq(test_case)
 
 
 if __name__ == "__main__":

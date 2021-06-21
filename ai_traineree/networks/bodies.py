@@ -1,10 +1,10 @@
+from functools import reduce
 from math import sqrt
+from typing import Any, Optional, Sequence, Tuple, Union
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-from functools import reduce
-from typing import Any, Optional, Sequence, Tuple, Union
 
 from ai_traineree.networks import NetworkType
 from ai_traineree.types import FeatureType
@@ -26,8 +26,6 @@ def layer_init(layer: nn.Module, range_value: Optional[Tuple[float, float]]=None
 
     nn.init.xavier_uniform_(layer.weight)
 
-
-FlattenNet = nn.Flatten
 
 class ScaleNet(NetworkType):
     def __init__(self, scale: Union[float, int]) -> None:
@@ -134,8 +132,11 @@ class FcNet(NetworkType):
     For the activation layer we use tanh by default which was observed to be much better, e.g. compared to ReLU,
     for policy networks [1]. The last gate, however, might be changed depending on the actual task.
 
-    [1] "What Matters In On-Policy Reinforcement Learning? A Large-Scale Empirical Study"
-        Link: https://arxiv.org/abs/2006.05990
+
+    References
+        .. [1] "What Matters In On-Policy Reinforcement Learning? A Large-Scale Empirical Study"
+            by M. Andrychowicz et al. (2020). Link: https://arxiv.org/abs/2006.05990
+
     """
     def __init__(
         self,
@@ -154,7 +155,7 @@ class FcNet(NetworkType):
             hidden_layers: Shape of the hidden layers. If None, then the output is directly computed from the input.
             last_layer_range: The range for the uniform distribution that initiates the last layer.
 
-        Keyword parameters
+        Keyword arguments:
             gate (optional torch.nn.layer): Activation function for each layer, expect the last. Default: torch.tanh.
             gate_out (optional torch.nn.layer): Activation function after the last layer. Default: Identity layer.
             device (torch.devce or str): Device where to allocate memory. CPU or CUDA.
@@ -212,7 +213,6 @@ class CriticBody(NetworkType):
             out_features: FeatureType = (1,),
             hidden_layers: Optional[Sequence[int]]=(100, 100),
             inj_actions_layer: int=1,
-            bias: bool=True,
             **kwargs
     ):
         """
@@ -225,9 +225,10 @@ class CriticBody(NetworkType):
                 By default that's a first hidden layer, i.e. (state) -> (out + actions) -> (out) ... -> (output).
                 Default: 1.
 
-        Keyword parameters
-            gate: Activation function for each layer, expect the last. Default: Identity layer.
-            gate_out: Activation function after the last layer. Default: Identity layer.
+        Keyword arguments:
+            bias (bool): Whether to include bias in network's architecture. Default: True.
+            gate (callable): Activation function for each layer, expect the last. Default: Identity layer.
+            gate_out (callable): Activation function after the last layer. Default: Identity layer.
             device: Device where to allocate memory. CPU or CUDA. Default CUDA if available.
 
         """
@@ -241,10 +242,11 @@ class CriticBody(NetworkType):
         if not (0 <= inj_actions_layer < len(num_layers)):
             raise ValueError("Action layer needs to be within the network")
 
+        bias = bool(kwargs.get('bias', True))
         layers = []
         for in_idx in range(len(num_layers)-1):
             in_dim, out_dim = num_layers[in_idx], num_layers[in_idx+1]
-            if in_idx == inj_actions_layer:  # Injects `actions` into the second layer of the Critic
+            if in_idx == inj_actions_layer:  # Injects `actions` into specified (default: 2nd) layer of the Critic
                 in_dim += inj_action_size
             layers.append(nn.Linear(in_dim, out_dim, bias=bias))
 
@@ -276,15 +278,19 @@ class CriticBody(NetworkType):
 class NoisyLayer(nn.Module):
     def __init__(self, in_features: FeatureType, out_features: FeatureType, sigma: float=0.4, factorised: bool=True):
         """
-        A Linear layer with values being pertrubed by the noise while training.
+        A linear layer with added noise perturbations in training as described in [1].
+        For a fully connected network of NoisyLayers see :class:`.NoisyNet`.
 
         Parameters:
-            sigma: Used to intiated noise distribution.
+            in_features (tuple ints): Dimension of the input.
+            out_features (tuple ints): Dimension of the output.
+            sigma (float): Used to intiated noise distribution. Default: 0.4.
             factorised: Whether to use independent Gaussian (False) or Factorised Gaussian (True) noise.
                 Suggested [1] for DQN and Duelling nets to use factorised as it's quicker.
 
         References:
-            [1] "Noisy Networks for Exploration" by Fortunato et al. (ICLR 2018), https://arxiv.org/abs/1706.10295.
+            .. [1] "Noisy Networks for Exploration" by Fortunato et al. (ICLR 2018), https://arxiv.org/abs/1706.10295.
+
         """
         super(NoisyLayer, self).__init__()
         assert len(in_features) == 1, "Expected only one dimension"
@@ -313,7 +319,7 @@ class NoisyLayer(nn.Module):
         self.reset_parameters()
         self.reset_noise()
 
-    def forward(self, x):
+    def forward(self, x) -> torch.Tensor:
         weight = self.weight_mu
         bias = self.bias_mu
         if self.training:
@@ -322,7 +328,7 @@ class NoisyLayer(nn.Module):
 
         return F.linear(x, weight, bias)
 
-    def reset_parameters(self):
+    def reset_parameters(self) -> None:
         if self.factorised:
             bound = sqrt(1./self.in_features[0])
             sigma = self.sigma_0 * bound
@@ -341,8 +347,13 @@ class NoisyLayer(nn.Module):
         self.weight_noise.normal_(std=self.sigma_0)
 
         if self.factorised:
-            self.weight_eps.copy_(self.noise_function(self.bias_noise).ger(self.noise_function(self.weight_noise)))
-            self.bias_eps.copy_(self.noise_function(self.bias_noise))
+            # eps_i = ~P(b_size),  eps_j = ~P(w_size)
+            # eps_b = f(eps_i)
+            # eps_w = f(eps_i) x f(eps_j)
+            f_weight_eps = self.noise_function(self.weight_noise)
+            f_bias_eps = self.noise_function(self.bias_noise)
+            self.weight_eps.copy_(f_bias_eps.outer(f_weight_eps))
+            self.bias_eps.copy_(f_bias_eps)
         else:
             self.weight_eps.copy_(self.weight_noise.data)
             self.bias_eps.copy_(self.bias_noise.data)
@@ -353,15 +364,30 @@ class NoisyLayer(nn.Module):
 
 
 class NoisyNet(NetworkType):
-    def __init__(self, in_features: FeatureType, out_features: FeatureType, hidden_layers: Optional[Sequence[int]]=(100, 100), sigma=0.4,
-                 gate=None, gate_out=None, factorised=True, device: Optional[torch.device]=None):
+    def __init__(
+        self, in_features: FeatureType, out_features: FeatureType,
+        hidden_layers: Optional[Sequence[int]]=(100, 100), sigma=0.4,
+        factorised=True, **kwargs,
+    ):
         """
         Parameters:
+            in_features (tuple ints): Dimension of the input.
+            out_features (tuple ints): Dimension of the output.
+            hidden_layers (sequence ints): Sizes of latent layers. Size of sequence denotes number of hidden layers and
+                values of the sequence are nodes per layer. If None is passed then the input goes straight to output.
+                Default: (100, 100).
+            sigma (float): Variance value for generating noise in noisy layers. Default: 0.4 per layer.
             factorised (bool): Whether to use independent Gaussian (False) or Factorised Gaussian (True) noise.
                 Suggested [1] for DQN and Duelling nets to use factorised as it's quicker.
 
+        Keyword arguments:
+            gate (callable): Function to apply after each layer pass. For the best performance it is suggested
+                to use non-linear functions such as tanh. Default: tanh.
+            gate_out (callable): Function to apply on network's exit. Default: identity.
+            device (str or torch.device): Whether and where to cast the network. Default is CUDA if available else cpu.
+
         References:
-            [1] "Noisy Networks for Exploration" by Fortunato et al. (ICLR 2018), https://arxiv.org/abs/1706.10295.
+            .. [1] "Noisy Networks for Exploration" by Fortunato et al. (ICLR 2018), https://arxiv.org/abs/1706.10295.
 
         """
         super(NoisyNet, self).__init__()
@@ -375,19 +401,22 @@ class NoisyNet(NetworkType):
         layers = [NoisyLayer((dim_in,), (dim_out,), sigma=sigma, factorised=factorised) for dim_in, dim_out in zip(num_layers[:-1], num_layers[1:])]
         self.layers = nn.ModuleList(layers)
 
-        self.gate = gate if gate is not None else nn.Identity()
-        self.gate_out = gate_out if gate_out is not None else nn.Identity()
-        self.to(device=device)
+        self.gate = kwargs.get("gate", torch.tanh)
+        self.gate_out = kwargs.get("gate_out", nn.Identity())
+        if not callable(self.gate) or not callable(self.gate_out):
+            raise ValueError("Passed gate or gate_out is no callable and cannot be used as a function")
 
-    def reset_noise(self):
+        self.to(device=kwargs.get('device', None))
+
+    def reset_noise(self) -> None:
         for layer in self.layers:
             layer.reset_noise()
 
-    def reset_parameters(self):
+    def reset_parameters(self) -> None:
         for layer in self.layers:
             layer.reset_parameters()
 
-    def forward(self, x):
+    def forward(self, x) -> torch.Tensor:
         for layer in self.layers[:-1]:
             x = self.gate(layer(x))
         return self.gate_out(self.layers[-1](x))

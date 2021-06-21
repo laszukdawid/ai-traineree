@@ -7,8 +7,8 @@ import torch
 from numpy import ndarray
 
 # Update serializaiton rules for `jsons` module used by `serialize` function (below).
-jsons.set_serializer(lambda x, **kwargs: x.tolist(), torch.Tensor)
-jsons.set_serializer(lambda x, **kwargs: x.tolist(), ndarray)
+jsons.set_serializer(lambda x, **kwargs: x.tolist(), torch.Tensor)  # type: ignore
+jsons.set_serializer(lambda x, **kwargs: x.tolist(), ndarray)  # type: ignore
 
 
 def to_tensor(x) -> torch.Tensor:
@@ -36,7 +36,7 @@ def str_to_number(s: str) -> Union[int, float]:
     return int(s) if "." not in s else float(s)
 
 
-def str_to_list(s: str) -> Tuple:
+def str_to_list(s: str) -> List:
     """Converts a string list of numbers into a evaluated list.
 
     Example:
@@ -94,6 +94,7 @@ def str_to_seq(s: str) -> Union[Tuple, List]:
 
 
 def to_numbers_seq(x: Any) -> Union[Tuple, List]:
+    """Tries to convert an object into a sequence of numbers."""
     if isinstance(x, (tuple, list)):
         return x
     elif isinstance(x, str):
@@ -101,7 +102,7 @@ def to_numbers_seq(x: Any) -> Union[Tuple, List]:
     elif isinstance(x, (int, float)):
         return (x,)
     else:
-        raise ValueError(f"Value `{x}` has unsporrted type for casting to a sequence of numbers. Please report, or fix.")
+        raise ValueError(f"Value `{x}` has unsporrted type for casting to a sequence of numbers. Please report or fix.")
 
 
 def serialize(obj) -> str:

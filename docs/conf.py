@@ -35,7 +35,8 @@ author = 'Dawid Laszuk'
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
-    'sphinx.ext.napoleon'
+    'sphinx.ext.napoleon',
+    'sphinx.ext.intersphinx',
 ]
 # napoleon_numpy_docstring = False
 napoleon_include_init_with_doc = True
