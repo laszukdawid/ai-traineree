@@ -1,17 +1,16 @@
 import json
 import logging
-import time
 import os
 import sys
-
-from ai_traineree.loggers import DataLogger
-from ai_traineree.types import ActionType, DoneType, RewardType, StateType
-from ai_traineree.types import MultiAgentType, MultiAgentTaskType
-from ai_traineree.tasks import PettingZooTask
-from ai_traineree.utils import save_gif
+import time
 from collections import defaultdict, deque
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
+
+from ai_traineree.loggers import DataLogger
+from ai_traineree.tasks import PettingZooTask
+from ai_traineree.types import ActionType, DoneType, MultiAgentTaskType, MultiAgentType, RewardType, StateType
+from ai_traineree.utils import save_gif
 
 FRAMES_PER_SEC = 45
 
@@ -56,7 +55,7 @@ class MultiAgentEnvRunner:
         self.task = task
         self.multi_agent: MultiAgentType = multi_agent
         self.max_iterations = max_iterations
-        self.model_path = f"{task.name}_{multi_agent.name}"
+        self.model_path = f"{task.name}_{multi_agent.model}"
         self.state_dir = kwargs.get('state_dir', 'run_states')
         self.window_len = kwargs.get('window_len', 100)
 
@@ -76,7 +75,7 @@ class MultiAgentEnvRunner:
         self.logger.info("DataLogger: %s", str(self.data_logger))
 
     def __str__(self) -> str:
-        return f"EnvRunner<{self.task.name}, {self.multi_agent.name}>"
+        return f"EnvRunner<{self.task.name}, {self.multi_agent.model}>"
 
     def seed(self, seed: int):
         self.multi_agent.seed(seed)
@@ -372,7 +371,7 @@ class MultiAgentCycleEnvRunner:
         self.task: PettingZooTask = task
         self.multi_agent: MultiAgentType = multi_agent
         self.max_iterations = max_iterations
-        self.model_path = f"{task.name}_{multi_agent.name}"
+        self.model_path = f"{task.name}_{multi_agent.model}"
         self.state_dir = kwargs.get('state_dir', 'run_states')
 
         self.mode = mode
@@ -393,7 +392,7 @@ class MultiAgentCycleEnvRunner:
         self.logger.info("DataLogger: %s", str(self.data_logger))
 
     def __str__(self) -> str:
-        return f"MultiAgentCycleEnvRunner<{self.task.name}, {self.multi_agent.name}>"
+        return f"MultiAgentCycleEnvRunner<{self.task.name}, {self.multi_agent.model}>"
 
     def seed(self, seed: int) -> None:
         """Sets provided seed to multi agent and task."""

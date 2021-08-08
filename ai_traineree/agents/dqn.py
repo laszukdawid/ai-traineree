@@ -30,7 +30,7 @@ class DQNAgent(AgentBase):
     to this implementation by working on the discrete space projection of the Q(s,a) function.
     """
 
-    name = "DQN"
+    model = "DQN"
 
     def __init__(
         self,
@@ -251,7 +251,7 @@ class DQNAgent(AgentBase):
     def get_state(self) -> AgentState:
         """Provides agent's internal state."""
         return AgentState(
-            model=self.name,
+            model=self.model,
             obs_space=self.obs_size,
             action_space=self.action_size,
             config=self._config,

@@ -9,7 +9,7 @@ from .state import AgentState
 
 class AgentType(abc.ABC):
 
-    name: str
+    model: str
     obs_size: int
     action_size: int
     loss: Dict[str, float]
@@ -59,7 +59,7 @@ class AgentType(abc.ABC):
 
 class MultiAgentType(abc.ABC):
 
-    name: str
+    model: str
     obs_size: int
     action_size: int
     loss: Dict[str, float]

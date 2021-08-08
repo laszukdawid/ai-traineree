@@ -29,7 +29,7 @@ class SACAgent(AgentBase):
     by Haarnoja et al. (2018) (http://arxiv.org/abs/1801.01290).
     """
 
-    name = "SAC"
+    model = "SAC"
 
     def __init__(self, obs_size: int, action_size: int, **kwargs):
         """

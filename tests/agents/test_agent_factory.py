@@ -31,7 +31,7 @@ def test_agent_factory_dqn_agent_from_state_network_buffer_none():
 
     # Assert
     assert id(new_agent) != id(agent)
-    assert new_agent.name == DQNAgent.name
+    assert new_agent.model == DQNAgent.model
     assert new_agent.hparams == agent.hparams
 
 
@@ -47,7 +47,7 @@ def test_agent_factory_dqn_agent_from_state():
     # Assert
     assert id(new_agent) != id(agent)
     assert new_agent == agent
-    assert new_agent.name == DQNAgent.name
+    assert new_agent.model == DQNAgent.model
     assert new_agent.hparams == agent.hparams
     assert new_agent.buffer == agent.buffer
 
@@ -64,7 +64,7 @@ def test_agent_factory_ppo_agent_from_state():
     # Assert
     assert id(new_agent) != id(agent)
     assert new_agent == agent
-    assert new_agent.name == PPOAgent.name
+    assert new_agent.model == PPOAgent.model
     assert new_agent.hparams == agent.hparams
     assert new_agent.buffer == agent.buffer
 
@@ -82,7 +82,7 @@ def test_agent_factory_ppo_agent_from_state_network_buffer_none():
 
     # Assert
     assert id(new_agent) != id(agent)
-    assert new_agent.name == PPOAgent.name
+    assert new_agent.model == PPOAgent.model
     assert new_agent.hparams == agent.hparams
 
 
@@ -97,7 +97,7 @@ def test_agent_factory_ddpg_agent_from_state():
 
     # Assert
     assert id(new_agent) != id(agent)
-    assert new_agent.name == DDPGAgent.name
+    assert new_agent.model == DDPGAgent.model
     assert new_agent == agent
     assert new_agent.hparams == agent.hparams
     assert new_agent.buffer == agent.buffer
@@ -116,5 +116,5 @@ def test_agent_factory_ddpg_agent_from_state_network_buffer_none():
 
     # Assert
     assert id(new_agent) != id(agent)
-    assert new_agent.name == DDPGAgent.name
+    assert new_agent.model == DDPGAgent.model
     assert new_agent.hparams == agent.hparams

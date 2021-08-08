@@ -18,7 +18,7 @@ from ai_traineree.utils import to_numbers_seq, to_tensor
 
 class MADDPGAgent(MultiAgentType):
 
-    name = "MADDPG"
+    model = "MADDPG"
 
     def __init__(self, obs_size: int, action_size: int, num_agents: int, **kwargs):
         """Initiation of the Multi Agent DDPG.
@@ -249,10 +249,12 @@ class MADDPGAgent(MultiAgentType):
             state: (dict) Already loaded state kept in memory.
 
         """
-        if path is None and agent_state:
+        if path is None and agent_state is None:
             raise ValueError("Either `path` or `agent_state` must be provided to load agent's state.")
         if path is not None and agent_state is None:
             agent_state = torch.load(path)
+        assert agent_state is not None, "Can't load state if neither agent state or valid path is provided"
+
         self._config = agent_state.get('config', {})
         self.__dict__.update(**self._config)
         for agent_name, agent in self.agents.items():

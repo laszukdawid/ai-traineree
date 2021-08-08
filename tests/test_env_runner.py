@@ -60,7 +60,8 @@ def test_env_runner_log_episode_metrics(mock_data_logger, mock_task, mock_agent)
     mean_scores = [0.5, 1]
     scores = [1.5, 5]
     iterations = [10, 10]
-    episode_data = dict(episodes=episodes, epsilons=epsilons, mean_scores=mean_scores, iterations=iterations, scores=scores)
+    episode_data = dict(
+        episodes=episodes, epsilons=epsilons, mean_scores=mean_scores, iterations=iterations, scores=scores)
     env_runner = EnvRunner(mock_task, mock_agent, data_logger=mock_data_logger)
 
     # Act
@@ -196,13 +197,13 @@ def test_env_runner_load_state(mock_task, mock_agent, mock_os):
 
 
 ###########################################################
-## Multi Sync Env Runner
+# Multi Sync Env Runner
 
 @mock.patch("ai_traineree.env_runner.AgentBase")
 @mock.patch("ai_traineree.env_runner.TaskType")
 def test_multi_sync_env_runner_init_str_check(mock_task, mock_agent):
     # Assign & Act
-    mock_agent.name = "Agent"
+    mock_agent.model = "Agent"
     mock_task.name = "Task"
     multi_sync_env_runner = MultiSyncEnvRunner([mock_task], mock_agent)
 
@@ -311,7 +312,8 @@ def test_multi_sync_env_runner_log_episode_metrics(mock_data_logger, mock_task, 
     mean_scores = [0.5, 1]
     scores = [1.5, 5]
     iterations = [10, 10]
-    episode_data = dict(episodes=episodes, epsilons=epsilons, mean_scores=mean_scores, iterations=iterations, scores=scores)
+    episode_data = dict(
+        episodes=episodes, epsilons=epsilons, mean_scores=mean_scores, iterations=iterations, scores=scores)
     env_runner = MultiSyncEnvRunner(mock_task, mock_agent, data_logger=mock_data_logger)
 
     # Act

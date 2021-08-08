@@ -4,8 +4,9 @@ import random
 import numpy as np
 import pytest
 import torch
-from ai_traineree.utils import (serialize, str_to_list, str_to_number,
-                                str_to_seq, str_to_tuple, to_numbers_seq, to_tensor)
+
+from ai_traineree.utils import (serialize, str_to_list, str_to_number, str_to_seq, str_to_tuple, to_numbers_seq,
+                                to_tensor)
 from conftest import deterministic_interactions
 
 
@@ -242,7 +243,7 @@ def test_serialize_agent_state_actual():
 
     # Assert
     des = json.loads(ser)
-    assert des['model'] == DQNAgent.name
+    assert des['model'] == DQNAgent.model
     assert len(des['buffer']['data']) == 30
     assert set(des['network']['net'].keys()) == set(('target_net', 'net'))
 

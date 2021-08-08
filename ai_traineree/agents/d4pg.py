@@ -33,7 +33,7 @@ class D4PGAgent(AgentBase):
 
     """
 
-    name = "D4PG"
+    model = "D4PG"
 
     def __init__(self, obs_size: int, action_size: int, **kwargs):
         """

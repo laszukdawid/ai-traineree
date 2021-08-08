@@ -31,7 +31,7 @@ class PPOAgent(AgentBase):
         P. Dhariwal, A. Radford, O. Klimov. https://arxiv.org/abs/1707.06347
     """
 
-    name = "PPO"
+    model = "PPO"
     logger = logging.getLogger("PPO")
 
     def __init__(self, obs_size: int, action_size: int, **kwargs):
@@ -348,7 +348,7 @@ class PPOAgent(AgentBase):
 
     def get_state(self) -> AgentState:
         return AgentState(
-            model=self.name,
+            model=self.model,
             obs_space=self.obs_size,
             action_space=self.action_size,
             config=self._config,

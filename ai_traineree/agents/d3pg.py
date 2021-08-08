@@ -32,7 +32,7 @@ class D3PGAgent(AgentBase):
 
     """
 
-    name = "D3PG"
+    model = "D3PG"
 
     def __init__(self, obs_size: int, action_size: int, **kwargs):
         """

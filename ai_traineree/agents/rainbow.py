@@ -35,7 +35,7 @@ class RainbowAgent(AgentBase):
     https://arxiv.org/abs/1710.02298
     """
 
-    name = "Rainbow"
+    model = "Rainbow"
 
     def __init__(
         self,
@@ -285,7 +285,7 @@ class RainbowAgent(AgentBase):
     def get_state(self) -> AgentState:
         """Provides agent's internal state."""
         return AgentState(
-            model=self.name,
+            model=self.model,
             obs_space=self.obs_size,
             action_space=self.action_size,
             config=self._config,

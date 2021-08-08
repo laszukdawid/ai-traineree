@@ -26,7 +26,7 @@ class DDPGAgent(AgentBase):
     Instead of popular Ornstein-Uhlenbeck (OU) process for noise this agent uses Gaussian noise.
     """
 
-    name = "DDPG"
+    model = "DDPG"
 
     def __init__(self, obs_size: int, action_size: int, noise_scale: float=0.2, noise_sigma: float=0.1, **kwargs):
         """
@@ -245,7 +245,7 @@ class DDPGAgent(AgentBase):
 
     def get_state(self) -> AgentState:
         return AgentState(
-            model=self.name,
+            model=self.model,
             obs_space=self.obs_size,
             action_space=self.action_size,
             config=self._config,

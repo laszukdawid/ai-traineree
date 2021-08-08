@@ -26,7 +26,7 @@ class TD3Agent(AgentBase):
     which uses Guassian noise, this TD3 uses Ornstein–Uhlenbeck process as the noise.
     """
 
-    name = "TD3"
+    model = "TD3"
 
     def __init__(self, obs_size: int, action_size: int, noise_scale: float=0.2, noise_sigma: float=0.1, **kwargs):
         """

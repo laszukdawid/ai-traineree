@@ -11,7 +11,7 @@ from ai_traineree.utils import to_numbers_seq
 
 class IQLAgents(MultiAgentType):
 
-    name = "IQL"
+    model = "IQL"
 
     def __init__(self, obs_size: int, action_size: int, num_agents: int, **kwargs):
         """Independent Q-Learning

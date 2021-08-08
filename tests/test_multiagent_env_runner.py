@@ -1,10 +1,11 @@
-import mock
 import random
+
+import mock
+from pettingzoo.sisl import multiwalker_v7
 
 from ai_traineree.multi_agent.maddpg import MADDPGAgent
 from ai_traineree.multiagent_env_runner import MultiAgentCycleEnvRunner
 from ai_traineree.tasks import PettingZooTask
-from pettingzoo.sisl import multiwalker_v7
 
 # NOTE: Some of these tests use `test_task` and `test_agent` which are real instances.
 #       This is partially to make sure that the tricky part is covered, and not hid
@@ -24,7 +25,7 @@ def test_multiagent_cycle_env_runner_str():
     env_runner = MultiAgentCycleEnvRunner(test_task, test_agent)
 
     # Act & Assert
-    assert str(env_runner) == f"MultiAgentCycleEnvRunner<{test_task.name}, {test_agent.name}>"
+    assert str(env_runner) == f"MultiAgentCycleEnvRunner<{test_task.name}, {test_agent.model}>"
 
 
 @mock.patch("ai_traineree.multiagent_env_runner.MultiAgentType")

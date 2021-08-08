@@ -44,7 +44,7 @@ def test_dqn_get_state():
 
     # Assert
     assert isinstance(agent_state, AgentState)
-    assert agent_state.model == DQNAgent.name
+    assert agent_state.model == DQNAgent.model
     assert agent_state.obs_space == obs_size
     assert agent_state.action_space == action_size
     assert agent_state.config == agent._config
