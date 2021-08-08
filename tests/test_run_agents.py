@@ -24,7 +24,7 @@ DEVICE = "cpu"
 def test_runs_dqn():
     # Assign
     task = GymTask('CartPole-v1')
-    agent = DQNAgent(task.obs_size, task.action_size, device=DEVICE)
+    agent = DQNAgent(task.obs_space, task.action_space, device=DEVICE)
     env_runner = EnvRunner(task, agent, max_iterations=50)
 
     # Act
@@ -34,7 +34,7 @@ def test_runs_dqn():
 def test_runs_rainbow():
     # Assign
     task = GymTask('CartPole-v1')
-    agent = RainbowAgent(task.obs_size, task.action_size, device=DEVICE)
+    agent = RainbowAgent(task.obs_space, task.action_space, device=DEVICE)
     env_runner = EnvRunner(task, agent, max_iterations=50)
 
     # Act

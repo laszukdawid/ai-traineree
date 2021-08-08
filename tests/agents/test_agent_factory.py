@@ -4,6 +4,7 @@ from ai_traineree.agents.agent_factory import AgentFactory
 from ai_traineree.agents.ddpg import DDPGAgent
 from ai_traineree.agents.dqn import DQNAgent
 from ai_traineree.agents.ppo import PPOAgent
+from ai_traineree.types.dataspace import DataSpace
 from ai_traineree.types.state import AgentState
 
 
@@ -20,8 +21,9 @@ def test_agent_factory_agent_from_state_wrong_state():
 
 def test_agent_factory_dqn_agent_from_state_network_buffer_none():
     # Assign
-    obs_size, action_size = 10, 5
-    agent = DQNAgent(obs_size, action_size, device="cpu")
+    obs_space = DataSpace(shape=(10,), dtype='int')
+    action_space = DataSpace(shape=(5,), dtype='int')
+    agent = DQNAgent(obs_space, action_space, device="cpu")
     state = agent.get_state()
     state.network = None
     state.buffer = None
@@ -37,8 +39,9 @@ def test_agent_factory_dqn_agent_from_state_network_buffer_none():
 
 def test_agent_factory_dqn_agent_from_state():
     # Assign
-    obs_size, action_size = 10, 5
-    agent = DQNAgent(obs_size, action_size, device="cpu")
+    obs_space = DataSpace(shape=(10,), dtype='int')
+    action_space = DataSpace(shape=(5,), dtype='int')
+    agent = DQNAgent(obs_space, action_space, device="cpu")
     state = agent.get_state()
 
     # Act

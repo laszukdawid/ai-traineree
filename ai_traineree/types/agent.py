@@ -1,8 +1,9 @@
 import abc
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from ai_traineree.loggers import DataLogger
 
+from .dataspace import DataSpace
 from .primitive import ActionType, DoneType, ObsType, RewardType
 from .state import AgentState
 
@@ -10,8 +11,8 @@ from .state import AgentState
 class AgentType(abc.ABC):
 
     model: str
-    obs_size: int
-    action_size: int
+    obs_space: Optional[DataSpace]
+    action_space: Optional[DataSpace]
     loss: Dict[str, float]
     _config: Dict = {}
 

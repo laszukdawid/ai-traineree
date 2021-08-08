@@ -8,6 +8,7 @@ import numpy as np
 import torch
 
 from ai_traineree.types import ActionType, MultiAgentTaskType, StateType, TaskType
+from ai_traineree.types import DataSpace
 
 try:
     import gym
@@ -101,6 +102,14 @@ class GymTask(TaskType):
             return action_space.n
         else:
             return sum(action_space.shape)
+
+    @property
+    def obs_space(self) -> DataSpace:
+        return DataSpace.from_gym_space(self.env.observation_space)
+
+    @property
+    def action_space(self) -> DataSpace:
+        return DataSpace.from_gym_space(self.env.action_space)
 
     @property
     def actual_obs_size(self) -> int:

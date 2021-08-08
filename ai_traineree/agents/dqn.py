@@ -14,7 +14,8 @@ from ai_traineree.buffers.buffer_factory import BufferFactory
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks import NetworkType, NetworkTypeClass
 from ai_traineree.networks.heads import DuelingNet
-from ai_traineree.types import ActionType, AgentState, BufferState, DoneType, NetworkState, ObsType, RewardType
+from ai_traineree.types import (ActionType, AgentState, BufferState, DataSpace, DoneType, NetworkState, ObsType,
+                                RewardType)
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 
@@ -34,8 +35,8 @@ class DQNAgent(AgentBase):
 
     def __init__(
         self,
-        obs_size: int,
-        action_size: int,
+        obs_space: DataSpace,
+        action_space: DataSpace,
         network_fn: Callable[[], NetworkType]=None,
         network_class: Type[NetworkTypeClass]=None,
         state_transform: Optional[Callable]=None,
@@ -70,11 +71,8 @@ class DQNAgent(AgentBase):
         super().__init__(**kwargs)
 
         self.device = self._register_param(kwargs, "device", DEVICE, update=True)
-        self.obs_size: int = obs_size
-        self.action_size = action_size
-        self._config['obs_size'] = self.obs_size
-        self._config['action_size'] = self.action_size
-        obs_shape, action_shape = (obs_size,), (action_size,)
+        self.obs_space = obs_space
+        self.action_space = action_space
 
         self.lr = float(self._register_param(kwargs, 'lr', 3e-4))  # Learning rate
         self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))  # Discount value
@@ -101,11 +99,11 @@ class DQNAgent(AgentBase):
             self.net = network_fn()
             self.target_net = network_fn()
         elif network_class is not None:
-            self.net = network_class(obs_shape, action_shape, hidden_layers=hidden_layers, device=self.device)
-            self.target_net = network_class(obs_shape, action_shape, hidden_layers=hidden_layers, device=self.device)
+            self.net = network_class(obs_space.shape, action_space.shape, hidden_layers=hidden_layers, device=self.device)
+            self.target_net = network_class(obs_space.shape, action_space.shape, hidden_layers=hidden_layers, device=self.device)
         else:
-            self.net = DuelingNet(obs_shape, action_shape, hidden_layers=hidden_layers, device=self.device)
-            self.target_net = DuelingNet(obs_shape, action_shape, hidden_layers=hidden_layers, device=self.device)
+            self.net = DuelingNet(obs_space.shape, action_space.shape, hidden_layers=hidden_layers, device=self.device)
+            self.target_net = DuelingNet(obs_space.shape, action_space.shape, hidden_layers=hidden_layers, device=self.device)
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
         self._loss: float = float('nan')
 
@@ -184,7 +182,7 @@ class DQNAgent(AgentBase):
         """
         # Epsilon-greedy action selection
         if self._rng.random() < eps:
-            return self._rng.randint(0, self.action_size-1)
+            return self._rng.randint(0, self.action_space.shape[0]-1)
 
         t_obs = to_tensor(self.state_transform(obs)).float()
         t_obs = t_obs.unsqueeze(0).to(self.device)
@@ -252,8 +250,8 @@ class DQNAgent(AgentBase):
         """Provides agent's internal state."""
         return AgentState(
             model=self.model,
-            obs_space=self.obs_size,
-            action_space=self.action_size,
+            obs_space=self.obs_space,
+            action_space=self.action_space,
             config=self._config,
             buffer=copy.deepcopy(self.buffer.get_state()),
             network=copy.deepcopy(self.get_network_state()),
@@ -265,7 +263,7 @@ class DQNAgent(AgentBase):
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
         config = copy.copy(state.config)
-        config.update({'input_shape': state.obs_space, 'output_shape': state.action_space})
+        config.update({'obs_space': state.obs_space, 'action_space': state.action_space})
         agent = DQNAgent(**config)
         if state.network is not None:
             agent.set_network(state.network)

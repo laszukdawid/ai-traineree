@@ -14,7 +14,7 @@ data_logger = TensorboardLogger()
 
 env_name = 'CartPole-v1'
 task = GymTask(env_name, seed=seed)
-agent = DQNAgent(task.obs_size, task.action_size, n_steps=5, seed=seed)
+agent = DQNAgent(task.obs_space, task.action_space, n_steps=5, seed=seed)
 env_runner = EnvRunner(task, agent, data_logger=data_logger, seed=seed)
 
 scores = env_runner.run(reward_goal=100, max_episodes=300, force_new=True)
