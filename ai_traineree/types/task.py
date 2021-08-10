@@ -1,9 +1,7 @@
 import abc
-
 from typing import Any, List, Optional, Tuple
 
-from .primitive import ActionType, DoneType, StateType, RewardType
-
+from .primitive import ActionType, DoneType, RewardType, StateType
 
 TaskStepType = Tuple[StateType, RewardType, DoneType, Any]
 

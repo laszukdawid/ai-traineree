@@ -28,13 +28,14 @@ config = {
     'std_init': 0.6,
     'simple_policy': True,
 }
-agent = Agent(task.obs_size, task.action_size, **config)
+agent = Agent(task.obs_space, task.action_space, **config)
 env_runner = EnvRunner(task, agent, data_logger=data_logger)
 # env_runner.interact_episode(0, render=True)
-scores = env_runner.run(100, 2000, eps_decay=0.9, eps_end=0.01, force_new=True, log_episode_freq=10)
+scores = env_runner.run(100, 2000, eps_decay=0.9, eps_end=0.001, force_new=True, log_episode_freq=10)
 env_runner.interact_episode(0, render=True)
 
-# data_logger.close()
+data_logger.close()
+
 # plot the scores
 fig = plt.figure()
 ax = fig.add_subplot(111)

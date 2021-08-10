@@ -57,8 +57,9 @@ def test_agent_factory_dqn_agent_from_state():
 
 def test_agent_factory_ppo_agent_from_state():
     # Assign
-    obs_size, action_size = 10, 5
-    agent = PPOAgent(obs_size, action_size, device="cpu")
+    obs_space = DataSpace(dtype="float", shape=(10,))
+    action_space = DataSpace(dtype="float", shape=(5,))
+    agent = PPOAgent(obs_space, action_space, device="cpu")
     state = agent.get_state()
 
     # Act
@@ -74,8 +75,9 @@ def test_agent_factory_ppo_agent_from_state():
 
 def test_agent_factory_ppo_agent_from_state_network_buffer_none():
     # Assign
-    obs_size, action_size = 10, 5
-    agent = PPOAgent(obs_size, action_size, device="cpu")
+    obs_space = DataSpace(dtype="float", shape=(10,))
+    action_space = DataSpace(dtype="float", shape=(5,))
+    agent = PPOAgent(obs_space, action_space, device="cpu")
     state = agent.get_state()
     state.network = None
     state.buffer = None

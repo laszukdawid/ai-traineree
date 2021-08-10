@@ -44,7 +44,7 @@ def test_runs_rainbow():
 def test_runs_ppo():
     # Assign
     task = GymTask('Pendulum-v0')
-    agent = PPOAgent(task.obs_size, task.action_size, device=DEVICE)
+    agent = PPOAgent(task.obs_space, task.action_space, device=DEVICE)
     env_runner = EnvRunner(task, agent, max_iterations=50)
 
     # Act

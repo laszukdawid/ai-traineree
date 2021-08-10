@@ -17,6 +17,7 @@ from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody
 from ai_traineree.policies import MultivariateGaussianPolicy, MultivariateGaussianPolicySimple
 from ai_traineree.types import ActionType, AgentState, BufferState, DoneType, NetworkState, ObsType, RewardType
+from ai_traineree.types.dataspace import DataSpace
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 
@@ -34,11 +35,11 @@ class PPOAgent(AgentBase):
     model = "PPO"
     logger = logging.getLogger("PPO")
 
-    def __init__(self, obs_size: int, action_size: int, **kwargs):
+    def __init__(self, obs_space: DataSpace, action_space: DataSpace, **kwargs):
         """
         Parameters:
-            obs_size (int): Number of input dimensions.
-            action_size (int): Number of output dimensions
+            obs_space (DataSpace): Dataspace describing the input.
+            action_space (DataSpace): Dataspace describing the output.
 
         Keyword parameters:
             hidden_layers (tuple of ints): Shape of the hidden layers in fully connected network. Default: (128, 128).
@@ -67,10 +68,13 @@ class PPOAgent(AgentBase):
 
         self.device = self._register_param(kwargs, "device", DEVICE, update=True)  # Default device is CUDA if available
 
-        self.obs_size = obs_size
-        self.action_size = action_size
-        self._config['obs_size'] = self.obs_size
-        self._config['action_size'] = self.action_size
+        self.obs_space = obs_space
+        self.action_space = action_space
+        assert len(action_space.shape) == 1, "Only 1D actions are supported"
+        self.action_size = action_space.shape[0]
+
+        self._config['obs_space'] = self.obs_space
+        self._config['action_space'] = self.action_space
         self.hidden_layers = to_numbers_seq(self._register_param(kwargs, "hidden_layers", (128, 128)))
         self.iteration = 0
 
@@ -114,10 +118,10 @@ class PPOAgent(AgentBase):
 
         self.buffer = RolloutBuffer(batch_size=self.batch_size, buffer_size=self.rollout_length)
         self.actor = ActorBody(
-            (obs_size,), (self.policy.param_dim*action_size,),
+            self.obs_space.shape, (self.policy.param_dim*self.action_size,),
             gate_out=torch.tanh, hidden_layers=self.hidden_layers, device=self.device)
         self.critic = ActorBody(
-            (obs_size,), (1,),
+            self.obs_space.shape, (1,),
             gate_out=nn.Identity(), hidden_layers=self.hidden_layers, device=self.device)
         self.actor_params = list(self.actor.parameters()) + list(self.policy.parameters())
         self.critic_params = list(self.critic.parameters())
@@ -166,7 +170,7 @@ class PPOAgent(AgentBase):
         actions: List[ActionType] = []
         logprobs = []
         values = []
-        t_obs = to_tensor(obs).view(self.num_workers, self.obs_size).float().to(self.device)
+        t_obs = to_tensor(obs).view((self.num_workers,) + self.obs_space.shape).float().to(self.device)
         for worker in range(self.num_workers):
             actor_est = self.actor.act(t_obs[worker].unsqueeze(0))
             assert not torch.any(torch.isnan(actor_est))
@@ -194,8 +198,8 @@ class PPOAgent(AgentBase):
         self.iteration += 1
 
         self.buffer.add(
-            state=torch.tensor(obs).reshape(self.num_workers, self.obs_size).float(),
-            action=torch.tensor(action).reshape(self.num_workers, self.action_size).float(),
+            state=torch.tensor(obs).reshape((self.num_workers,) + self.obs_space.shape).float(),
+            action=torch.tensor(action).reshape((self.num_workers,) + self.action_space.shape).float(),
             reward=torch.tensor(reward).reshape(self.num_workers, 1),
             done=torch.tensor(done).reshape(self.num_workers, 1),
             logprob=self.local_memory_buffer['logprob'].reshape(self.num_workers, 1),
@@ -218,9 +222,9 @@ class PPOAgent(AgentBase):
         values = to_tensor(experiences['value']).to(self.device)
         logprobs = to_tensor(experiences['logprob']).to(self.device)
         assert rewards.shape == dones.shape == values.shape == logprobs.shape
-        assert states.shape == (self.rollout_length, self.num_workers, self.obs_size), \
+        assert states.shape == (self.rollout_length, self.num_workers) + self.obs_space.shape, \
             f"Wrong states shape: {states.shape}"
-        assert actions.shape == (self.rollout_length, self.num_workers, self.action_size), \
+        assert actions.shape == (self.rollout_length, self.num_workers) + self.action_space.shape, \
             f"Wrong action shape: {actions.shape}"
 
         with torch.no_grad():
@@ -241,8 +245,8 @@ class PPOAgent(AgentBase):
             idx = 0
             self.kl_div = 0
             while idx < self.rollout_length:
-                _states = states[idx:idx+self.batch_size].view(-1, self.obs_size).detach()
-                _actions = actions[idx:idx+self.batch_size].view(-1, self.action_size).detach()
+                _states = states[idx:idx+self.batch_size].view((-1,) + self.obs_space.shape).detach()
+                _actions = actions[idx:idx+self.batch_size].view((-1,) + self.action_space.shape).detach()
                 _logprobs = logprobs[idx:idx+self.batch_size].view(-1, 1).detach()
                 _returns = returns[idx:idx+self.batch_size].view(-1, 1).detach()
                 _advantages = advantages[idx:idx+self.batch_size].view(-1, 1).detach()
@@ -349,8 +353,8 @@ class PPOAgent(AgentBase):
     def get_state(self) -> AgentState:
         return AgentState(
             model=self.model,
-            obs_space=self.obs_size,
-            action_space=self.action_size,
+            obs_space=self.obs_space,
+            action_space=self.action_space,
             config=self._config,
             buffer=copy.deepcopy(self.buffer.get_state()),
             network=copy.deepcopy(self.get_network_state())
@@ -374,7 +378,7 @@ class PPOAgent(AgentBase):
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
         config = copy.copy(state.config)
-        config.update({'obs_size': state.obs_space, 'action_size': state.action_space})
+        config.update({'obs_shape': state.obs_space, 'action_space': state.action_space})
         agent = PPOAgent(**config)
         if state.network is not None:
             agent.set_network(state.network)
