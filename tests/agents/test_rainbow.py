@@ -6,9 +6,12 @@ import pytest
 
 from ai_traineree.networks.heads import RainbowNet
 from ai_traineree.agents.rainbow import RainbowAgent
-from ai_traineree.types import AgentState, BufferState, NetworkState
+from ai_traineree.types import AgentState, BufferState, DataSpace, NetworkState
 from conftest import deterministic_interactions, fake_step, feed_agent
 from unittest.mock import MagicMock
+
+t_obs_space = DataSpace(dtype="float", shape=(10,))
+t_action_space = DataSpace(dtype="int", shape=(4,))
 
 
 def test_rainbow_init_fail_without_state_action_dim():
@@ -23,22 +26,21 @@ def test_rainbow_init_fail_without_state_action_dim():
 
 def test_rainbow_init_default():
     # Assign
-    input_size, output_size = 10, 2
-    agent = RainbowAgent(input_size, output_size)
+    agent = RainbowAgent(t_obs_space, t_action_space)
 
     # Assert
     assert agent.using_double_q
     assert agent.n_steps > 0
     assert isinstance(agent.net, RainbowNet)
     assert isinstance(agent.target_net, RainbowNet)
-    assert agent.obs_size == input_size
-    assert agent.action_size == output_size
+    assert agent.obs_space == t_obs_space
+    assert agent.action_space == t_action_space
 
 
 def test_rainbow_seed():
     # Assign
-    agent_0 = RainbowAgent(4, 4, device='cpu')
-    agent_1 = RainbowAgent(4, 4, device='cpu')
+    agent_0 = RainbowAgent(t_obs_space, t_action_space, device='cpu')
+    agent_1 = RainbowAgent(t_obs_space, t_action_space, device='cpu')
     agent_2 = copy.deepcopy(agent_1)
 
     # Act
@@ -63,7 +65,9 @@ def test_rainbow_seed():
 
 def test_rainbow_set_loss():
     # Assign
-    agent = RainbowAgent(1, 1, device='cpu')
+    _os = DataSpace(shape=(1,), dtype="int")
+    _as = DataSpace(shape=(1,), dtype="int")
+    agent = RainbowAgent(_os, _as, device='cpu')
     new_loss = 1
     assert str(agent.loss) == str({'loss': float('nan')})  # Check default
 
@@ -80,7 +84,7 @@ def test_rainbow_warm_up(mock_soft_update):
     # Assign
     warm_up = 10
     # Update will commence after batch is available and on (iter % update_freq) == 0
-    agent = RainbowAgent(1, 1, device='cpu', warm_up=warm_up, batch_size=1, update_freq=1)
+    agent = RainbowAgent(t_obs_space, t_action_space, device='cpu', warm_up=warm_up, batch_size=1, update_freq=1)
     agent.learn = MagicMock()
 
     # Act & assert
@@ -99,7 +103,7 @@ def test_rainbow_warm_up(mock_soft_update):
 @mock.patch("ai_traineree.loggers.DataLogger")
 def test_rainbow_log_metrics(mock_data_logger):
     # Assign
-    agent = RainbowAgent(1, 1, device='cpu')
+    agent = RainbowAgent(t_obs_space, t_action_space, device='cpu')
     step = 10
     agent.loss = 1
 
@@ -115,7 +119,7 @@ def test_rainbow_log_metrics(mock_data_logger):
 @mock.patch("ai_traineree.loggers.DataLogger")
 def test_rainbow_log_metrics_full_log(mock_data_logger):
     # Assign
-    agent = RainbowAgent(1, 1, device='cpu', hidden_layers=(10,))  # Only 2 layers ((I, H) -> (H, O)
+    agent = RainbowAgent(t_obs_space, t_action_space, device='cpu', hidden_layers=(10,))  # Only 2 layers ((I, H) -> (H, O)
     step = 10
     agent.loss = 1
 
@@ -134,7 +138,9 @@ def test_rainbow_log_metrics_full_log(mock_data_logger):
 def test_rainbow_log_metrics_full_log_dist_prob(mock_data_logger):
     """Acting on a state means that there's a prob dist created for each actions."""
     # Assign
-    agent = RainbowAgent(1, 1, device='cpu', hidden_layers=(10,))  # Only 2 layers ((I, H) -> (H, O)
+    _os = DataSpace(shape=(1,), dtype="int")
+    _as = DataSpace(shape=(1,), dtype="int")
+    agent = RainbowAgent(_os, _as, device='cpu', hidden_layers=(10,))  # Only 2 layers ((I, H) -> (H, O)
     step = 10
     agent.loss = 1
 
@@ -153,7 +159,7 @@ def test_rainbow_log_metrics_full_log_dist_prob(mock_data_logger):
 @mock.patch("torch.save")
 def test_rainbow_save_state(mock_torch_save):
     # Assign
-    agent = RainbowAgent(1, 1, device='cpu')
+    agent = RainbowAgent(t_obs_space, t_action_space, device='cpu')
     fname = "/tmp/my_path_is_better_than_yours"
 
     # Act
@@ -166,7 +172,7 @@ def test_rainbow_save_state(mock_torch_save):
 @mock.patch("torch.load")
 def test_rainbow_load_state(mock_torch_load):
     # Assign
-    agent = RainbowAgent(2, 2, device='cpu')
+    agent = RainbowAgent(t_obs_space, t_action_space, device='cpu')
     agent.net = MagicMock()
     agent.target_net = MagicMock()
     mock_torch_load.return_value = {
@@ -188,9 +194,8 @@ def test_rainbow_load_state(mock_torch_load):
 
 def test_rainbow_get_state():
     # Assign
-    obs_size, action_size = 3, 4
     init_config = {'lr': 0.1, 'gamma': 0.6}
-    agent = RainbowAgent(obs_size, action_size, device='cpu', **init_config)
+    agent = RainbowAgent(t_obs_space, t_action_space, device='cpu', **init_config)
 
     # Act
     agent_state = agent.get_state()
@@ -198,8 +203,8 @@ def test_rainbow_get_state():
     # Assert
     assert isinstance(agent_state, AgentState)
     assert agent_state.model == RainbowAgent.model
-    assert agent_state.obs_space == obs_size
-    assert agent_state.action_space == action_size
+    assert agent_state.obs_space == t_obs_space
+    assert agent_state.action_space == t_action_space
     assert agent_state.config == agent._config
     assert agent_state.config['lr'] == 0.1
     assert agent_state.config['gamma'] == 0.6
@@ -217,9 +222,8 @@ def test_rainbow_get_state():
 
 def test_rainbow_get_state_compare_different_agents():
     # Assign
-    obs_size, action_size = 3, 2
-    agent_1 = RainbowAgent(obs_size, action_size, device='cpu', n_steps=1)
-    agent_2 = RainbowAgent(obs_size, action_size, device='cpu', n_steps=2)
+    agent_1 = RainbowAgent(t_obs_space, t_action_space, device='cpu', n_steps=1)
+    agent_2 = RainbowAgent(t_obs_space, t_action_space, device='cpu', n_steps=2)
 
     # Act
     state_1 = agent_1.get_state()
@@ -232,8 +236,7 @@ def test_rainbow_get_state_compare_different_agents():
 
 def test_rainbow_from_state():
     # Assign
-    obs_size, action_size = 10, 3
-    agent = RainbowAgent(obs_size, action_size, device='cpu')
+    agent = RainbowAgent(t_obs_space, t_action_space, device='cpu')
     agent_state = agent.get_state()
 
     # Act
@@ -251,8 +254,7 @@ def test_rainbow_from_state():
 
 def test_rainbow_from_state_one_updated():
     # Assign
-    obs_size, action_size = 10, 3
-    agent = RainbowAgent(obs_size, action_size, device='cpu')
+    agent = RainbowAgent(t_obs_space, t_action_space, device='cpu')
     feed_agent(agent, 2*agent.batch_size)  # Feed 1
     agent_state = agent.get_state()
     feed_agent(agent, 100)  # Feed 2 - to make different

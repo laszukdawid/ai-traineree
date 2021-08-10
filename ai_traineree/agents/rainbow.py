@@ -13,6 +13,7 @@ from ai_traineree.buffers.buffer_factory import BufferFactory
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.heads import RainbowNet
 from ai_traineree.types import ActionType, AgentState, BufferState, DoneType, NetworkState, ObsType, RewardType
+from ai_traineree.types.dataspace import DataSpace
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 
@@ -39,8 +40,8 @@ class RainbowAgent(AgentBase):
 
     def __init__(
         self,
-        obs_size: int,
-        action_size: int,
+        obs_space: DataSpace,
+        action_space: DataSpace,
         state_transform: Optional[Callable]=None,
         reward_transform: Optional[Callable]=None,
         **kwargs
@@ -52,8 +53,8 @@ class RainbowAgent(AgentBase):
         from such distributions.
 
         Parameters:
-            obs_size (int): Number of dimensions or the observation.
-            action_size (int): Dimensionality for the action.
+            obs_space (DataSpace): Dataspace describing the input.
+            action_space (DataSpace): Dataspace describing the output.
             state_transform (optional func):
             reward_transform (optional func):
 
@@ -80,11 +81,11 @@ class RainbowAgent(AgentBase):
         super().__init__(**kwargs)
         self.device = self._register_param(kwargs, "device", DEVICE, update=True)
 
-        self.obs_size: int = obs_size
-        self.action_size: int = action_size
-        self._config['obs_size'] = self.obs_size
-        self._config['action_size'] = self.action_size
-        obs_shape, action_shape = (obs_size,), (action_size,)
+        self.obs_space = obs_space
+        self.action_space = action_space
+        self._config['obs_space'] = self.obs_space
+        self._config['action_space'] = self.action_space
+        self.action_size = (self.action_space.high - self.action_space.low + 1,)
 
         self.lr = float(self._register_param(kwargs, 'lr', 3e-4))
         self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))
@@ -117,8 +118,8 @@ class RainbowAgent(AgentBase):
         # Note that in case a pre_network is provided, e.g. a shared net that extracts pixels values,
         # it should be explicitly passed in kwargs
         kwargs["hidden_layers"] = to_numbers_seq(self._register_param(kwargs, "hidden_layers", (100, 100)))
-        self.net = RainbowNet(obs_shape, action_shape, num_atoms=self.num_atoms, **kwargs)
-        self.target_net = RainbowNet(obs_shape, action_shape, num_atoms=self.num_atoms, **kwargs)
+        self.net = RainbowNet(obs_space.shape, self.action_size, num_atoms=self.num_atoms, **kwargs)
+        self.target_net = RainbowNet(obs_space.shape, self.action_size, num_atoms=self.num_atoms, **kwargs)
 
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
         self.dist_probs = None
@@ -184,7 +185,9 @@ class RainbowAgent(AgentBase):
         """
         # Epsilon-greedy action selection
         if self._rng.random() < eps:
-            return self._rng.randint(0, self.action_size-1)
+            # TODO: Update with action_space.sample() once implemented
+            assert len(self.action_space.shape) == 1, "Only 1D is supported right now"
+            return self._rng.randint(self.action_space.low, self.action_space.high)
 
         t_obs = to_tensor(self.state_transform(obs)).float().unsqueeze(0).to(self.device)
         self.dist_probs = self.net.act(t_obs)
@@ -205,7 +208,7 @@ class RainbowAgent(AgentBase):
         next_states = to_tensor(experiences['next_state']).float().to(self.device)
         actions = to_tensor(experiences['action']).type(torch.long).to(self.device)
         assert rewards.shape == dones.shape == (self.batch_size, 1)
-        assert states.shape == next_states.shape == (self.batch_size, self.obs_size)
+        assert states.shape == next_states.shape == (self.batch_size,) + self.obs_space.shape
         assert actions.shape == (self.batch_size, 1)  # Discrete domain
 
         with torch.no_grad():
@@ -223,7 +226,7 @@ class RainbowAgent(AgentBase):
         assert m.shape == (self.batch_size, self.num_atoms)
 
         log_prob = self.net(states, log_prob=True)
-        assert log_prob.shape == (self.batch_size, self.action_size, self.num_atoms)
+        assert log_prob.shape == (self.batch_size,) + self.action_size + (self.num_atoms,)
         log_prob = log_prob[self.__batch_indices, actions.squeeze(), :]
         assert log_prob.shape == m.shape == (self.batch_size, self.num_atoms)
 
@@ -259,7 +262,9 @@ class RainbowAgent(AgentBase):
         data_logger.log_value("loss/agent", self._loss, step)
 
         if full_log and self.dist_probs is not None:
-            for action_idx in range(self.action_size):
+            assert len(self.action_space.shape) == 1, "Only 1D actions currently supported"
+            action_size = self.action_size[0]
+            for action_idx in range(action_size):
                 dist = self.dist_probs[0, action_idx]
                 data_logger.log_value(f'dist/expected_{action_idx}', (dist*self.z_atoms).sum().item(), step)
                 data_logger.add_histogram(
@@ -286,8 +291,8 @@ class RainbowAgent(AgentBase):
         """Provides agent's internal state."""
         return AgentState(
             model=self.model,
-            obs_space=self.obs_size,
-            action_space=self.action_size,
+            obs_space=self.obs_space,
+            action_space=self.action_space,
             config=self._config,
             buffer=copy.deepcopy(self.buffer.get_state()),
             network=copy.deepcopy(self.get_network_state()),
@@ -299,7 +304,7 @@ class RainbowAgent(AgentBase):
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
         config = copy.copy(state.config)
-        config.update({'obs_size': state.obs_space, 'action_size': state.action_space})
+        config.update({'obs_space': state.obs_space, 'action_space': state.action_space})
         agent = RainbowAgent(**config)
         if state.network is not None:
             agent.set_network(state.network)

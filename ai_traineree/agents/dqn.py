@@ -46,8 +46,8 @@ class DQNAgent(AgentBase):
         """Initiates the DQN agent.
 
         Parameters:
-            obs_size: Number of input dimensions.
-            action_size: Number of output dimensions
+            obs_space (DataSpace): Dataspace describing the input.
+            action_space (DataSpace): Dataspace describing the output.
             network_fn (optional func): Function used to instantiate a network used by the agent.
             network_class (optional cls): Class of network that is instantiated with internal params to create network.
             state_transform (optional func): Function to transform (encode) state before used by the network.
@@ -73,6 +73,7 @@ class DQNAgent(AgentBase):
         self.device = self._register_param(kwargs, "device", DEVICE, update=True)
         self.obs_space = obs_space
         self.action_space = action_space
+        action_size = (action_space.high - action_space.low + 1,)
 
         self.lr = float(self._register_param(kwargs, 'lr', 3e-4))  # Learning rate
         self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))  # Discount value
@@ -99,11 +100,11 @@ class DQNAgent(AgentBase):
             self.net = network_fn()
             self.target_net = network_fn()
         elif network_class is not None:
-            self.net = network_class(obs_space.shape, action_space.shape, hidden_layers=hidden_layers, device=self.device)
-            self.target_net = network_class(obs_space.shape, action_space.shape, hidden_layers=hidden_layers, device=self.device)
+            self.net = network_class(obs_space.shape, action_size, hidden_layers=hidden_layers, device=self.device)
+            self.target_net = network_class(obs_space.shape, action_size, hidden_layers=hidden_layers, device=self.device)
         else:
-            self.net = DuelingNet(obs_space.shape, action_space.shape, hidden_layers=hidden_layers, device=self.device)
-            self.target_net = DuelingNet(obs_space.shape, action_space.shape, hidden_layers=hidden_layers, device=self.device)
+            self.net = DuelingNet(obs_space.shape, action_size, hidden_layers=hidden_layers, device=self.device)
+            self.target_net = DuelingNet(obs_space.shape, action_size, hidden_layers=hidden_layers, device=self.device)
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
         self._loss: float = float('nan')
 
@@ -182,7 +183,7 @@ class DQNAgent(AgentBase):
         """
         # Epsilon-greedy action selection
         if self._rng.random() < eps:
-            return self._rng.randint(0, self.action_space.shape[0]-1)
+            return self._rng.randint(self.action_space.low, self.action_space.high)
 
         t_obs = to_tensor(self.state_transform(obs)).float()
         t_obs = t_obs.unsqueeze(0).to(self.device)
