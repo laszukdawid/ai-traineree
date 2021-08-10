@@ -10,8 +10,8 @@ from ai_traineree.types import AgentState, BufferState, DataSpace, NetworkState
 from conftest import deterministic_interactions, fake_step, feed_agent
 from unittest.mock import MagicMock
 
-t_obs_space = DataSpace(dtype="float", shape=(10,))
-t_action_space = DataSpace(dtype="int", shape=(4,))
+t_obs_space = DataSpace(dtype="float", shape=(10,), low=-1, high=1)
+t_action_space = DataSpace(dtype="int", shape=(4,), low=0, high=4)
 
 
 def test_rainbow_init_fail_without_state_action_dim():
@@ -65,8 +65,8 @@ def test_rainbow_seed():
 
 def test_rainbow_set_loss():
     # Assign
-    _os = DataSpace(shape=(1,), dtype="int")
-    _as = DataSpace(shape=(1,), dtype="int")
+    _os = DataSpace(shape=(1,), dtype="int", low=0, high=1)
+    _as = DataSpace(shape=(1,), dtype="int", low=0, high=1)
     agent = RainbowAgent(_os, _as, device='cpu')
     new_loss = 1
     assert str(agent.loss) == str({'loss': float('nan')})  # Check default
@@ -138,9 +138,9 @@ def test_rainbow_log_metrics_full_log(mock_data_logger):
 def test_rainbow_log_metrics_full_log_dist_prob(mock_data_logger):
     """Acting on a state means that there's a prob dist created for each actions."""
     # Assign
-    _os = DataSpace(shape=(1,), dtype="int")
-    _as = DataSpace(shape=(1,), dtype="int")
-    agent = RainbowAgent(_os, _as, device='cpu', hidden_layers=(10,))  # Only 2 layers ((I, H) -> (H, O)
+    _os = DataSpace(shape=(1,), dtype="int", low=0, high=1)
+    _as = DataSpace(shape=(1,), dtype="int", low=0, high=1)
+    agent = RainbowAgent(_os, _as, device='cpu', hidden_layers=(10,))  # Only 2 layers (I, H) -> (H, O)
     step = 10
     agent.loss = 1
 
@@ -152,7 +152,7 @@ def test_rainbow_log_metrics_full_log_dist_prob(mock_data_logger):
     assert agent.dist_probs is not None
     mock_data_logger.log_value.call_count == 2  # 1x loss + 1x dist_prob
     mock_data_logger.log_value_dict.assert_not_called()
-    mock_data_logger.add_histogram.assert_called_once()
+    mock_data_logger.add_histogram.call_count == 2  # (_as.high - _as.low + 1)
     assert mock_data_logger.create_histogram.call_count == 4 * 2  # 4x per layer
 
 

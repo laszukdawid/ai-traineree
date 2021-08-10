@@ -73,7 +73,6 @@ class DQNAgent(AgentBase):
         self.device = self._register_param(kwargs, "device", DEVICE, update=True)
         self.obs_space = obs_space
         self.action_space = action_space
-        action_size = (action_space.high - action_space.low + 1,)
 
         self.lr = float(self._register_param(kwargs, 'lr', 3e-4))  # Learning rate
         self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))  # Discount value
@@ -96,15 +95,17 @@ class DQNAgent(AgentBase):
         hidden_layers = to_numbers_seq(self._register_param(kwargs, 'hidden_layers', (64, 64)))
         self.state_transform = state_transform if state_transform is not None else lambda x: x
         self.reward_transform = reward_transform if reward_transform is not None else lambda x: x
+        action_feat = action_space.to_feature()
+
         if network_fn is not None:
             self.net = network_fn()
             self.target_net = network_fn()
         elif network_class is not None:
-            self.net = network_class(obs_space.shape, action_size, hidden_layers=hidden_layers, device=self.device)
-            self.target_net = network_class(obs_space.shape, action_size, hidden_layers=hidden_layers, device=self.device)
+            self.net = network_class(obs_space.shape, action_feat, hidden_layers=hidden_layers, device=self.device)
+            self.target_net = network_class(obs_space.shape, action_feat, hidden_layers=hidden_layers, device=self.device)
         else:
-            self.net = DuelingNet(obs_space.shape, action_size, hidden_layers=hidden_layers, device=self.device)
-            self.target_net = DuelingNet(obs_space.shape, action_size, hidden_layers=hidden_layers, device=self.device)
+            self.net = DuelingNet(obs_space.shape, action_feat, hidden_layers=hidden_layers, device=self.device)
+            self.target_net = DuelingNet(obs_space.shape, action_feat, hidden_layers=hidden_layers, device=self.device)
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
         self._loss: float = float('nan')
 

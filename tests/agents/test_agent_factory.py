@@ -21,8 +21,8 @@ def test_agent_factory_agent_from_state_wrong_state():
 
 def test_agent_factory_dqn_agent_from_state_network_buffer_none():
     # Assign
-    obs_space = DataSpace(shape=(10,), dtype='int')
-    action_space = DataSpace(shape=(5,), dtype='int')
+    obs_space = DataSpace(shape=(5,), dtype='float', low=0, high=2)
+    action_space = DataSpace(shape=(1,), dtype='int', low=0, high=5)
     agent = DQNAgent(obs_space, action_space, device="cpu")
     state = agent.get_state()
     state.network = None
@@ -39,8 +39,8 @@ def test_agent_factory_dqn_agent_from_state_network_buffer_none():
 
 def test_agent_factory_dqn_agent_from_state():
     # Assign
-    obs_space = DataSpace(shape=(10,), dtype='int')
-    action_space = DataSpace(shape=(5,), dtype='int')
+    obs_space = DataSpace(shape=(10,), dtype='float')
+    action_space = DataSpace(shape=(1,), dtype='int', low=1, high=5)
     agent = DQNAgent(obs_space, action_space, device="cpu")
     state = agent.get_state()
 

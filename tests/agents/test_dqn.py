@@ -7,8 +7,8 @@ from ai_traineree.types import AgentState, BufferState, NetworkState
 from ai_traineree.types.dataspace import DataSpace
 from conftest import deterministic_interactions, feed_agent
 
-t_obs_space = DataSpace(dtype="float", shape=(4,))
-t_action_space = DataSpace(dtype="int", shape=(4,))
+t_obs_space = DataSpace(dtype="float", shape=(4,), low=-2, high=2)
+t_action_space = DataSpace(dtype="int", shape=(4,), low=0, high=4)
 
 
 def test_dqn_seed():

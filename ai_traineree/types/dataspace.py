@@ -44,3 +44,19 @@ class DataSpace:
                 low=space.low.tolist(),
                 high=space.high.tolist(),
             )
+
+    def to_feature(self) -> FeatureType:
+        """Extracts required FeatureType from DataSpace.
+
+        The reason this method exists is because DataSpace can be both discrete and continuous.
+        Even though in both cases dataspace shape represent tensor shape of the space, it is usually used
+        differently depending on the problem. Methods that work with discrete spaces will need to select
+        on of the discrete values meaning that they need to know the total size (high - low),
+        whereas in case of continuous space the shape is enough.
+
+        Likely this method isn't necessary with some cleaver dataspace arrangement or additional property.
+        However, for now, it simplifies.
+        """
+        if self.dtype.startswith('int') and len(self.shape) == 1:
+            return (self.high - self.low + 1, )
+        return self.shape

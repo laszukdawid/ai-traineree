@@ -85,7 +85,7 @@ class RainbowAgent(AgentBase):
         self.action_space = action_space
         self._config['obs_space'] = self.obs_space
         self._config['action_space'] = self.action_space
-        self.action_size = (self.action_space.high - self.action_space.low + 1,)
+        self.action_size = action_space.to_feature()
 
         self.lr = float(self._register_param(kwargs, 'lr', 3e-4))
         self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))
