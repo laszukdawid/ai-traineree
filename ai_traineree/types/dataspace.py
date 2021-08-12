@@ -6,7 +6,7 @@ from typing import Optional, Tuple, Union
 import gym
 from torch import Tensor
 
-from ai_traineree.types.primitive import Numeric
+from ai_traineree.types.primitive import FeatureType, Numeric
 from ai_traineree.utils import to_numbers_seq
 
 
