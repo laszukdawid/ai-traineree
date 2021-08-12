@@ -8,6 +8,7 @@ import pytest
 
 from ai_traineree.agents import AgentBase
 from ai_traineree.types.agent import AgentType
+from ai_traineree.types.dataspace import DataSpace
 
 
 class MockContinuousSpace:
@@ -87,3 +88,13 @@ def feed_agent(agent: AgentBase, num_samples: int, as_list=False):
         else:
             agent.step(obs=s, action=a, reward=r, next_obs=s, done=d)
     return agent
+
+
+@pytest.fixture
+def float_1d_space():
+    return DataSpace(dtype="float", shape=(5,), low=-2, high=2)
+
+
+@pytest.fixture
+def int_1d_space():
+    return DataSpace(dtype="int", shape=(1,), low=0, high=4)

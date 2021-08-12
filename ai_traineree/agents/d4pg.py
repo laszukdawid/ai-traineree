@@ -1,4 +1,10 @@
+# WARNING: This module hasn't been tested after migrating to Spaces.
+#          It is deemed experimental. No guarantee whatsoever.
+
+# TODO: Test this module on some environments.
+
 import itertools
+from functools import cached_property
 from typing import Dict, List
 
 import torch
@@ -14,7 +20,8 @@ from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import CategoricalNet
 from ai_traineree.policies import MultivariateGaussianPolicy, MultivariateGaussianPolicySimple
-from ai_traineree.types import ActionType, DoneType, ObsType, RewardType
+from ai_traineree.types.dataspace import DataSpace
+from ai_traineree.types.primitive import ActionType, DoneType, ObsType, RewardType
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 
@@ -35,11 +42,11 @@ class D4PGAgent(AgentBase):
 
     model = "D4PG"
 
-    def __init__(self, obs_size: int, action_size: int, **kwargs):
+    def __init__(self, obs_space: DataSpace, action_space: DataSpace, **kwargs):
         """
         Parameters:
-            obs_size (int): Number of input dimensions.
-            action_size (int): Number of output dimensions
+            obs_space (DataSpace): Dataspace describing the input.
+            action_space (DataSpace): Dataspace describing the output.
 
         Keyword parameters:
             hidden_layers (tuple of ints): Shape of the hidden layers in fully connected network. Default: (128, 128).
@@ -60,29 +67,23 @@ class D4PGAgent(AgentBase):
             warm_up (int): Number of samples to observe before starting any learning step. Default: 0.
             update_freq (int): Number of steps between each learning step. Default 1.
             number_updates (int): How many times to use learning step in the learning phase. Default: 1.
-            action_min (float): Minimum returned action value. Default: -1.
-            action_max (float): Maximum returned action value. Default: 1.
-            action_scale (float): Multipler value for action. Default: 1.
             num_workers (int): Number of workers that will assume this agent. Default: 1.
 
         """
         super().__init__(**kwargs)
+        assert len(action_space.shape) == 1, "Only 1D actions are supported"
         self.device = self._register_param(kwargs, "device", DEVICE)
-        self.obs_size = obs_size
-        self.action_size = action_size
-        self._config['obs_size'] = self.obs_size
-        self._config['action_size'] = self.action_size
-        obs_shape = (obs_size,)
+        self.obs_space = obs_space
+        self.action_space = action_space
+        self._config['obs_space'] = self.obs_space
+        self._config['action_space'] = self.action_space
+        action_size = self.action_space.shape[0]
 
         self.num_atoms = int(self._register_param(kwargs, 'num_atoms', 51))
         v_min = float(self._register_param(kwargs, 'v_min', -10))
         v_max = float(self._register_param(kwargs, 'v_max', 10))
 
         # Reason sequence initiation.
-        self.action_min = float(self._register_param(kwargs, 'action_min', -1))
-        self.action_max = float(self._register_param(kwargs, 'action_max', 1))
-        self.action_scale = float(self._register_param(kwargs, 'action_scale', 1))
-
         self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))
         self.tau = float(self._register_param(kwargs, 'tau', 0.02))
         self.batch_size = int(self._register_param(kwargs, 'batch_size', 64))
@@ -104,18 +105,18 @@ class D4PGAgent(AgentBase):
             std_max = float(self._register_param(kwargs, "std_max", 2.0))
             std_min = float(self._register_param(kwargs, "std_min", 0.05))
             self.policy = MultivariateGaussianPolicySimple(
-                self.action_size, std_init=std_init, std_min=std_min, std_max=std_max, device=self.device,
+                action_size, std_init=std_init, std_min=std_min, std_max=std_max, device=self.device,
             )
         else:
-            self.policy = MultivariateGaussianPolicy(self.action_size, device=self.device)
+            self.policy = MultivariateGaussianPolicy(action_size, device=self.device)
 
         # This looks messy but it's not that bad. Actor, critic_net and Critic(critic_net). Then the same for `target_`.
         self.actor = ActorBody(
-            obs_shape, (self.policy.param_dim*action_size,), hidden_layers=self.actor_hidden_layers,
+            obs_space.shape, (self.policy.param_dim*action_size,), hidden_layers=self.actor_hidden_layers,
             gate_out=torch.tanh, device=self.device
         )
         critic_net = CriticBody(
-            obs_shape, action_size, out_features=(self.num_atoms,),
+            obs_space.shape, action_size, out_features=(self.num_atoms,),
             hidden_layers=self.critic_hidden_layers, device=self.device
         )
         self.critic = CategoricalNet(
@@ -123,11 +124,11 @@ class D4PGAgent(AgentBase):
         )
 
         self.target_actor = ActorBody(
-            obs_shape, (self.policy.param_dim*action_size,), hidden_layers=self.actor_hidden_layers,
+            obs_space.shape, (self.policy.param_dim*action_size,), hidden_layers=self.actor_hidden_layers,
             gate_out=torch.tanh, device=self.device
         )
         target_critic_net = CriticBody(
-            obs_shape, action_size, out_features=(self.num_atoms,),
+            obs_space.shape, action_size, out_features=(self.num_atoms,),
             hidden_layers=self.critic_hidden_layers, device=self.device
         )
         self.target_critic = CategoricalNet(
@@ -160,6 +161,14 @@ class D4PGAgent(AgentBase):
     def loss(self) -> Dict[str, float]:
         return {'actor': self._loss_actor, 'critic': self._loss_critic}
 
+    @cached_property
+    def action_min(self):
+        return to_tensor(self.action_space.low)
+
+    @cached_property
+    def action_max(self):
+        return to_tensor(self.action_space.high)
+
     @loss.setter
     def loss(self, value):
         if isinstance(value, dict):
@@ -180,15 +189,17 @@ class D4PGAgent(AgentBase):
 
         """
         actions = []
-        t_obs = to_tensor(obs).view(self.num_workers, self.obs_size).float().to(self.device)
+
+        obs_shape = (self.num_workers,) + self.obs_space.shape
+        t_obs = to_tensor(obs).view(obs_shape).float().to(self.device)
         for worker in range(self.num_workers):
             if self._rng.random() < epsilon:
-                action = self.action_scale*(torch.rand(self.action_size) - 0.5)
+                r = torch.rand(self.action_space.shape) - 0.5
+                action = (self.action_max - self.action_min)*r - self.action_min
             else:
                 action_seed = self.actor.act(t_obs[worker].view(1, -1))
                 action_dist = self.policy(action_seed)
                 action = action_dist.sample()
-                action *= self.action_scale
                 action = torch.clamp(action.squeeze(), self.action_min, self.action_max).cpu()
             actions.append(action.tolist())
 
@@ -203,9 +214,9 @@ class D4PGAgent(AgentBase):
 
         # Delay adding to buffer to account for n_steps (particularly the reward)
         self.n_buffer.add(
-            state=torch.tensor(obss).reshape(self.num_workers, self.obs_size).float(),
-            next_state=torch.tensor(next_obss).reshape(self.num_workers, self.obs_size).float(),
-            action=torch.tensor(actions).reshape(self.num_workers, self.action_size).float(),
+            state=torch.tensor(obss).reshape((self.num_workers,) + self.obs_space.shape).float(),
+            next_state=torch.tensor(next_obss).reshape((self.num_workers,) + self.obs_space.shape).float(),
+            action=torch.tensor(actions).reshape((self.num_workers,) + self.action_space.shape).float(),
             reward=torch.tensor(rewards).reshape(self.num_workers, 1),
             done=torch.tensor(dones).reshape(self.num_workers, 1),
         )
@@ -238,7 +249,7 @@ class D4PGAgent(AgentBase):
         # Q_w' estimate via Bellman's dist operator
         next_action_seeds = self.target_actor.act(next_states)
         next_actions = self.policy(next_action_seeds).sample()
-        assert next_actions.shape == (self.batch_size, self.action_size)
+        assert next_actions.shape == (self.batch_size,) + self.action_space.shape
 
         target_value_dist_est = self.target_critic.act(states, next_actions)
         assert target_value_dist_est.shape == (self.batch_size, 1, self.num_atoms)
@@ -277,12 +288,16 @@ class D4PGAgent(AgentBase):
 
     def learn(self, experiences):
         """Update critics and actors"""
+
+        batch_obs_shape = (self.batch_size,) + self.obs_space.shape
+        batch_action_shape = (self.batch_size,) + self.action_space.shape
+
         # No need for size assertion since .view() has explicit sizes
         rewards = to_tensor(experiences['reward']).view(self.batch_size, 1).float().to(self.device)
         dones = to_tensor(experiences['done']).view(self.batch_size, 1).type(torch.int).to(self.device)
-        states = to_tensor(experiences['state']).view(self.batch_size, self.obs_size).float().to(self.device)
-        actions = to_tensor(experiences['action']).view(self.batch_size, self.action_size).to(self.device)
-        next_states = to_tensor(experiences['next_state']).view(self.batch_size, self.obs_size).float().to(self.device)
+        states = to_tensor(experiences['state']).view(batch_obs_shape).float().to(self.device)
+        actions = to_tensor(experiences['action']).view(batch_action_shape).to(self.device)
+        next_states = to_tensor(experiences['next_state']).view(batch_obs_shape).float().to(self.device)
 
         indices = None
         if hasattr(self.buffer, 'priority_update'):  # When using PER buffer

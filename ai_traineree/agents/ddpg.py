@@ -1,6 +1,6 @@
 import copy
 import operator
-from functools import reduce
+from functools import cached_property, reduce
 from typing import Dict, List, Optional
 
 import torch
@@ -56,9 +56,6 @@ class DDPGAgent(AgentBase):
             warm_up (int): Number of samples to observe before starting any learning step. Default: 0.
             update_freq (int): Number of steps between each learning step. Default 1.
             number_updates (int): How many times to use learning step in the learning phase. Default: 1.
-            action_min (float): Minimum returned action value. Default: -1.
-            action_max (float): Maximum returned action value. Default: 1.
-            action_scale (float): Multipler value for action. Default: 1.
 
         """
         super().__init__(**kwargs)
@@ -97,9 +94,6 @@ class DDPGAgent(AgentBase):
         self.critic_optimizer = Adam(self.critic.parameters(), lr=self.critic_lr)
         self.max_grad_norm_actor = float(self._register_param(kwargs, "max_grad_norm_actor", 10.0))
         self.max_grad_norm_critic = float(self._register_param(kwargs, "max_grad_norm_critic", 10.0))
-        self.action_min = float(self._register_param(kwargs, 'action_min', -1))
-        self.action_max = float(self._register_param(kwargs, 'action_max', 1))
-        self.action_scale = float(self._register_param(kwargs, 'action_scale', 1))
 
         self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))
         self.tau = float(self._register_param(kwargs, 'tau', 0.02))
@@ -143,6 +137,14 @@ class DDPGAgent(AgentBase):
             and self.buffer == o.buffer \
             and self.get_network_state() == o.get_network_state()
 
+    @cached_property
+    def action_min(self):
+        return to_tensor(self.action_space.low)
+
+    @cached_property
+    def action_max(self):
+        return to_tensor(self.action_space.high)
+
     @torch.no_grad()
     def act(self, obs: ObsType, noise: float=0.0) -> List[float]:
         """Acting on the observations. Returns action.
@@ -157,7 +159,7 @@ class DDPGAgent(AgentBase):
         t_obs = to_tensor(obs).float().to(self.device)
         action = self.actor(t_obs)
         action += noise*self.noise.sample()
-        action = torch.clamp(action*self.action_scale, self.action_min, self.action_max)
+        action = torch.clamp(action, self.action_min, self.action_max)
         return action.cpu().numpy().tolist()
 
     def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType) -> None:

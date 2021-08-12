@@ -105,9 +105,6 @@ class PPOAgent(AgentBase):
 
         self.local_memory_buffer = {}
 
-        self.action_scale = float(self._register_param(kwargs, "action_scale", 1))
-        self.action_min = float(self._register_param(kwargs, "action_min", -1))
-        self.action_max = float(self._register_param(kwargs, "action_max", 1))
         self.max_grad_norm_actor = float(self._register_param(kwargs, "max_grad_norm_actor", 100.0))
         self.max_grad_norm_critic = float(self._register_param(kwargs, "max_grad_norm_critic", 100.0))
 
@@ -185,7 +182,6 @@ class PPOAgent(AgentBase):
             if self.is_discrete:  # *Technically* it's the max of Softmax but that's monotonic.
                 action = int(torch.argmax(action))
             else:
-                # action = torch.clamp(action*self.action_scale, self.action_min, self.action_max)
                 action = action.cpu().numpy().flatten().tolist()
             actions.append(action)
 

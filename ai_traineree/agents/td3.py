@@ -1,3 +1,4 @@
+from functools import cached_property
 from typing import Dict, List
 
 import numpy as np
@@ -15,6 +16,7 @@ from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import DoubleCritic
 from ai_traineree.noise import OUProcess
 from ai_traineree.types import ActionType, DoneType, ObsType, RewardType
+from ai_traineree.types.dataspace import DataSpace
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 
@@ -28,11 +30,11 @@ class TD3Agent(AgentBase):
 
     model = "TD3"
 
-    def __init__(self, obs_size: int, action_size: int, noise_scale: float=0.2, noise_sigma: float=0.1, **kwargs):
+    def __init__(self, obs_space: DataSpace, action_space: DataSpace, noise_scale: float=0.2, noise_sigma: float=0.1, **kwargs):
         """
         Parameters:
-            obs_size (int): Number of input dimensions.
-            action_size (int): Number of output dimensions
+            obs_space (DataSpace): Dataspace describing the input.
+            action_space (DataSpace): Dataspace describing the output.
             noise_scale (float): Added noise amplitude. Default: 0.2.
             noise_sigma (float): Added noise variance. Default: 0.1.
 
@@ -51,26 +53,24 @@ class TD3Agent(AgentBase):
             warm_up (int): Number of samples to observe before starting any learning step. Default: 0.
             update_freq (int): Number of steps between each learning step. Default 1.
             number_updates (int): How many times to use learning step in the learning phase. Default: 1.
-            action_min (float): Minimum returned action value. Default: -1.
-            action_max (float): Maximum returned action value. Default: 1.
-            action_scale (float): Multipler value for action. Default: 1.
 
         """
         super().__init__(**kwargs)
         self.device = self._register_param(kwargs, "device", DEVICE)  # Default device is CUDA if available
 
         # Reason sequence initiation.
-        self.obs_size = obs_size
-        self.action_size = action_size
-        self._config['obs_size'] = self.obs_size
-        self._config['action_size'] = self.action_size
-        obs_shape, action_shape = (obs_size,), (action_size,)
+        assert len(action_space.shape) == 1, "Only 1D actions are supported"
+        self.obs_space = obs_space
+        self.action_space = action_space
+        self._config['obs_space'] = self.obs_space
+        self._config['action_space'] = self.action_space
+        action_size = action_space.shape[0]
 
         hidden_layers = to_numbers_seq(self._register_param(kwargs, 'hidden_layers', (128, 128)))
-        self.actor = ActorBody(obs_shape, action_shape, hidden_layers=hidden_layers).to(self.device)
-        self.critic = DoubleCritic(obs_shape, action_size, CriticBody, hidden_layers=hidden_layers).to(self.device)
-        self.target_actor = ActorBody(obs_shape, action_shape, hidden_layers=hidden_layers).to(self.device)
-        self.target_critic = DoubleCritic(obs_shape, action_size, CriticBody, hidden_layers=hidden_layers).to(self.device)
+        self.actor = ActorBody(obs_space.shape, action_space.shape, hidden_layers=hidden_layers).to(self.device)
+        self.critic = DoubleCritic(obs_space.shape, action_size, CriticBody, hidden_layers=hidden_layers).to(self.device)
+        self.target_actor = ActorBody(obs_space.shape, action_space.shape, hidden_layers=hidden_layers).to(self.device)
+        self.target_critic = DoubleCritic(obs_space.shape, action_size, CriticBody, hidden_layers=hidden_layers).to(self.device)
 
         # Noise sequence initiation
         # self.noise = GaussianNoise(shape=(action_size,), mu=1e-8, sigma=noise_sigma, scale=noise_scale, device=device)
@@ -87,9 +87,6 @@ class TD3Agent(AgentBase):
         self.critic_optimizer = AdamW(self.critic.parameters(), lr=critic_lr)
         self.max_grad_norm_actor: float = float(kwargs.get("max_grad_norm_actor", 100))
         self.max_grad_norm_critic: float = float(kwargs.get("max_grad_norm_critic", 100))
-        self.action_min = float(self._register_param(kwargs, 'action_min', -1.))
-        self.action_max = float(self._register_param(kwargs, 'action_max', 1.))
-        self.action_scale = float(self._register_param(kwargs, 'action_scale', 1.))
 
         self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))
         self.tau = float(self._register_param(kwargs, 'tau', 0.02))
@@ -128,6 +125,14 @@ class TD3Agent(AgentBase):
         self.target_actor.reset_parameters()
         self.target_critic.reset_parameters()
 
+    @cached_property
+    def action_min(self):
+        return to_tensor(self.action_space.low)
+
+    @cached_property
+    def action_max(self):
+        return to_tensor(self.action_space.high)
+
     @torch.no_grad()
     def act(self, obs: ObsType, epsilon: float=0.0, training_mode: bool=True) -> List[float]:
         """
@@ -137,14 +142,15 @@ class TD3Agent(AgentBase):
         """
         # Epsilon greedy
         if self._rng.random() < epsilon:
-            rnd_actions = torch.rand(self.action_size)*(self.action_max - self.action_min) - self.action_min
+            rnd = torch.rand(self.action_space.shape)
+            rnd_actions = rnd*(self.action_max - self.action_min) - self.action_min
             return rnd_actions.tolist()
 
         t_obs = to_tensor(obs).float().to(self.device)
         action = self.actor(t_obs)
         if training_mode:
             action += self.noise.sample()
-        return (self.action_scale*torch.clamp(action, self.action_min, self.action_max)).tolist()
+        return torch.clamp(action, self.action_min, self.action_max).tolist()
 
     @torch.no_grad()
     def target_act(self, obs: ObsType, noise: float=0.0):

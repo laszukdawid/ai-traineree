@@ -174,7 +174,7 @@ class MADDPGAgent(MultiAgentType):
         agent_dones = to_tensor(experiences['done'])\
             .select(1, agent_number).unsqueeze(-1).type(torch.int).to(self.device)
         states = to_tensor(experiences['state']).to(self.device)\
-            .view(self.batch_size, self.num_agents) + self.obs_space.shape
+            .view((self.batch_size, self.num_agents) + self.obs_space.shape)
         actions = to_tensor(experiences['action']).to(self.device)
         next_states = to_tensor(experiences['next_state'])\
             .float().to(self.device).view((self.batch_size, self.num_agents) + self.obs_space.shape)

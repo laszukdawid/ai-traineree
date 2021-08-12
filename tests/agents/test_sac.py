@@ -5,10 +5,10 @@ from ai_traineree.agents.sac import SACAgent
 from conftest import deterministic_interactions
 
 
-def test_sac_seed():
+def test_sac_seed(float_1d_space):
     # Assign
-    agent_0 = SACAgent(4, 2, device='cpu')  # Reference
-    agent_1 = SACAgent(4, 2, device='cpu')
+    agent_0 = SACAgent(float_1d_space, float_1d_space, device='cpu')  # Reference
+    agent_1 = SACAgent(float_1d_space, float_1d_space, device='cpu')
     agent_2 = copy.deepcopy(agent_1)
 
     # Act

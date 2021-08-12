@@ -64,7 +64,7 @@ def test_runs_ddpg():
 def test_runs_td3():
     # Assign
     task = GymTask('Pendulum-v0')
-    agent = TD3Agent(task.obs_size, task.action_size, device=DEVICE)
+    agent = TD3Agent(task.obs_space, task.action_space, device=DEVICE)
     env_runner = EnvRunner(task, agent, max_iterations=50)
 
     # Act
@@ -74,7 +74,7 @@ def test_runs_td3():
 def test_runs_sac():
     # Assign
     task = GymTask('BipedalWalker-v3')
-    agent = SACAgent(task.obs_size, task.action_size, device=DEVICE)
+    agent = SACAgent(task.obs_space, task.action_space, device=DEVICE)
     env_runner = EnvRunner(task, agent, max_iterations=50)
 
     # Act
@@ -84,7 +84,7 @@ def test_runs_sac():
 def test_runs_d3pg():
     # Assign
     task = GymTask('BipedalWalker-v3')
-    agent = D3PGAgent(task.obs_size, task.action_size, device=DEVICE)
+    agent = D3PGAgent(task.obs_space, task.action_space, device=DEVICE)
     env_runner = EnvRunner(task, agent, max_iterations=50)
 
     # Act

@@ -17,7 +17,7 @@ config = {
     'actor_lr': 1e-4,
     'critic_lr': 2e-4,
 }
-agent = Agent(task.obs_size, task.action_size, **config)
+agent = Agent(task.obs_space, task.action_space, **config)
 env_runner = EnvRunner(task, agent)
 
 # env_runner.interact_episode(0, render=True)

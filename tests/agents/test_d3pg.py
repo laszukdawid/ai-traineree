@@ -5,10 +5,10 @@ from ai_traineree.agents.d3pg import D3PGAgent
 from conftest import deterministic_interactions
 
 
-def test_d3pg_seed():
+def test_d3pg_seed(float_1d_space):
     # Assign
-    agent_0 = D3PGAgent(4, 2, device='cpu')
-    agent_1 = D3PGAgent(4, 2, device='cpu')
+    agent_0 = D3PGAgent(float_1d_space, float_1d_space, device='cpu')
+    agent_1 = D3PGAgent(float_1d_space, float_1d_space, device='cpu')
     agent_2 = copy.deepcopy(agent_1)
 
     # Act

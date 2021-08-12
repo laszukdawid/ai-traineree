@@ -61,8 +61,8 @@ class AgentType(abc.ABC):
 class MultiAgentType(abc.ABC):
 
     model: str
-    obs_size: int
-    action_size: int
+    obs_space: DataSpace
+    action_space: DataSpace
     loss: Dict[str, float]
     agents: List[AgentType]
     agent_names: List[str]

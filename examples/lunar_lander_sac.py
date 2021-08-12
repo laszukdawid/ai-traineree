@@ -33,9 +33,6 @@ config = {
     'tau': 0.02,
     "alpha": 0.2,
 
-    'action_scale': 2,
-    'action_min': -2,
-    'action_max': 2,
     'seed': seed,
 }
 agent = Agent(task.obs_size, task.action_size, **config)
