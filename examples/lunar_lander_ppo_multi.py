@@ -40,10 +40,9 @@ kwargs = {
     "max_grad_norm_critic": 20.0,
 
     "target_kl": 0.02,
-    # "using_kl_div": True,
 }
 tasks: List[TaskType] = [GymTask(env_name) for _ in range(num_workers)]
-agent = Agent(tasks[0].obs_size, tasks[0].action_size, **kwargs)
+agent = Agent(tasks[0].obs_space, tasks[0].action_space, **kwargs)
 env_runner = MultiSyncEnvRunner(tasks, agent, processes=processes, data_logger=data_logger)
 scores = env_runner.run(reward_goal=80, eps_end=0.01, max_episodes=5000, force_new=True, log_episode_freq=10)
 

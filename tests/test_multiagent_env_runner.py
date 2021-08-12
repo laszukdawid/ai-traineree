@@ -15,9 +15,9 @@ from ai_traineree.tasks import PettingZooTask
 env = multiwalker_v7.env()
 test_task = PettingZooTask(env)
 test_task.reset()
-obs_space = int(test_task.obs_size[0])
-action_size = int(test_task.action_size.shape[0])
-test_agent = MADDPGAgent(obs_space, action_size, num_agents=env.num_agents, agent_names=env.agents)
+obs_space = list(test_task.obs_space.values())[0]
+action_space = list(test_task.action_space.values())[0]
+test_agent = MADDPGAgent(obs_space, action_space, num_agents=env.num_agents, agent_names=env.agents)
 
 
 def test_multiagent_cycle_env_runner_str():

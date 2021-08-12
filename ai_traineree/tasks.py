@@ -7,8 +7,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 import torch
 
-from ai_traineree.types import ActionType, MultiAgentTaskType, StateType, TaskType
-from ai_traineree.types import DataSpace
+from ai_traineree.types import ActionType, DataSpace, MultiAgentTaskType, StateType, TaskType
 
 try:
     import gym
@@ -187,6 +186,14 @@ class PettingZooTask(MultiAgentTaskType):
         self.env = env
         self.name = "CUSTOM"
         self.agent_iter = self.env.agent_iter
+
+    @property
+    def obs_space(self):
+        return {unit: DataSpace.from_gym_space(space) for (unit, space) in self.env.observation_spaces.items()}
+
+    @property
+    def action_space(self):
+        return {unit: DataSpace.from_gym_space(space) for (unit, space) in self.env.action_spaces.items()}
 
     @property
     def obs_size(self):

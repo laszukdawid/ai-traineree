@@ -1,3 +1,4 @@
+from ai_traineree.types.dataspace import DataSpace
 from collections import OrderedDict, defaultdict
 from typing import Any, Dict, List, Optional
 
@@ -20,7 +21,7 @@ class MADDPGAgent(MultiAgentType):
 
     model = "MADDPG"
 
-    def __init__(self, obs_size: int, action_size: int, num_agents: int, **kwargs):
+    def __init__(self, obs_space: DataSpace, action_space: DataSpace, num_agents: int, **kwargs):
         """Initiation of the Multi Agent DDPG.
 
         All keywords are also passed to DDPG agents.
@@ -48,8 +49,8 @@ class MADDPGAgent(MultiAgentType):
         """
 
         self.device = self._register_param(kwargs, "device", DEVICE, update=True)
-        self.obs_size: int = obs_size
-        self.action_size = action_size
+        self.obs_space = obs_space
+        self.action_space = action_space
         self.num_agents: int = num_agents
         self.agent_names: List[str] = kwargs.get("agent_names", map(str, range(self.num_agents)))
 
@@ -61,7 +62,7 @@ class MADDPGAgent(MultiAgentType):
 
         self.agents: Dict[str, DDPGAgent] = OrderedDict({
             agent_name: DDPGAgent(
-                obs_size, action_size,
+                obs_space, action_space,
                 actor_lr=actor_lr, critic_lr=critic_lr,
                 noise_scale=noise_scale, noise_sigma=noise_sigma,
                 **kwargs,
@@ -80,8 +81,12 @@ class MADDPGAgent(MultiAgentType):
         self.update_freq = int(self._register_param(kwargs, 'update_freq', 1))
         self.number_updates = int(self._register_param(kwargs, 'number_updates', 1))
 
-        self.critic = CriticBody((num_agents*obs_size,), num_agents*action_size, hidden_layers=hidden_layers).to(self.device)
-        self.target_critic = CriticBody((num_agents*obs_size,), num_agents*action_size, hidden_layers=hidden_layers).to(self.device)
+        assert len(obs_space.shape) == 1, "Only 1D obs spaces are supported now"
+        assert len(action_space.shape) == 1, "Only 1D action spaces are supported now"
+        ma_obs_shape = (num_agents*obs_space.shape[0],)
+        ma_action_size = num_agents*action_space.shape[0]
+        self.critic = CriticBody(ma_obs_shape, ma_action_size, hidden_layers=hidden_layers).to(self.device)
+        self.target_critic = CriticBody(ma_obs_shape, ma_action_size, hidden_layers=hidden_layers).to(self.device)
         self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=critic_lr)
         hard_update(self.target_critic, self.critic)
 
@@ -156,31 +161,37 @@ class MADDPGAgent(MultiAgentType):
         return action
 
     def __flatten_actions(self, actions):
-        return actions.view(-1, self.num_agents*self.action_size)
+        return actions.view(-1, self.num_agents*self.action_space.shape[0])
 
     def learn(self, experiences, agent_name: str) -> None:
         """update the critics and actors of all the agents """
+        ma_obs_size = self.num_agents * self.obs_space.shape[0]
+        ma_action_size = self.num_agents * self.action_space.shape[0]
 
         # TODO: Just look at this mess.
         agent_number = list(self.agents).index(agent_name)
         agent_rewards = to_tensor(experiences['reward']).select(1, agent_number).unsqueeze(-1).float().to(self.device)
-        agent_dones = to_tensor(experiences['done']).select(1, agent_number).unsqueeze(-1).type(torch.int).to(self.device)
-        states = to_tensor(experiences['state']).to(self.device).view(self.batch_size, self.num_agents, self.obs_size)
+        agent_dones = to_tensor(experiences['done'])\
+            .select(1, agent_number).unsqueeze(-1).type(torch.int).to(self.device)
+        states = to_tensor(experiences['state']).to(self.device)\
+            .view(self.batch_size, self.num_agents) + self.obs_space.shape
         actions = to_tensor(experiences['action']).to(self.device)
-        next_states = to_tensor(experiences['next_state']).float().to(self.device).view(self.batch_size, self.num_agents, self.obs_size)
-        flat_states = states.view(-1, self.num_agents*self.obs_size)
-        flat_next_states = next_states.view(-1, self.num_agents*self.obs_size)
-        flat_actions = actions.view(-1, self.num_agents*self.action_size)
+        next_states = to_tensor(experiences['next_state'])\
+            .float().to(self.device).view((self.batch_size, self.num_agents) + self.obs_space.shape)
+
+        flat_states = states.view(-1, ma_obs_size)
+        flat_next_states = next_states.view(-1, ma_obs_size)
+        flat_actions = actions.view(-1, ma_action_size)
         assert agent_rewards.shape == agent_dones.shape == (self.batch_size, 1)
-        assert states.shape == next_states.shape == (self.batch_size, self.num_agents, self.obs_size)
-        assert actions.shape == (self.batch_size, self.num_agents, self.action_size)
-        assert flat_actions.shape == (self.batch_size, self.num_agents*self.action_size)
+        assert states.shape == next_states.shape == (self.batch_size, self.num_agents) + self.obs_space.shape
+        assert actions.shape == (self.batch_size, self.num_agents) + self.action_space.shape
+        assert flat_actions.shape == (self.batch_size, ma_action_size)
 
         agent = self.agents[agent_name]
 
         next_actions = actions.detach().clone()
         next_actions.data[:, agent_number] = agent.target_actor(next_states[:, agent_number, :])
-        assert next_actions.shape == (self.batch_size, self.num_agents, self.action_size)
+        assert next_actions.shape == (self.batch_size, self.num_agents) + self.action_space.shape
 
         # critic loss
         Q_target_next = self.target_critic(flat_next_states, self.__flatten_actions(next_actions))

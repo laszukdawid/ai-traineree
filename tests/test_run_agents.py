@@ -54,7 +54,7 @@ def test_runs_ppo():
 def test_runs_ddpg():
     # Assign
     task = GymTask('Pendulum-v0')
-    agent = DDPGAgent(task.obs_size, task.action_size, device=DEVICE)
+    agent = DDPGAgent(task.obs_space, task.action_space, device=DEVICE)
     env_runner = EnvRunner(task, agent, max_iterations=50)
 
     # Act
