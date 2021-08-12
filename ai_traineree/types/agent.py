@@ -3,15 +3,16 @@ from typing import Any, Dict, List
 
 from ai_traineree.loggers import DataLogger
 
+from .dataspace import DataSpace
 from .primitive import ActionType, DoneType, ObsType, RewardType
 from .state import AgentState
 
 
 class AgentType(abc.ABC):
 
-    name: str
-    obs_size: int
-    action_size: int
+    model: str
+    obs_space: DataSpace
+    action_space: DataSpace
     loss: Dict[str, float]
     _config: Dict = {}
 
@@ -59,9 +60,9 @@ class AgentType(abc.ABC):
 
 class MultiAgentType(abc.ABC):
 
-    name: str
-    obs_size: int
-    action_size: int
+    model: str
+    obs_space: DataSpace
+    action_space: DataSpace
     loss: Dict[str, float]
     agents: List[AgentType]
     agent_names: List[str]

@@ -8,6 +8,7 @@ import pytest
 
 from ai_traineree.agents import AgentBase
 from ai_traineree.types.agent import AgentType
+from ai_traineree.types.dataspace import DataSpace
 
 
 class MockContinuousSpace:
@@ -46,14 +47,15 @@ def fix_env():
 
 
 def deterministic_interactions(agent: AgentType, num_iters=50):
-    state = [0]*agent.obs_size
+    obs_size = agent.obs_space.shape[0]
+    state = np.zeros(agent.obs_space.shape).tolist()
     next_state = copy.copy(state)
     actions = []
     for i in range(num_iters):
         action = agent.act(state)
         actions.append(action)
 
-        next_state[i % agent.obs_size] = (next_state[i % agent.obs_size] + 1) % 2
+        next_state[i % obs_size] = (next_state[i % obs_size] + 1) % 2
         reward = (i % 4 - 2) / 2.
         done = (i + 1) % 100 == 0
 
@@ -69,16 +71,30 @@ def fake_step(step_shape: Sequence[int]) -> Tuple[List[Any], float, bool]:
     return state, reward, terminal
 
 
-def feed_agent(agent: AgentBase, num_samples: int, discrete_action=True, as_list=False):
+def feed_agent(agent: AgentBase, num_samples: int, as_list=False):
+    action_space = agent.action_space
+
     for _ in range(num_samples):
-        s, r, d = fake_step(agent.obs_size)
-        if discrete_action:
-            a = random.randint(0, agent.action_size-1)
+        s, r, d = fake_step(agent.obs_space.shape)
+        if action_space.dtype == 'int':
+            # a = random.randint(0, agent.action_size-1)
+            a = int(np.random.randint(0, action_space.shape)[0])  # Only one action allowed
         else:
-            a = np.random.random(agent.action_size).tolist()
+            # a = np.random.random(action_size).tolist()
+            a = np.random.random(action_space.shape)
 
         if as_list:
             agent.step(obs=s, action=[a], reward=[r], next_obs=s, done=[d])
         else:
             agent.step(obs=s, action=a, reward=r, next_obs=s, done=d)
     return agent
+
+
+@pytest.fixture
+def float_1d_space():
+    return DataSpace(dtype="float", shape=(5,), low=-2, high=2)
+
+
+@pytest.fixture
+def int_1d_space():
+    return DataSpace(dtype="int", shape=(1,), low=0, high=4)

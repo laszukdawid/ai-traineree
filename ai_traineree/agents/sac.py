@@ -14,7 +14,8 @@ from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import DoubleCritic
 from ai_traineree.policies import GaussianPolicy, MultivariateGaussianPolicySimple
-from ai_traineree.types import ActionType, DoneType, ObsType, RewardType
+from ai_traineree.types.dataspace import DataSpace
+from ai_traineree.types.primitive import ActionType, DoneType, ObsType, RewardType
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 
@@ -29,13 +30,13 @@ class SACAgent(AgentBase):
     by Haarnoja et al. (2018) (http://arxiv.org/abs/1801.01290).
     """
 
-    name = "SAC"
+    model = "SAC"
 
-    def __init__(self, obs_size: int, action_size: int, **kwargs):
+    def __init__(self, obs_space: DataSpace, action_space: DataSpace, **kwargs):
         """
         Parameters:
-            obs_size (int): Dimension of the observation.
-            action_size (int): Dimension of expected action.
+            obs_space (DataSpace): Dataspace describing the input.
+            action_space (DataSpace): Dataspace describing the output.
 
         Keyword parameters:
             hidden_layers (tuple of ints): Shape of the hidden layers in fully connected network. Default: (128, 128).
@@ -58,11 +59,11 @@ class SACAgent(AgentBase):
         """
         super().__init__(**kwargs)
         self.device = kwargs.get("device", DEVICE)
-        self.obs_size = obs_size
-        self.action_size = action_size
-        self._config['obs_size'] = self.obs_size
-        self._config['action_size'] = self.action_size
-        obs_shape = (obs_size,)
+        self.obs_space = obs_space
+        self.action_space = action_space
+        self._config['obs_space'] = self.obs_space
+        self._config['action_space'] = self.action_space
+        action_size = self.action_space.shape[0]  # Because of 1D
 
         self.gamma: float = float(self._register_param(kwargs, 'gamma', 0.99))
         self.tau: float = float(self._register_param(kwargs, 'tau', 0.02))
@@ -87,25 +88,25 @@ class SACAgent(AgentBase):
 
         self.simple_policy = bool(self._register_param(kwargs, "simple_policy", False))
         if self.simple_policy:
-            self.policy = MultivariateGaussianPolicySimple(self.action_size, **kwargs)
+            self.policy = MultivariateGaussianPolicySimple(action_size, **kwargs)
             self.actor = ActorBody(
-                obs_shape, (self.policy.param_dim*self.action_size,), hidden_layers=actor_hidden_layers, device=self.device)
+                obs_space.shape, (self.policy.param_dim*action_size,), hidden_layers=actor_hidden_layers, device=self.device)
         else:
             self.policy = GaussianPolicy(
-                (actor_hidden_layers[-1],), (self.action_size,), out_scale=self.action_scale, device=self.device)
+                (actor_hidden_layers[-1],), self.action_space.shape, out_scale=self.action_scale, device=self.device)
             self.actor = ActorBody(
-                obs_shape, (actor_hidden_layers[-1],), hidden_layers=actor_hidden_layers[:-1], device=self.device)
+                obs_space.shape, (actor_hidden_layers[-1],), hidden_layers=actor_hidden_layers[:-1], device=self.device)
 
         self.double_critic = DoubleCritic(
-            obs_shape, self.action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device)
+            obs_space.shape, action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device)
         self.target_double_critic = DoubleCritic(
-            obs_shape, self.action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device)
+            obs_space.shape, action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device)
 
         # Target sequence initiation
         hard_update(self.target_double_critic, self.double_critic)
 
         # Optimization sequence initiation.
-        self.target_entropy = -self.action_size
+        self.target_entropy = -action_size
         alpha_lr = self._register_param(kwargs, "alpha_lr")
         self.alpha_lr = float(alpha_lr) if alpha_lr else None
         alpha_init = float(self._register_param(kwargs, "alpha", 0.2))
@@ -180,10 +181,11 @@ class SACAgent(AgentBase):
 
         """
         if self.iteration < self.warm_up or self._rng.random() < epsilon:
-            random_action = torch.rand(self.action_size) * (self.action_max + self.action_min) + self.action_min
-            return random_action.cpu().tolist()
+            rnd = torch.rand(self.action_space.shape)
+            rnd_action = (self.action_max + self.action_min) * rnd + self.action_min
+            return rnd_action.cpu().tolist()
 
-        t_obs = to_tensor(obs).view(1, self.obs_size).float().to(self.device)
+        t_obs = to_tensor(obs).view((1,) + self.obs_space.shape).float().to(self.device)
         proto_action = self.actor(t_obs)
         action = self.policy(proto_action, deterministic)
 
@@ -209,7 +211,7 @@ class SACAgent(AgentBase):
             proto_next_action = self.actor(states)
             next_actions = self.policy(proto_next_action)
             log_prob = self.policy.logprob
-            assert next_actions.shape == (self.batch_size, self.action_size)
+            assert next_actions.shape == (self.batch_size,) + self.action_space.shape
             assert log_prob.shape == (self.batch_size, 1)
 
             Q1_target_next, Q2_target_next = self.target_double_critic.act(next_states, next_actions)
@@ -245,7 +247,7 @@ class SACAgent(AgentBase):
         proto_actions = self.actor(states)
         pred_actions = self.policy(proto_actions)
         log_prob = self.policy.logprob
-        assert pred_actions.shape == (self.batch_size, self.action_size)
+        assert pred_actions.shape == (self.batch_size,) + self.action_space.shape
 
         Q_estimate = torch.min(*self.double_critic(states, pred_actions))
         assert Q_estimate.shape == (self.batch_size, 1)
@@ -265,12 +267,14 @@ class SACAgent(AgentBase):
 
     def learn(self, samples):
         """update the critics and actors of all the agents """
+        batch_obs_shape = (self.batch_size,) + self.obs_space.shape
+        batch_action_shape = (self.batch_size,) + self.action_space.shape
 
         rewards = to_tensor(samples['reward']).float().to(self.device).view(self.batch_size, 1)
         dones = to_tensor(samples['done']).int().to(self.device).view(self.batch_size, 1)
-        states = to_tensor(samples['state']).float().to(self.device).view(self.batch_size, self.obs_size)
-        next_states = to_tensor(samples['next_state']).float().to(self.device).view(self.batch_size, self.obs_size)
-        actions = to_tensor(samples['action']).to(self.device).view(self.batch_size, self.action_size)
+        states = to_tensor(samples['state']).float().to(self.device).view(batch_obs_shape)
+        next_states = to_tensor(samples['next_state']).float().to(self.device).view(batch_obs_shape)
+        actions = to_tensor(samples['action']).to(self.device).view(batch_action_shape)
 
         # Critic (value) update
         for _ in range(self.critic_number_updates):

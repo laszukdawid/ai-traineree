@@ -4,6 +4,7 @@ from ai_traineree.agents.agent_factory import AgentFactory
 from ai_traineree.agents.ddpg import DDPGAgent
 from ai_traineree.agents.dqn import DQNAgent
 from ai_traineree.agents.ppo import PPOAgent
+from ai_traineree.types.dataspace import DataSpace
 from ai_traineree.types.state import AgentState
 
 
@@ -20,8 +21,9 @@ def test_agent_factory_agent_from_state_wrong_state():
 
 def test_agent_factory_dqn_agent_from_state_network_buffer_none():
     # Assign
-    obs_size, action_size = 10, 5
-    agent = DQNAgent(obs_size, action_size, device="cpu")
+    obs_space = DataSpace(shape=(5,), dtype='float', low=0, high=2)
+    action_space = DataSpace(shape=(1,), dtype='int', low=0, high=5)
+    agent = DQNAgent(obs_space, action_space, device="cpu")
     state = agent.get_state()
     state.network = None
     state.buffer = None
@@ -31,14 +33,15 @@ def test_agent_factory_dqn_agent_from_state_network_buffer_none():
 
     # Assert
     assert id(new_agent) != id(agent)
-    assert new_agent.name == DQNAgent.name
+    assert new_agent.model == DQNAgent.model
     assert new_agent.hparams == agent.hparams
 
 
 def test_agent_factory_dqn_agent_from_state():
     # Assign
-    obs_size, action_size = 10, 5
-    agent = DQNAgent(obs_size, action_size, device="cpu")
+    obs_space = DataSpace(shape=(10,), dtype='float')
+    action_space = DataSpace(shape=(1,), dtype='int', low=1, high=5)
+    agent = DQNAgent(obs_space, action_space, device="cpu")
     state = agent.get_state()
 
     # Act
@@ -47,15 +50,16 @@ def test_agent_factory_dqn_agent_from_state():
     # Assert
     assert id(new_agent) != id(agent)
     assert new_agent == agent
-    assert new_agent.name == DQNAgent.name
+    assert new_agent.model == DQNAgent.model
     assert new_agent.hparams == agent.hparams
     assert new_agent.buffer == agent.buffer
 
 
 def test_agent_factory_ppo_agent_from_state():
     # Assign
-    obs_size, action_size = 10, 5
-    agent = PPOAgent(obs_size, action_size, device="cpu")
+    obs_space = DataSpace(dtype="float", shape=(10,))
+    action_space = DataSpace(dtype="float", shape=(5,))
+    agent = PPOAgent(obs_space, action_space, device="cpu")
     state = agent.get_state()
 
     # Act
@@ -64,15 +68,16 @@ def test_agent_factory_ppo_agent_from_state():
     # Assert
     assert id(new_agent) != id(agent)
     assert new_agent == agent
-    assert new_agent.name == PPOAgent.name
+    assert new_agent.model == PPOAgent.model
     assert new_agent.hparams == agent.hparams
     assert new_agent.buffer == agent.buffer
 
 
 def test_agent_factory_ppo_agent_from_state_network_buffer_none():
     # Assign
-    obs_size, action_size = 10, 5
-    agent = PPOAgent(obs_size, action_size, device="cpu")
+    obs_space = DataSpace(dtype="float", shape=(10,))
+    action_space = DataSpace(dtype="float", shape=(5,))
+    agent = PPOAgent(obs_space, action_space, device="cpu")
     state = agent.get_state()
     state.network = None
     state.buffer = None
@@ -82,14 +87,15 @@ def test_agent_factory_ppo_agent_from_state_network_buffer_none():
 
     # Assert
     assert id(new_agent) != id(agent)
-    assert new_agent.name == PPOAgent.name
+    assert new_agent.model == PPOAgent.model
     assert new_agent.hparams == agent.hparams
 
 
 def test_agent_factory_ddpg_agent_from_state():
     # Assign
-    obs_size, action_size = 10, 5
-    agent = DDPGAgent(obs_size, action_size, device="cpu")
+    obs_space = DataSpace(dtype="float", shape=(4,))
+    action_space = DataSpace(dtype="float", shape=(4,))
+    agent = DDPGAgent(obs_space, action_space, device="cpu")
     state = agent.get_state()
 
     # Act
@@ -97,7 +103,7 @@ def test_agent_factory_ddpg_agent_from_state():
 
     # Assert
     assert id(new_agent) != id(agent)
-    assert new_agent.name == DDPGAgent.name
+    assert new_agent.model == DDPGAgent.model
     assert new_agent == agent
     assert new_agent.hparams == agent.hparams
     assert new_agent.buffer == agent.buffer
@@ -105,8 +111,9 @@ def test_agent_factory_ddpg_agent_from_state():
 
 def test_agent_factory_ddpg_agent_from_state_network_buffer_none():
     # Assign
-    obs_size, action_size = 10, 5
-    agent = DDPGAgent(obs_size, action_size, device="cpu")
+    obs_space = DataSpace(dtype="float", shape=(4,))
+    action_space = DataSpace(dtype="float", shape=(4,))
+    agent = DDPGAgent(obs_space, action_space, device="cpu")
     state = agent.get_state()
     state.network = None
     state.buffer = None
@@ -116,5 +123,5 @@ def test_agent_factory_ddpg_agent_from_state_network_buffer_none():
 
     # Assert
     assert id(new_agent) != id(agent)
-    assert new_agent.name == DDPGAgent.name
+    assert new_agent.model == DDPGAgent.model
     assert new_agent.hparams == agent.hparams

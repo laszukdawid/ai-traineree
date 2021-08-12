@@ -4,8 +4,10 @@ import random
 import numpy as np
 import pytest
 import torch
-from ai_traineree.utils import (serialize, str_to_list, str_to_number,
-                                str_to_seq, str_to_tuple, to_numbers_seq, to_tensor)
+
+from ai_traineree.types.dataspace import DataSpace
+from ai_traineree.utils import (serialize, str_to_list, str_to_number, str_to_seq, str_to_tuple, to_numbers_seq,
+                                to_tensor)
 from conftest import deterministic_interactions
 
 
@@ -200,7 +202,7 @@ def test_serialize_buffer_state_numpy():
         )
 
     # Assign
-    buffer_size = 1e1
+    buffer_size = int(1e1)
     buffer_state = BufferState(type="Type", batch_size=200, buffer_size=buffer_size)
     buffer_state.data = [generate_exp() for _ in range(int(buffer_size))]
 
@@ -218,7 +220,7 @@ def test_serialize_buffer_state_numpy():
 def test_serialize_network_state_actual():
     from ai_traineree.agents.dqn import DQNAgent
 
-    agent = DQNAgent(10, 4)
+    agent = DQNAgent(DataSpace(dtype="float", shape=(4,)), DataSpace('int', (1,), low=0, high=2))
     deterministic_interactions(agent, 30)
     network_state = agent.get_network_state()
 
@@ -233,7 +235,7 @@ def test_serialize_network_state_actual():
 def test_serialize_agent_state_actual():
     from ai_traineree.agents.dqn import DQNAgent
 
-    agent = DQNAgent(10, 4)
+    agent = DQNAgent(DataSpace(dtype="float", shape=(4,)), DataSpace('int', (1,), low=0, high=2))
     deterministic_interactions(agent, 30)
     state = agent.get_state()
 
@@ -242,7 +244,7 @@ def test_serialize_agent_state_actual():
 
     # Assert
     des = json.loads(ser)
-    assert des['model'] == DQNAgent.name
+    assert des['model'] == DQNAgent.model
     assert len(des['buffer']['data']) == 30
     assert set(des['network']['net'].keys()) == set(('target_net', 'net'))
 

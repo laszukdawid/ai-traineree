@@ -1,18 +1,19 @@
 import json
 import logging
-import numpy as np
-import time
-import torch.multiprocessing as mp
 import os
 import sys
+import time
+from collections import deque
+from pathlib import Path
+from typing import Any, Iterable, List, Optional, Tuple
+
+import numpy as np
+import torch.multiprocessing as mp
 
 from ai_traineree.agents import AgentBase
 from ai_traineree.loggers import DataLogger
 from ai_traineree.types import RewardType, TaskType
 from ai_traineree.utils import save_gif
-from collections import deque
-from pathlib import Path
-from typing import Any, Iterable, List, Optional, Tuple
 
 FRAMES_PER_SEC = 45
 
@@ -44,11 +45,12 @@ class EnvRunner:
         Keyword Arguments:
             window_len (int): Length of the score averaging window.
             data_logger: An instance of Data Logger, e.g. TensorboardLogger.
+
         """
         self.task = task
         self.agent = agent
         self.max_iterations = max_iterations
-        self.model_path = f"{task.name}_{agent.name}"
+        self.model_path = f"{task.name}_{agent.model}"
         self.state_dir = 'run_states'
 
         self.episode = 0
@@ -73,7 +75,7 @@ class EnvRunner:
         self.seed(kwargs.get('seed'))
 
     def __str__(self) -> str:
-        return f"EnvRunner<{self.task.name}, {self.agent.name}>"
+        return f"EnvRunner<{self.task.name}, {self.agent.model}>"
 
     def seed(self, seed):
         if isinstance(seed, (int, float)):
@@ -394,7 +396,7 @@ class MultiSyncEnvRunner:
 
         self.agent = agent
         self.max_iterations = max_iterations
-        self.model_path = f"{tasks[0].name}_{agent.name}"
+        self.model_path = f"{tasks[0].name}_{agent.model}"
         self.state_dir = 'run_states'
 
         self.episode = 0
@@ -408,7 +410,7 @@ class MultiSyncEnvRunner:
         self.logger.info("DataLogger: %s", str(self.data_logger))
 
     def __str__(self) -> str:
-        return f"MultiSyncEnvRunner<{[t.name for t in self.tasks]}, {self.agent.name}>"
+        return f"MultiSyncEnvRunner<{[t.name for t in self.tasks]}, {self.agent.model}>"
 
     def __del__(self):
         try:

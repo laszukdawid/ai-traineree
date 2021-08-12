@@ -1,15 +1,16 @@
 import math
+
 import torch
-from typing import Tuple
 
 from ai_traineree import DEVICE
+from ai_traineree.types.primitive import FeatureType
 
 
 class GaussianNoise:
-    def __init__(self, shape: Tuple[int], mu=0., sigma=1., scale=1., device=None):
+    def __init__(self, shape: FeatureType, mu=0., sigma=1., scale=1., device=None):
         self.shape = shape
-        self.mu = torch.zeros(shape) + mu
-        self.std = torch.zeros(shape) + math.sqrt(sigma)
+        self.mu = torch.zeros(size=shape) + mu  # type: ignore
+        self.std = torch.zeros(size=shape) + math.sqrt(sigma)  # type: ignore
         self.scale = scale
         self.device = device if device is not None else DEVICE
 

@@ -1,9 +1,8 @@
 import abc
-
 from typing import Any, List, Optional, Tuple
 
-from .primitive import ActionType, DoneType, StateType, RewardType
-
+from .dataspace import DataSpace
+from .primitive import ActionType, DoneType, RewardType, StateType
 
 TaskStepType = Tuple[StateType, RewardType, DoneType, Any]
 
@@ -15,8 +14,8 @@ class TaskType(abc.ABC):
     """
 
     name: str
-    action_size: int
-    obs_size: int
+    action_space: DataSpace
+    obs_space: DataSpace
     is_discrete: bool
 
     @abc.abstractmethod

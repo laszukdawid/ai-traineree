@@ -1,3 +1,4 @@
+data/
 build/
 dist/
 ai_traineree.egg-info/
@@ -6,10 +7,13 @@ ai_traineree.egg-info/
 /htmlcov
 .vscode/
 .idea/
+.ipynb_checkpoints/
 
 .venv/
 __pycache__/
 .mypy_cache/
+.coverage
 
 *.png
 *.net
+*.swp

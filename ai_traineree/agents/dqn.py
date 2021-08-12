@@ -14,7 +14,8 @@ from ai_traineree.buffers.buffer_factory import BufferFactory
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks import NetworkType, NetworkTypeClass
 from ai_traineree.networks.heads import DuelingNet
-from ai_traineree.types import ActionType, AgentState, BufferState, DoneType, NetworkState, ObsType, RewardType
+from ai_traineree.types import (ActionType, AgentState, BufferState, DataSpace, DoneType, NetworkState, ObsType,
+                                RewardType)
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 
@@ -30,12 +31,12 @@ class DQNAgent(AgentBase):
     to this implementation by working on the discrete space projection of the Q(s,a) function.
     """
 
-    name = "DQN"
+    model = "DQN"
 
     def __init__(
         self,
-        obs_size: int,
-        action_size: int,
+        obs_space: DataSpace,
+        action_space: DataSpace,
         network_fn: Callable[[], NetworkType]=None,
         network_class: Type[NetworkTypeClass]=None,
         state_transform: Optional[Callable]=None,
@@ -45,8 +46,8 @@ class DQNAgent(AgentBase):
         """Initiates the DQN agent.
 
         Parameters:
-            obs_size: Number of input dimensions.
-            action_size: Number of output dimensions
+            obs_space (DataSpace): Dataspace describing the input.
+            action_space (DataSpace): Dataspace describing the output.
             network_fn (optional func): Function used to instantiate a network used by the agent.
             network_class (optional cls): Class of network that is instantiated with internal params to create network.
             state_transform (optional func): Function to transform (encode) state before used by the network.
@@ -70,11 +71,8 @@ class DQNAgent(AgentBase):
         super().__init__(**kwargs)
 
         self.device = self._register_param(kwargs, "device", DEVICE, update=True)
-        self.obs_size: int = obs_size
-        self.action_size = action_size
-        self._config['obs_size'] = self.obs_size
-        self._config['action_size'] = self.action_size
-        obs_shape, action_shape = (obs_size,), (action_size,)
+        self.obs_space = obs_space
+        self.action_space = action_space
 
         self.lr = float(self._register_param(kwargs, 'lr', 3e-4))  # Learning rate
         self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))  # Discount value
@@ -97,15 +95,17 @@ class DQNAgent(AgentBase):
         hidden_layers = to_numbers_seq(self._register_param(kwargs, 'hidden_layers', (64, 64)))
         self.state_transform = state_transform if state_transform is not None else lambda x: x
         self.reward_transform = reward_transform if reward_transform is not None else lambda x: x
+        action_feat = action_space.to_feature()
+
         if network_fn is not None:
             self.net = network_fn()
             self.target_net = network_fn()
         elif network_class is not None:
-            self.net = network_class(obs_shape, action_shape, hidden_layers=hidden_layers, device=self.device)
-            self.target_net = network_class(obs_shape, action_shape, hidden_layers=hidden_layers, device=self.device)
+            self.net = network_class(obs_space.shape, action_feat, hidden_layers=hidden_layers, device=self.device)
+            self.target_net = network_class(obs_space.shape, action_feat, hidden_layers=hidden_layers, device=self.device)
         else:
-            self.net = DuelingNet(obs_shape, action_shape, hidden_layers=hidden_layers, device=self.device)
-            self.target_net = DuelingNet(obs_shape, action_shape, hidden_layers=hidden_layers, device=self.device)
+            self.net = DuelingNet(obs_space.shape, action_feat, hidden_layers=hidden_layers, device=self.device)
+            self.target_net = DuelingNet(obs_space.shape, action_feat, hidden_layers=hidden_layers, device=self.device)
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
         self._loss: float = float('nan')
 
@@ -184,7 +184,7 @@ class DQNAgent(AgentBase):
         """
         # Epsilon-greedy action selection
         if self._rng.random() < eps:
-            return self._rng.randint(0, self.action_size-1)
+            return self._rng.randint(self.action_space.low, self.action_space.high)
 
         t_obs = to_tensor(self.state_transform(obs)).float()
         t_obs = t_obs.unsqueeze(0).to(self.device)
@@ -251,9 +251,9 @@ class DQNAgent(AgentBase):
     def get_state(self) -> AgentState:
         """Provides agent's internal state."""
         return AgentState(
-            model=self.name,
-            obs_space=self.obs_size,
-            action_space=self.action_size,
+            model=self.model,
+            obs_space=self.obs_space,
+            action_space=self.action_space,
             config=self._config,
             buffer=copy.deepcopy(self.buffer.get_state()),
             network=copy.deepcopy(self.get_network_state()),
@@ -265,7 +265,7 @@ class DQNAgent(AgentBase):
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
         config = copy.copy(state.config)
-        config.update({'input_shape': state.obs_space, 'output_shape': state.action_space})
+        config.update({'obs_space': state.obs_space, 'action_space': state.action_space})
         agent = DQNAgent(**config)
         if state.network is not None:
             agent.set_network(state.network)

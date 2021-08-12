@@ -5,10 +5,10 @@ from ai_traineree.agents.td3 import TD3Agent
 from conftest import deterministic_interactions
 
 
-def test_td3_seed():
+def test_td3_seed(float_1d_space):
     # Assign
-    agent_0 = TD3Agent(4, 2, device='cpu')
-    agent_1 = TD3Agent(4, 2, device='cpu')
+    agent_0 = TD3Agent(float_1d_space, float_1d_space, device='cpu')
+    agent_1 = TD3Agent(float_1d_space, float_1d_space, device='cpu')
     agent_2 = copy.deepcopy(agent_1)
 
     # Act

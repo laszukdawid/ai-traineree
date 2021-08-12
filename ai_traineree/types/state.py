@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional
 
 import torch
 
-from .primitive import ActionType, StateType
+from ai_traineree.types.dataspace import DataSpace
 
 
 @dataclass
@@ -31,8 +31,8 @@ class NetworkState:
 class AgentState:
     """Fully identifies an agent"""
     model: str
-    obs_space: StateType
-    action_space: ActionType
+    obs_space: DataSpace
+    action_space: DataSpace
     config: Dict[str, Any]
     network: Optional[NetworkState]
     buffer: Optional[BufferState]

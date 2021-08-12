@@ -3,14 +3,17 @@ import torch
 import pytest
 
 from ai_traineree.agents.ddpg import DDPGAgent
-from ai_traineree.types import AgentState, BufferState, NetworkState
+from ai_traineree.types import AgentState, BufferState, DataSpace, NetworkState
 from conftest import deterministic_interactions, feed_agent
+
+float_space = DataSpace(dtype='float', shape=(5,), low=-2, high=2)
+action_space = DataSpace(dtype='float', shape=(4,), low=-1, high=2)
 
 
 def test_ddpg_seed():
     # Assign
-    agent_0 = DDPGAgent(4, 2, device='cpu')
-    agent_1 = DDPGAgent(4, 2, device='cpu')
+    agent_0 = DDPGAgent(float_space, action_space, device='cpu')
+    agent_1 = DDPGAgent(float_space, action_space, device='cpu')
     agent_2 = copy.deepcopy(agent_1)
 
     # Act
@@ -38,18 +41,17 @@ def test_ddpg_seed():
 
 def test_ddpg_get_state():
     # Assign
-    obs_size, action_size = 3, 4
     init_config = {'actor_lr': 0.1, 'critic_lr': 0.2, 'gamma': 0.6}
-    agent = DDPGAgent(obs_size, action_size, device='cpu', **init_config)
+    agent = DDPGAgent(float_space, action_space, device='cpu', **init_config)
 
     # Act
     agent_state = agent.get_state()
 
     # Assert
     assert isinstance(agent_state, AgentState)
-    assert agent_state.model == DDPGAgent.name
-    assert agent_state.obs_space == obs_size
-    assert agent_state.action_space == action_size
+    assert agent_state.model == DDPGAgent.model
+    assert agent_state.obs_space == float_space
+    assert agent_state.action_space == action_space
     assert agent_state.config == agent._config
     assert agent_state.config['actor_lr'] == 0.1
     assert agent_state.config['critic_lr'] == 0.2
@@ -68,9 +70,8 @@ def test_ddpg_get_state():
 
 def test_ddpg_get_state_compare_different_agents():
     # Assign
-    obs_size, action_size = 3, 2
-    agent_1 = DDPGAgent(obs_size, action_size, device='cpu', actor_lr=0.01)
-    agent_2 = DDPGAgent(obs_size, action_size, device='cpu', actor_lr=0.02)
+    agent_1 = DDPGAgent(float_space, action_space, device='cpu', actor_lr=0.01)
+    agent_2 = DDPGAgent(float_space, action_space, device='cpu', actor_lr=0.02)
 
     # Act
     state_1 = agent_1.get_state()
@@ -83,8 +84,7 @@ def test_ddpg_get_state_compare_different_agents():
 
 def test_ddpg_from_state():
     # Assign
-    obs_size, action_size = 10, 3
-    agent = DDPGAgent(obs_size, action_size)
+    agent = DDPGAgent(float_space, action_space)
     agent_state = agent.get_state()
 
     # Act
@@ -104,8 +104,7 @@ def test_ddpg_from_state():
 
 def test_ddpg_from_state_network_state_none():
     # Assign
-    obs_size, action_size = 10, 3
-    agent = DDPGAgent(obs_size, action_size)
+    agent = DDPGAgent(float_space, action_space)
     agent_state = agent.get_state()
     agent_state.network = None
 
@@ -122,8 +121,7 @@ def test_ddpg_from_state_network_state_none():
 
 def test_ddpg_from_state_buffer_state_none():
     # Assign
-    obs_size, action_size = 10, 3
-    agent = DDPGAgent(obs_size, action_size)
+    agent = DDPGAgent(float_space, float_space)
     agent_state = agent.get_state()
     agent_state.buffer = None
 
@@ -143,11 +141,10 @@ def test_ddpg_from_state_buffer_state_none():
 
 def test_ddpg_from_state_one_updated():
     # Assign
-    obs_size, action_size = 10, 3
-    agent = DDPGAgent(obs_size, action_size)
-    feed_agent(agent, 2*agent.batch_size, discrete_action=False)  # Feed 1
+    agent = DDPGAgent(float_space, float_space)
+    feed_agent(agent, 2*agent.batch_size)  # Feed 1
     agent_state = agent.get_state()
-    feed_agent(agent, 100, discrete_action=False)  # Feed 2 - to make different
+    feed_agent(agent, 100)  # Feed 2 - to make different
 
     # Act
     new_agent = DDPGAgent.from_state(agent_state)

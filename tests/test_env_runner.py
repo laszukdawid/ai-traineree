@@ -6,7 +6,7 @@ import mock
 from ai_traineree.agents.ppo import PPOAgent
 from ai_traineree.env_runner import EnvRunner, MultiSyncEnvRunner
 from ai_traineree.tasks import GymTask
-from ai_traineree.types import TaskType
+from ai_traineree.types import DataSpace, TaskType
 
 # NOTE: Some of these tests use `test_task` and `test_agent` which are real instances.
 #       This is partially to make sure that the tricky part is covered, and not hid
@@ -14,7 +14,7 @@ from ai_traineree.types import TaskType
 #       This results in unnecessary performance hit. A lightweight env would be nice.
 
 test_task = GymTask('LunarLanderContinuous-v2')
-test_agent = PPOAgent(test_task.obs_size, test_task.action_size)
+test_agent = PPOAgent(test_task.obs_space, test_task.action_space)
 
 
 @mock.patch("ai_traineree.env_runner.AgentBase")
@@ -60,7 +60,8 @@ def test_env_runner_log_episode_metrics(mock_data_logger, mock_task, mock_agent)
     mean_scores = [0.5, 1]
     scores = [1.5, 5]
     iterations = [10, 10]
-    episode_data = dict(episodes=episodes, epsilons=epsilons, mean_scores=mean_scores, iterations=iterations, scores=scores)
+    episode_data = dict(
+        episodes=episodes, epsilons=epsilons, mean_scores=mean_scores, iterations=iterations, scores=scores)
     env_runner = EnvRunner(mock_task, mock_agent, data_logger=mock_data_logger)
 
     # Act
@@ -196,13 +197,13 @@ def test_env_runner_load_state(mock_task, mock_agent, mock_os):
 
 
 ###########################################################
-## Multi Sync Env Runner
+# Multi Sync Env Runner
 
 @mock.patch("ai_traineree.env_runner.AgentBase")
 @mock.patch("ai_traineree.env_runner.TaskType")
 def test_multi_sync_env_runner_init_str_check(mock_task, mock_agent):
     # Assign & Act
-    mock_agent.name = "Agent"
+    mock_agent.model = "Agent"
     mock_task.name = "Task"
     multi_sync_env_runner = MultiSyncEnvRunner([mock_task], mock_agent)
 
@@ -244,7 +245,7 @@ def test_multi_sync_env_runner_run_single_step_single_task():
 def test_multi_sync_env_runner_run_single_step_multiple_task():
     # Assign
     tasks: List[TaskType] = [test_task, test_task]
-    agent = PPOAgent(test_task.obs_size, test_task.action_size, num_workers=len(tasks))
+    agent = PPOAgent(test_task.obs_space, test_task.action_space, num_workers=len(tasks))
     multi_sync_env_runner = MultiSyncEnvRunner(tasks, agent)
 
     # Act
@@ -257,7 +258,7 @@ def test_multi_sync_env_runner_run_single_step_multiple_task():
 def test_multi_sync_env_runner_run_multiple_step_multiple_task():
     # Assign
     tasks: List[TaskType] = [test_task, test_task]
-    agent = PPOAgent(test_task.obs_size, test_task.action_size, num_workers=len(tasks))
+    agent = PPOAgent(test_task.obs_space, test_task.action_space, num_workers=len(tasks))
     multi_sync_env_runner = MultiSyncEnvRunner(tasks, agent)
 
     # Act
@@ -311,7 +312,8 @@ def test_multi_sync_env_runner_log_episode_metrics(mock_data_logger, mock_task, 
     mean_scores = [0.5, 1]
     scores = [1.5, 5]
     iterations = [10, 10]
-    episode_data = dict(episodes=episodes, epsilons=epsilons, mean_scores=mean_scores, iterations=iterations, scores=scores)
+    episode_data = dict(
+        episodes=episodes, epsilons=epsilons, mean_scores=mean_scores, iterations=iterations, scores=scores)
     env_runner = MultiSyncEnvRunner(mock_task, mock_agent, data_logger=mock_data_logger)
 
     # Act
