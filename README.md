@@ -117,6 +117,7 @@ Should I focus on something specificallly? Let me know by leaving opening a feat
 
 ## Citing project
 
+```
 @misc{ai-traineree,
   author = {Laszuk, Dawid},
   title = {AI Traineree: Reinforcement learning toolset},
@@ -125,3 +126,4 @@ Should I focus on something specificallly? Let me know by leaving opening a feat
   journal = {GitHub repository},
   howpublished = {\url{https://github.com/laszukdawid/ai-traineree}},
 }
+```

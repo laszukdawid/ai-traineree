@@ -148,7 +148,7 @@ def test_env_runner_save_state(mock_task, mock_agent, mock_json, mock_path):
     env_runner = EnvRunner(mock_task, mock_agent, max_iterations=10)
 
     # Act
-    env_runner.run(max_episodes=10)
+    env_runner.run(max_episodes=10, force_new=True)
     with mock.patch('builtins.open'):
         env_runner.save_state('saved_state.state')
 
@@ -363,7 +363,7 @@ def test_multi_sync_env_runner_log_data_interaction_iterations(mock_data_logger)
     env_runner = MultiSyncEnvRunner([test_task], test_agent, data_logger=mock_data_logger)
 
     # Act
-    env_runner.run(max_episodes=1, max_iterations=10, log_episode_freq=2)
+    env_runner.run(max_episodes=1, max_iterations=10, log_episode_freq=2, force_new=True)
     env_runner.log_data_interaction()
 
     # Assert
@@ -379,7 +379,7 @@ def test_multi_sync_env_runner_log_data_interaction_log_after_episode(mock_data_
     env_runner = MultiSyncEnvRunner([test_task], test_agent, data_logger=mock_data_logger)
 
     # Act
-    env_runner.run(max_episodes=1, max_iterations=10)
+    env_runner.run(max_episodes=1, max_iterations=10, force_new=True)
 
     # Assert
     test_agent.log_metrics.assert_called_once_with(mock_data_logger, 10, full_log=False)
@@ -395,7 +395,7 @@ def test_multi_sync_env_runner_save_state(mock_json, mock_path):
     env_runner = MultiSyncEnvRunner([test_task], test_agent)
 
     # Act
-    env_runner.run(max_episodes=10, max_iterations=10)
+    env_runner.run(max_episodes=10, max_iterations=10, force_new=True)
     with mock.patch('builtins.open'):
         env_runner.save_state('saved_state.state')
 
