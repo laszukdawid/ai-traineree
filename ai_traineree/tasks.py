@@ -1,6 +1,6 @@
 import logging
 from collections import deque
-from functools import reduce
+from functools import cached_property, reduce
 from operator import mul
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
@@ -187,13 +187,30 @@ class PettingZooTask(MultiAgentTaskType):
         self.name = "CUSTOM"
         self.agent_iter = self.env.agent_iter
 
-    @property
-    def obs_space(self):
-        return {unit: DataSpace.from_gym_space(space) for (unit, space) in self.env.observation_spaces.items()}
+    @cached_property
+    def agents(self):
+        return self.env.agents
+    
+    @cached_property
+    def observation_spaces(self) -> Dict[str, DataSpace]:
+        spaces = {}
+        for (unit, space) in self.env.observation_spaces.items():
+            if type(space).__name__ == "Dict":
+                space = space['observation']
+            spaces[unit] = DataSpace.from_gym_space(space)
+        return spaces
 
-    @property
-    def action_space(self):
+    @cached_property
+    def action_spaces(self) -> Dict[str, DataSpace]:
         return {unit: DataSpace.from_gym_space(space) for (unit, space) in self.env.action_spaces.items()}
+   
+    def action_mask_spaces(self) -> Optional[Dict[str, DataSpace]]:
+        spaces = {}
+        for (unit, space) in self.env.observation_spaces.items():
+            if not type(space).__name__ == "Dict":
+                return None
+            spaces[unit] = DataSpace.from_gym_space(space['action_mask'])
+        return spaces
 
     @property
     def obs_size(self):
@@ -208,21 +225,23 @@ class PettingZooTask(MultiAgentTaskType):
         return self.env.num_agents
 
     @property
-    def all_done(self):
+    def is_all_done(self):
         return all(self.env.dones)
 
     @property
     def dones(self):
         return self.env.dones
 
-    def last(self, agent_name: str) -> Tuple[Any, float, bool, Any]:
+    def last(self, agent_name: Optional[str] = None) -> Tuple[Any, float, bool, Any]:
+        if agent_name is None:
+            return self.env.last()
         return (self.env.observe(agent_name), self.env.rewards[agent_name], self.env.dones[agent_name], self.env.infos[agent_name])
 
     def reset(self):
         self.env.reset()
 
     def step(self, action):
-        self.env.step(action)
+        self.env.step(np.array(action))
         return self.env.last()
 
     def render(self, mode: str):
