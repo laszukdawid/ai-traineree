@@ -11,6 +11,10 @@ class AgentBase(AgentType):
         self._rng = random.Random()
         if 'seed' in kwargs:
             self.seed(kwargs.get('seed'))
+    
+    def reset(self) -> None:
+        """Resets data not associated with learning."""
+        pass
 
     def seed(self, seed) -> None:
         """Sets a seed for all random number generators (RNG).
