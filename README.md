@@ -22,7 +22,7 @@ That, and using PyTorch instead of Tensorflow or JAX.
 To get started with training your RL agent you need three things: an agent, an environment and a runner. Let's say you want to train a DQN agent on OpenAI CartPole-v1:
 ```
 from ai_traineree.agents.dqn import DQNAgent
-from ai_traineree.env_runner import EnvRunner
+from ai_traineree.runners.env_runner import EnvRunner
 from ai_traineree.tasks import GymTask
 
 task = GymTask('CartPole-v1)

@@ -1,5 +1,5 @@
 from ai_traineree.agents.sac import SACAgent as Agent
-from ai_traineree.env_runner import EnvRunner
+from ai_traineree.runners.env_runner import EnvRunner
 from ai_traineree.loggers import TensorboardLogger
 from ai_traineree.tasks import GymTask
 from ai_traineree.types import TaskType

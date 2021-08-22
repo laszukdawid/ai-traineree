@@ -5,7 +5,7 @@ import torch
 from ai_traineree import DEVICE
 from ai_traineree.agents.dqn import DQNAgent
 from ai_traineree.loggers import DataLogger
-from ai_traineree.types import ActionType, DoneType, MultiAgentType, ObsType, RewardType
+from ai_traineree.types import ActionType, DoneType, MultiAgentType, ObsType, RewardType, DataSpace
 from ai_traineree.utils import to_numbers_seq
 
 
@@ -13,7 +13,7 @@ class IQLAgents(MultiAgentType):
 
     model = "IQL"
 
-    def __init__(self, obs_size: int, action_size: int, num_agents: int, **kwargs):
+    def __init__(self, obs_space: DataSpace, action_space: DataSpace, num_agents: int, **kwargs):
         """Independent Q-Learning
 
         A set of independent Q-Learning agents (:py:class:`DQN <DQNAgent>` implementation) that are organized
@@ -41,8 +41,8 @@ class IQLAgents(MultiAgentType):
 
         """
 
-        self.obs_size: int = obs_size
-        self.action_size = action_size
+        self.obs_space = obs_space
+        self.action_space = action_space
         self.num_agents = num_agents
         self.agent_names = kwargs.get("agent_names", map(str, range(self.num_agents)))
 
@@ -58,7 +58,7 @@ class IQLAgents(MultiAgentType):
         kwargs['number_updates'] = int(self._register_param(kwargs, 'number_updates', 1))
 
         self.agents: Dict[str, DQNAgent] = {
-            agent_name: DQNAgent(obs_size, action_size, name=agent_name, **kwargs)
+            agent_name: DQNAgent(obs_space, action_space, name=agent_name, **kwargs)
             for agent_name in self.agent_names
         }
 

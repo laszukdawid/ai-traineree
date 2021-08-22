@@ -15,7 +15,7 @@ If you don't have the `Gym` then you can install it either through ``pip install
 .. code-block:: python
 
     from ai_traineree.agents.dqn import DQNAgent
-    from ai_traineree.env_runner import EnvRunner
+    from ai_traineree.runners.env_runner import EnvRunner
     from ai_traineree.tasks import GymTask
 
     task = GymTask('CartPole-v1')
@@ -42,7 +42,7 @@ touch walls. To install the environment execute ``pip install pettingzoo[butterf
 .. code-block:: python
 
     from ai_traineree.multi_agent.iql import IQLAgents
-    from ai_traineree.multiagent_env_runner import MultiAgentCycleEnvRunner
+    from ai_traineree.runners.multiagent_env_runner import MultiAgentCycleEnvRunner
     from ai_traineree.tasks import PettingZooTask
     from pettingzoo.butterfly import prison_v2 as prison
 

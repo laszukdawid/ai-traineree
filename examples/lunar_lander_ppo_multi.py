@@ -8,7 +8,7 @@ import pylab as plt
 import os
 
 from ai_traineree.agents.ppo import PPOAgent as Agent
-from ai_traineree.env_runner import MultiSyncEnvRunner
+from ai_traineree.runners.env_runner import MultiSyncEnvRunner
 # from ai_traineree.loggers import NeptuneLogger
 from ai_traineree.loggers import TensorboardLogger
 from ai_traineree.tasks import GymTask

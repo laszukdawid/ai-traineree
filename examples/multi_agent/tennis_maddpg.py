@@ -9,7 +9,7 @@ Feel free to ping me but hopefully there are better examples before anyone sees 
 """
 import pylab as plt
 
-from ai_traineree.multiagent_env_runner import MultiAgentEnvRunner
+from ai_traineree.runners.multiagent_env_runner import MultiAgentEnvRunner
 from ai_traineree.multi_agent.maddpg import MADDPGAgent
 from ai_traineree.tasks import MultiAgentUnityTask
 from mlagents_envs.environment import UnityEnvironment

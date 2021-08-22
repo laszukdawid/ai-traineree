@@ -3,7 +3,7 @@ from collections import defaultdict
 import pylab as plt
 from ai_traineree.loggers import TensorboardLogger
 from ai_traineree.multi_agent.iql import IQLAgents
-from ai_traineree.multiagent_env_runner import MultiAgentCycleEnvRunner
+from ai_traineree.runners.multiagent_env_runner import MultiAgentCycleEnvRunner
 from ai_traineree.tasks import PettingZooTask
 from pettingzoo.butterfly import prison_v3 as prison
 

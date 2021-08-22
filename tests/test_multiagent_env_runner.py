@@ -3,8 +3,8 @@ import random
 import mock
 from pettingzoo.sisl import multiwalker_v7
 
-from ai_traineree.multi_agent.maddpg import MADDPGAgent
-from ai_traineree.multiagent_env_runner import MultiAgentCycleEnvRunner
+from ai_traineree.multi_agents.maddpg import MADDPGAgent
+from ai_traineree.runners.multiagent_env_runner import MultiAgentCycleEnvRunner
 from ai_traineree.tasks import PettingZooTask
 
 # NOTE: Some of these tests use `test_task` and `test_agent` which are real instances.
@@ -28,8 +28,8 @@ def test_multiagent_cycle_env_runner_str():
     assert str(env_runner) == f"MultiAgentCycleEnvRunner<{test_task.name}, {test_agent.model}>"
 
 
-@mock.patch("ai_traineree.multiagent_env_runner.MultiAgentType")
-@mock.patch("ai_traineree.multiagent_env_runner.MultiAgentTaskType")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.MultiAgentType")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.MultiAgentTaskType")
 def test_multiagent_cycle_env_runner_seed(mock_task, mock_agent):
     # Assign
     env_runner = MultiAgentCycleEnvRunner(mock_task, mock_agent)
@@ -43,8 +43,8 @@ def test_multiagent_cycle_env_runner_seed(mock_task, mock_agent):
     mock_task.seed.assert_called_once_with(seed)
 
 
-@mock.patch("ai_traineree.multiagent_env_runner.MultiAgentType")
-@mock.patch("ai_traineree.multiagent_env_runner.MultiAgentTaskType")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.MultiAgentType")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.MultiAgentTaskType")
 def test_multiagent_cycle_env_runner_reset(mock_task, mock_agent):
     # Assign
     multi_sync_env_runner = MultiAgentCycleEnvRunner(mock_task, mock_agent, window_len=10)
@@ -137,7 +137,7 @@ def test_multiagent_cycle_env_runner_interact_episode_log_interaction_without_da
     assert test_agent.log_metrics.call_count == 0
 
 
-@mock.patch("ai_traineree.multiagent_env_runner.DataLogger")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.DataLogger")
 def test_multiagent_cycle_env_runner_interact_episode_log_interaction(mock_data_logger):
     # Assign
     test_agent.log_metrics = mock.MagicMock()
@@ -168,9 +168,9 @@ def test_multiagent_cycle_env_runner_run():
     assert len(out[0]) == test_agent.num_agents
 
 
-@mock.patch("ai_traineree.multiagent_env_runner.MultiAgentType")
-@mock.patch("ai_traineree.multiagent_env_runner.MultiAgentTaskType")
-@mock.patch("ai_traineree.multiagent_env_runner.DataLogger")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.MultiAgentType")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.MultiAgentTaskType")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.DataLogger")
 def test_multiagent_cycle_env_runner_log_episode_metrics(mock_data_logger, mock_task, mock_agent):
     # Assign
     episodes = [1, 2]
@@ -192,9 +192,9 @@ def test_multiagent_cycle_env_runner_log_episode_metrics(mock_data_logger, mock_
         mock_data_logger.log_values_dict.assert_any_call("episode/score", scores[idx], episode)
 
 
-@mock.patch("ai_traineree.multiagent_env_runner.MultiAgentType")
-@mock.patch("ai_traineree.multiagent_env_runner.MultiAgentTaskType")
-@mock.patch("ai_traineree.multiagent_env_runner.DataLogger")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.MultiAgentType")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.MultiAgentTaskType")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.DataLogger")
 def test_multiagent_cycle_env_runner_log_data_interaction(mock_data_logger, mock_task, mock_agent):
     # Assign
     env_runner = MultiAgentCycleEnvRunner(mock_task, mock_agent, data_logger=mock_data_logger)
@@ -206,8 +206,8 @@ def test_multiagent_cycle_env_runner_log_data_interaction(mock_data_logger, mock
     mock_agent.log_metrics.assert_called_once_with(mock_data_logger, 0, full_log=False)
 
 
-@mock.patch("ai_traineree.multiagent_env_runner.MultiAgentType")
-@mock.patch("ai_traineree.multiagent_env_runner.MultiAgentTaskType")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.MultiAgentType")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.MultiAgentTaskType")
 def test_multiagent_cycle_env_runner_log_data_interaction_no_data_logger(mock_task, mock_agent):
     # Assign
     env_runner = MultiAgentCycleEnvRunner(mock_task, mock_agent)
@@ -219,7 +219,7 @@ def test_multiagent_cycle_env_runner_log_data_interaction_no_data_logger(mock_ta
     mock_agent.log_metrics.assert_not_called()
 
 
-@mock.patch("ai_traineree.multiagent_env_runner.DataLogger")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.DataLogger")
 def test_multiagent_cycle_env_runner_log_data_interaction_debug_log(mock_data_logger):
     # Assign
     test_agent.log_metrics = mock.MagicMock()
@@ -235,10 +235,10 @@ def test_multiagent_cycle_env_runner_log_data_interaction_debug_log(mock_data_lo
     assert mock_data_logger.log_value.call_count == 0  # 10x iter per rewards and dones
 
 
-@mock.patch("ai_traineree.multiagent_env_runner.Path")
-@mock.patch("ai_traineree.multiagent_env_runner.json")
-@mock.patch("ai_traineree.multiagent_env_runner.MultiAgentType")
-@mock.patch("ai_traineree.multiagent_env_runner.MultiAgentTaskType")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.Path")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.json")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.MultiAgentType")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.MultiAgentTaskType")
 def test_multiagent_cycle_env_runner_save_state(mock_task, mock_agent, mock_json, mock_path):
     # Assign
     mock_task.step.return_value = ([1, 0.1], -1, False, {})
@@ -257,8 +257,8 @@ def test_multiagent_cycle_env_runner_save_state(mock_task, mock_agent, mock_json
     assert state['tot_iterations'] == 10 * 10
 
 
-@mock.patch("ai_traineree.multiagent_env_runner.MultiAgentType")
-@mock.patch("ai_traineree.multiagent_env_runner.MultiAgentTaskType")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.MultiAgentType")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.MultiAgentTaskType")
 def test_multiagent_cycle_env_runner_load_state_no_file(mock_task, mock_agent):
     # Assign
     env_runner = MultiAgentCycleEnvRunner(mock_task, mock_agent, max_iterations=10)
@@ -272,9 +272,9 @@ def test_multiagent_cycle_env_runner_load_state_no_file(mock_task, mock_agent):
     mock_agent.load_state.assert_not_called()
 
 
-@mock.patch("ai_traineree.multiagent_env_runner.os")
-@mock.patch("ai_traineree.multiagent_env_runner.MultiAgentType")
-@mock.patch("ai_traineree.multiagent_env_runner.MultiAgentTaskType")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.os")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.MultiAgentType")
+@mock.patch("ai_traineree.runners.multiagent_env_runner.MultiAgentTaskType")
 def test_multiagent_cycle_env_runner_load_state(mock_task, mock_agent, mock_os):
     # Assign
     env_runner = MultiAgentCycleEnvRunner(mock_task, mock_agent, max_iterations=10)

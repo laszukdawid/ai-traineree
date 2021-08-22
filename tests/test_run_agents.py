@@ -13,7 +13,7 @@ from ai_traineree.agents.td3 import TD3Agent
 from ai_traineree.agents.ppo import PPOAgent
 from ai_traineree.agents.sac import SACAgent
 from ai_traineree.agents.rainbow import RainbowAgent
-from ai_traineree.env_runner import EnvRunner
+from ai_traineree.runners.env_runner import EnvRunner
 from ai_traineree.tasks import GymTask
 
 
