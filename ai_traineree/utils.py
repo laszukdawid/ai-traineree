@@ -4,17 +4,17 @@ from typing import Any, List, Tuple, Union
 
 import jsons
 import torch
-from numpy import ndarray
+import numpy as np
 
 # Update serializaiton rules for `jsons` module used by `serialize` function (below).
 jsons.set_serializer(lambda x, **kwargs: x.tolist(), torch.Tensor)  # type: ignore
-jsons.set_serializer(lambda x, **kwargs: x.tolist(), ndarray)  # type: ignore
+jsons.set_serializer(lambda x, **kwargs: x.tolist(), np.ndarray)  # type: ignore
 
 
 def to_tensor(x) -> torch.Tensor:
     if isinstance(x, torch.Tensor):
         return x
-    elif isinstance(x, ndarray):
+    elif isinstance(x, np.ndarray):
         return torch.from_numpy(x)
     elif isinstance(x, list) and isinstance(x[0], torch.Tensor):
         return torch.stack(x)
@@ -22,7 +22,7 @@ def to_tensor(x) -> torch.Tensor:
         return torch.tensor(x)
 
 
-def save_gif(path, images: List[ndarray]) -> None:
+def save_gif(path, images: List[np.ndarray]) -> None:
     print(f"Saving as a gif to {path}")
     from PIL import Image
     imgs = [Image.fromarray(img[::2, ::2]) for img in images]  # Reduce /4 size; pick w/2 h/2 pix
@@ -108,3 +108,15 @@ def to_numbers_seq(x: Any) -> Union[Tuple, List]:
 def serialize(obj) -> str:
     """Serializes object to JSON format."""
     return jsons.dumps(obj)
+
+
+def condens_ndarray(a: np.ndarray) -> Union[int, float, np.ndarray]:
+    """Condense ndarray to a common value.
+
+    Returns:
+        Common value (if a single) or the whole array.
+    """
+    flatten = np.ravel(a)
+    if np.all(flatten == flatten[0]):
+        return flatten[0].item()
+    return a

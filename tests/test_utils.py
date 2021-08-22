@@ -6,7 +6,7 @@ import pytest
 import torch
 
 from ai_traineree.types.dataspace import DataSpace
-from ai_traineree.utils import (serialize, str_to_list, str_to_number, str_to_seq, str_to_tuple, to_numbers_seq,
+from ai_traineree.utils import (condens_ndarray, serialize, str_to_list, str_to_number, str_to_seq, str_to_tuple, to_numbers_seq,
                                 to_tensor)
 from conftest import deterministic_interactions
 
@@ -294,6 +294,26 @@ def test_to_numbers_seq_unknown():
     for test_case in test_cases:
         with pytest.raises(ValueError):
             to_numbers_seq(test_case)
+
+
+def test_condens_ndarray_possible():
+    l_shape = []
+    for shape_idx in range(5, 1):
+        l_shape.append(shape_idx)
+        shape = tuple(l_shape)
+        a = np.zeros(shape)
+        assert 0 == condens_ndarray(a)
+
+        a = np.ones(shape) * 1.5
+        assert 0.5 == condens_ndarray(a)
+
+
+def test_condens_ndarray_not_possible():
+    a = np.arange(10)
+    assert np.all(a.copy() == condens_ndarray(a.copy()))
+
+    a = np.random.random((3, 4, 2))
+    assert np.all(a.copy() == condens_ndarray(a.copy()))
 
 
 if __name__ == "__main__":

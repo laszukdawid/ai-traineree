@@ -7,7 +7,7 @@ import gym
 from torch import Tensor
 
 from ai_traineree.types.primitive import FeatureType, Numeric
-from ai_traineree.utils import to_numbers_seq
+from ai_traineree.utils import condens_ndarray, to_numbers_seq
 
 
 @dataclass
@@ -38,11 +38,17 @@ class DataSpace:
                 high=space.n - 1,  # Inclusive bounds, so n=2 -> [0,1]
             )
         else:
+            low = condens_ndarray(space.low)
+            if not isinstance(low, (int, float)):
+                low = low.tolist()
+            high = condens_ndarray(space.high)
+            if not isinstance(high, (int, float)):
+                high = high.tolist()
             return DataSpace(
                 shape=space.shape,
                 dtype=str(space.dtype),
-                low=space.low.tolist(),
-                high=space.high.tolist(),
+                low=low,
+                high=high,
             )
 
     def to_feature(self) -> FeatureType:
