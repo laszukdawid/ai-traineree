@@ -1,7 +1,7 @@
 import numpy
 import torch
 
-__version__ = "0.3.2"
+__version__ = "0.3.3"
 
 
 # This is expected to be safe, although in PyTorch 1.7 it comes as a warning,
