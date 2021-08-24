@@ -11,6 +11,7 @@ from ai_traineree.types import ActionType, DataSpace, MultiAgentTaskType, StateT
 
 try:
     import gym
+    BaseEnv = gym.Env  # To satisfy parser on MultiAgentUnityTask import
 except ImportError:
     logging.warning("Coulnd't import `gym`. Please install `pip install -e .[gym]` if you intend to use it.")
 
@@ -19,7 +20,7 @@ try:
     from gym_unity.envs import ActionFlattener
     from mlagents_envs.base_env import BaseEnv, DecisionSteps, TerminalSteps
 except (ImportError, ModuleNotFoundError):
-    BaseEnv = gym.Env
+    logging.warning("Couldn't import `gym_unity` and/or `mlagents`. MultiAgentUnityTask won't work.")
 
 
 GymStepResult = Tuple[np.ndarray, float, bool, Dict]
@@ -235,7 +236,12 @@ class PettingZooTask(MultiAgentTaskType):
     def last(self, agent_name: Optional[str] = None) -> Tuple[Any, float, bool, Any]:
         if agent_name is None:
             return self.env.last()
-        return (self.env.observe(agent_name), self.env.rewards[agent_name], self.env.dones[agent_name], self.env.infos[agent_name])
+        return (
+            self.env.observe(agent_name),
+            self.env.rewards[agent_name],
+            self.env.dones[agent_name],
+            self.env.infos[agent_name],
+        )
 
     def reset(self):
         self.env.reset()

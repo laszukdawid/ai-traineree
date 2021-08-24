@@ -29,4 +29,3 @@ for actor_name in task.agent_iter(max_iter=10000):
         break
 
     task.step(action)
-    

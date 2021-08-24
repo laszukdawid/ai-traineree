@@ -3,7 +3,7 @@ import numpy as np
 import sneks  # noqa
 
 from ai_traineree.agents.rainbow import RainbowAgent
-from ai_traineree.env_runner import EnvRunner
+from ai_traineree.runners.env_runner import EnvRunner
 from ai_traineree.loggers import TensorboardLogger
 from ai_traineree.tasks import GymTask
 
