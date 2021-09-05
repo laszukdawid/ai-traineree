@@ -1,7 +1,8 @@
 # ai-traineree
+[![Build Status](https://app.travis-ci.com/laszukdawid/ai-traineree.svg?branch=master)](https://app.travis-ci.com/laszukdawid/ai-traineree)
 [![DocStatus](https://readthedocs.org/projects/ai-traineree/badge/?version=latest)](https://ai-traineree.readthedocs.io/)
-[![Build Status](https://travis-ci.com/laszukdawid/ai-traineree.svg?branch=master)](https://travis-ci.com/laszukdawid/ai-traineree)
 [![codecov](https://codecov.io/gh/laszukdawid/ai-traineree/branch/master/graph/badge.svg?token=S62DK7HPYA)](https://codecov.io/gh/laszukdawid/ai-traineree)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/00563b8422454e10bb4ffab64068aa62)](https://www.codacy.com/gh/laszukdawid/ai-traineree/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=laszukdawid/ai-traineree&amp;utm_campaign=Badge_Grade)
 
 The intention is to have a zoo of Deep Reinforcment Learning methods and showcasing their application on some environments.
 
@@ -20,27 +21,32 @@ That, and using PyTorch instead of Tensorflow or JAX.
 ## Quick start
 
 To get started with training your RL agent you need three things: an agent, an environment and a runner. Let's say you want to train a DQN agent on OpenAI CartPole-v1:
-```
+```python
 from ai_traineree.agents.dqn import DQNAgent
 from ai_traineree.runners.env_runner import EnvRunner
 from ai_traineree.tasks import GymTask
 
-task = GymTask('CartPole-v1)
-agent = DQNAgent(task.obs_size, task.action_size)
+task = GymTask('CartPole-v1')
+agent = DQNAgent(task.obs_space, task.action_space)
 env_runner = EnvRunner(task, agent)
 
 scores = env_runner.run()
 ```
+
 or execute one of provided examples
-```
->  python -m examples.cart_dqn
-```
+> \$ python -m examples.cart_dqn
 
 That's it.
 
 ## Installation
 
-There isn't currently any installation mechanism. Git clone is expected if you want to play yourself. Coming updates include pip package and installation instructions.
+### PyPi (recommended)
+
+The quickest way to install package is through `pip`.
+
+> \$ pip install ai-traineree
+
+### Git repository clone
 
 As usual with Python, the expectation is to have own virtual environment and then pip install requirements. For example,
 ```bash
@@ -117,7 +123,7 @@ Should I focus on something specificallly? Let me know by leaving opening a feat
 
 ## Citing project
 
-```
+```latex
 @misc{ai-traineree,
   author = {Laszuk, Dawid},
   title = {AI Traineree: Reinforcement learning toolset},
