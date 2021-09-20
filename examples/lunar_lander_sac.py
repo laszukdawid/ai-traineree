@@ -1,10 +1,11 @@
 import datetime
+
 import pylab as plt
 import torch
 
-from ai_traineree.agents.sac import SACAgent as Agent
-from ai_traineree.runners.env_runner import EnvRunner
+from ai_traineree.agents.sac import SACAgent
 from ai_traineree.loggers import TensorboardLogger
+from ai_traineree.runners.env_runner import EnvRunner
 from ai_traineree.tasks import GymTask
 from ai_traineree.types import TaskType
 
@@ -35,9 +36,9 @@ config = {
 
     'seed': seed,
 }
-agent = Agent(task.obs_size, task.action_size, **config)
+agent = SACAgent(task.obs_space, task.action_space, **config)
 
-log_dir = f"runs/{env_name}_{agent.name}-{datetime.datetime.now().isoformat()[:-7]}"
+log_dir = f"runs/{env_name}_{agent.model}-{datetime.datetime.now().isoformat()[:-7]}"
 data_logger = TensorboardLogger(log_dir=log_dir)
 env_runner = EnvRunner(task, agent, data_logger=data_logger, seed=seed)
 scores = env_runner.run(reward_goal=30, max_episodes=500, eps_end=0.01, eps_decay=0.95, force_new=True)

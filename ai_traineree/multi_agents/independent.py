@@ -61,7 +61,7 @@ class IndependentAgents(MultiAgentType):
         return self.agents[agent_name].step(obs, action, reward, next_obs, done)
 
     @torch.no_grad()
-    def act(self, agent_name: str, obs: ObsType, noise: float=0.0) -> int:
+    def act(self, agent_name: str, obs: ObsType, noise: float=0.0) -> ActionType:
         return self.agents[agent_name].act(obs, noise)
 
     def commit(self) -> None:

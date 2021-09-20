@@ -1,3 +1,4 @@
+import copy
 import itertools
 from typing import Dict, List, Tuple, Union
 
@@ -10,12 +11,14 @@ from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import hard_update, soft_update
 from ai_traineree.buffers import PERBuffer
+from ai_traineree.buffers.buffer_factory import BufferFactory
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import DoubleCritic
 from ai_traineree.policies import GaussianPolicy, MultivariateGaussianPolicySimple
 from ai_traineree.types.dataspace import DataSpace
 from ai_traineree.types.primitive import ActionType, DoneType, ObsType, RewardType
+from ai_traineree.types.state import AgentState, BufferState, NetworkState
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 
@@ -69,7 +72,7 @@ class SACAgent(AgentBase):
         self.tau: float = float(self._register_param(kwargs, 'tau', 0.02))
         self.batch_size: int = int(self._register_param(kwargs, 'batch_size', 64))
         self.buffer_size: int = int(self._register_param(kwargs, 'buffer_size', int(1e6)))
-        self.memory = PERBuffer(self.batch_size, self.buffer_size)
+        self.buffer = PERBuffer(self.batch_size, self.buffer_size)
 
         self.action_min = self._register_param(kwargs, 'action_min', -1)
         self.action_max = self._register_param(kwargs, 'action_max', 1)
@@ -149,6 +152,13 @@ class SACAgent(AgentBase):
             self._loss_actor = value
             self._loss_critic = value
 
+    def __eq__(self, o: object) -> bool:
+        return super().__eq__(o) \
+            and isinstance(o, type(self)) \
+            and self._config == o._config \
+            and self.buffer == o.buffer \
+            and self.get_network_state() == o.get_network_state()  # TODO @dawid: Currently net isn't compared properly
+
     def reset_agent(self) -> None:
         self.actor.reset_parameters()
         self.policy.reset_parameters()
@@ -193,16 +203,16 @@ class SACAgent(AgentBase):
 
     def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType):
         self.iteration += 1
-        self.memory.add(
+        self.buffer.add(
             state=obs, action=action, reward=reward, next_state=next_obs, done=done,
         )
 
         if self.iteration < self.warm_up:
             return
 
-        if len(self.memory) > self.batch_size and (self.iteration % self.update_freq) == 0:
+        if len(self.buffer) > self.batch_size and (self.iteration % self.update_freq) == 0:
             for _ in range(self.number_updates):
-                self.learn(self.memory.sample())
+                self.learn(self.buffer.sample())
 
     def compute_value_loss(self, states, actions, rewards, next_states, dones) -> Tuple[Tensor, Tensor]:
         Q1_expected, Q2_expected = self.double_critic(states, actions)
@@ -294,9 +304,9 @@ class SACAgent(AgentBase):
             self.actor_optimizer.step()
             self._loss_actor = float(policy_loss.item())
 
-        if hasattr(self.memory, 'priority_update'):
+        if hasattr(self.buffer, 'priority_update'):
             assert any(~torch.isnan(error))
-            self.memory.priority_update(samples['index'], error.abs())
+            self.buffer.priority_update(samples['index'], error.abs())
 
         soft_update(self.target_double_critic, self.double_critic, self.tau)
 
@@ -335,14 +345,43 @@ class SACAgent(AgentBase):
                 if hasattr(layer, "bias") and layer.bias is not None:
                     data_logger.create_histogram(f"critic_2/layer_bias_{idx}", layer.bias, step)
 
-    def get_state(self):
-        return dict(
-            actor=self.actor.state_dict(),
-            policy=self.policy.state_dict(),
-            double_critic=self.double_critic.state_dict(),
-            target_double_critic=self.target_double_critic.state_dict(),
+    def get_state(self) -> AgentState:
+        return AgentState(
+            model=self.model,
+            obs_space=self.obs_space,
+            action_space=self.action_space,
+            buffer=copy.deepcopy(self.buffer.get_state()),
+            network=copy.deepcopy(self.get_network_state()),
             config=self._config,
         )
+
+    def get_network_state(self) -> NetworkState:
+        return NetworkState(net=dict(
+            policy=self.policy.state_dict(),
+            actor=self.actor.state_dict(),
+            double_critic=self.double_critic.state_dict(),
+            target_double_critic=self.target_double_critic.state_dict(),
+        ))
+
+    def set_buffer(self, buffer_state: BufferState) -> None:
+        self.buffer = BufferFactory.from_state(buffer_state)
+
+    def set_network(self, network_state: NetworkState) -> None:
+        self.policy.load_state_dict(network_state.net['policy'])
+        self.actor.load_state_dict(network_state.net['actor'])
+        self.double_critic.load_state_dict(network_state.net['double_critic'])
+        self.target_double_critic.load_state_dict(network_state.net['target_double_critic'])
+
+    @staticmethod
+    def from_state(state: AgentState) -> AgentBase:
+        config = copy.copy(state.config)
+        config.update({'obs_space': state.obs_space, 'action_space': state.action_space})
+        agent = SACAgent(**config)
+        if state.network is not None:
+            agent.set_network(state.network)
+        if state.buffer is not None:
+            agent.set_buffer(state.buffer)
+        return agent
 
     def save_state(self, path: str):
         agent_state = self.get_state()

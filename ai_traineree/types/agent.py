@@ -31,7 +31,7 @@ class AgentType(abc.ABC):
         return value
 
     @abc.abstractmethod
-    def act(self, obs: ObsType, noise: Any):
+    def act(self, obs: ObsType, noise: Any) -> ActionType:
         pass
 
     @abc.abstractmethod
