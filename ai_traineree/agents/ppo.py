@@ -374,7 +374,7 @@ class PPOAgent(AgentBase):
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
         config = copy.copy(state.config)
-        config.update({'obs_shape': state.obs_space, 'action_space': state.action_space})
+        config.update({'obs_space': state.obs_space, 'action_space': state.action_space})
         agent = PPOAgent(**config)
         if state.network is not None:
             agent.set_network(state.network)
