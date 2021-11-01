@@ -14,8 +14,16 @@ from ai_traineree.buffers.buffer_factory import BufferFactory
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks import NetworkType, NetworkTypeClass
 from ai_traineree.networks.heads import DuelingNet
-from ai_traineree.types import (ActionType, AgentState, BufferState, DataSpace, DoneType, NetworkState, ObsType,
-                                RewardType)
+from ai_traineree.types import (
+    ActionType,
+    AgentState,
+    BufferState,
+    DataSpace,
+    DoneType,
+    NetworkState,
+    ObsType,
+    RewardType,
+)
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 
@@ -37,10 +45,10 @@ class DQNAgent(AgentBase):
         self,
         obs_space: DataSpace,
         action_space: DataSpace,
-        network_fn: Callable[[], NetworkType]=None,
-        network_class: Type[NetworkTypeClass]=None,
-        state_transform: Optional[Callable]=None,
-        reward_transform: Optional[Callable]=None,
+        network_fn: Callable[[], NetworkType] = None,
+        network_class: Type[NetworkTypeClass] = None,
+        state_transform: Optional[Callable] = None,
+        reward_transform: Optional[Callable] = None,
         **kwargs
     ):
         """Initiates the DQN agent.
@@ -74,25 +82,25 @@ class DQNAgent(AgentBase):
         self.obs_space = obs_space
         self.action_space = action_space
 
-        self.lr = float(self._register_param(kwargs, 'lr', 3e-4))  # Learning rate
-        self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))  # Discount value
-        self.tau = float(self._register_param(kwargs, 'tau', 0.002))  # Soft update
+        self.lr = float(self._register_param(kwargs, "lr", 3e-4))  # Learning rate
+        self.gamma = float(self._register_param(kwargs, "gamma", 0.99))  # Discount value
+        self.tau = float(self._register_param(kwargs, "tau", 0.002))  # Soft update
 
-        self.update_freq = int(self._register_param(kwargs, 'update_freq', 1))
-        self.batch_size = int(self._register_param(kwargs, 'batch_size', 64, update=True))
-        self.buffer_size = int(self._register_param(kwargs, 'buffer_size', int(1e5), update=True))
-        self.warm_up = int(self._register_param(kwargs, 'warm_up', 0))
-        self.number_updates = int(self._register_param(kwargs, 'number_updates', 1))
-        self.max_grad_norm = float(self._register_param(kwargs, 'max_grad_norm', 10))
+        self.update_freq = int(self._register_param(kwargs, "update_freq", 1))
+        self.batch_size = int(self._register_param(kwargs, "batch_size", 64, update=True))
+        self.buffer_size = int(self._register_param(kwargs, "buffer_size", int(1e5), update=True))
+        self.warm_up = int(self._register_param(kwargs, "warm_up", 0))
+        self.number_updates = int(self._register_param(kwargs, "number_updates", 1))
+        self.max_grad_norm = float(self._register_param(kwargs, "max_grad_norm", 10))
 
         self.iteration: int = 0
         self.buffer = PERBuffer(**kwargs)
         self.using_double_q = bool(self._register_param(kwargs, "using_double_q", True))
 
-        self.n_steps = int(self._register_param(kwargs, 'n_steps', 1))
+        self.n_steps = int(self._register_param(kwargs, "n_steps", 1))
         self.n_buffer = NStepBuffer(n_steps=self.n_steps, gamma=self.gamma)
 
-        hidden_layers = to_numbers_seq(self._register_param(kwargs, 'hidden_layers', (64, 64)))
+        hidden_layers = to_numbers_seq(self._register_param(kwargs, "hidden_layers", (64, 64)))
         self.state_transform = state_transform if state_transform is not None else lambda x: x
         self.reward_transform = reward_transform if reward_transform is not None else lambda x: x
         action_feat = action_space.to_feature()
@@ -102,30 +110,34 @@ class DQNAgent(AgentBase):
             self.target_net = network_fn()
         elif network_class is not None:
             self.net = network_class(obs_space.shape, action_feat, hidden_layers=hidden_layers, device=self.device)
-            self.target_net = network_class(obs_space.shape, action_feat, hidden_layers=hidden_layers, device=self.device)
+            self.target_net = network_class(
+                obs_space.shape, action_feat, hidden_layers=hidden_layers, device=self.device
+            )
         else:
             self.net = DuelingNet(obs_space.shape, action_feat, hidden_layers=hidden_layers, device=self.device)
             self.target_net = DuelingNet(obs_space.shape, action_feat, hidden_layers=hidden_layers, device=self.device)
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
-        self._loss: float = float('nan')
+        self._loss: float = float("nan")
 
     @property
     def loss(self) -> Dict[str, float]:
-        return {'loss': self._loss}
+        return {"loss": self._loss}
 
     @loss.setter
     def loss(self, value):
         if isinstance(value, dict):
-            value = value['loss']
+            value = value["loss"]
         self._loss = value
 
     def __eq__(self, o: object) -> bool:
-        return super().__eq__(o) \
-            and isinstance(o, type(self)) \
-            and self._config == o._config \
-            and self.buffer == o.buffer \
-            and self.n_buffer == o.n_buffer \
+        return (
+            super().__eq__(o)
+            and isinstance(o, type(self))
+            and self._config == o._config
+            and self.buffer == o.buffer
+            and self.n_buffer == o.n_buffer
             and self.get_network_state() == o.get_network_state()
+        )
 
     def reset(self):
         self.net.reset_parameters()
@@ -171,7 +183,7 @@ class DQNAgent(AgentBase):
             # Update networks only once - sync local & target
             soft_update(self.target_net, self.net, self.tau)
 
-    def act(self, obs: ObsType, eps: float = 0.) -> int:
+    def act(self, obs: ObsType, eps: float = 0.0) -> int:
         """Returns actions for given state as per current policy.
 
         Parameters:
@@ -198,11 +210,11 @@ class DQNAgent(AgentBase):
             experiences: Samples experiences from the experience buffer.
 
         """
-        rewards = to_tensor(experiences['reward']).type(torch.float32).to(self.device)
-        dones = to_tensor(experiences['done']).type(torch.int).to(self.device)
-        obss = to_tensor(experiences['state']).type(torch.float32).to(self.device)
-        next_obss = to_tensor(experiences['next_state']).type(torch.float32).to(self.device)
-        actions = to_tensor(experiences['action']).type(torch.long).to(self.device)
+        rewards = to_tensor(experiences["reward"]).type(torch.float32).to(self.device)
+        dones = to_tensor(experiences["done"]).type(torch.int).to(self.device)
+        obss = to_tensor(experiences["state"]).type(torch.float32).to(self.device)
+        next_obss = to_tensor(experiences["next_state"]).type(torch.float32).to(self.device)
+        actions = to_tensor(experiences["action"]).type(torch.long).to(self.device)
 
         with torch.no_grad():
             Q_targets_next = self.target_net.act(next_obss).detach()
@@ -221,10 +233,10 @@ class DQNAgent(AgentBase):
         self.optimizer.step()
         self._loss = float(loss.item())
 
-        if hasattr(self.buffer, 'priority_update'):
+        if hasattr(self.buffer, "priority_update"):
             error = Q_expected - Q_targets
             assert any(~torch.isnan(error))
-            self.buffer.priority_update(experiences['index'], error.abs())
+            self.buffer.priority_update(experiences["index"], error.abs())
 
     def state_dict(self) -> Dict[str, dict]:
         """Describes agent's networks.
@@ -238,7 +250,7 @@ class DQNAgent(AgentBase):
             "target_net": self.target_net.state_dict(),
         }
 
-    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
+    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool = False):
         """Uses provided DataLogger to provide agent's metrics.
 
         Parameters:
@@ -265,7 +277,7 @@ class DQNAgent(AgentBase):
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
         config = copy.copy(state.config)
-        config.update({'obs_space': state.obs_space, 'action_space': state.action_space})
+        config.update({"obs_space": state.obs_space, "action_space": state.action_space})
         agent = DQNAgent(**config)
         if state.network is not None:
             agent.set_network(state.network)
@@ -277,8 +289,8 @@ class DQNAgent(AgentBase):
         self.buffer = BufferFactory.from_state(buffer_state)
 
     def set_network(self, network_state: NetworkState) -> None:
-        self.net.load_state_dict(network_state.net['net'])
-        self.target_net.load_state_dict(network_state.net['target_net'])
+        self.net.load_state_dict(network_state.net["net"])
+        self.target_net.load_state_dict(network_state.net["target_net"])
 
     def save_state(self, path: str):
         """Saves agent's state into a file.
@@ -290,7 +302,7 @@ class DQNAgent(AgentBase):
         agent_state = self.get_state()
         torch.save(agent_state, path)
 
-    def load_state(self, *, path: Optional[str]=None, state: Optional[AgentState]=None) -> None:
+    def load_state(self, *, path: Optional[str] = None, state: Optional[AgentState] = None) -> None:
         """Loads state from a file under provided path.
 
         Parameters:
@@ -309,8 +321,8 @@ class DQNAgent(AgentBase):
 
         # Populate network
         network_state = state.network
-        self.net.load_state_dict(network_state.net['net'])
-        self.target_net.load_state_dict(network_state.net['target_net'])
+        self.net.load_state_dict(network_state.net["net"])
+        self.target_net.load_state_dict(network_state.net["target_net"])
         self.buffer = PERBuffer(**self._config)
 
     def save_buffer(self, path: str) -> None:
@@ -321,8 +333,9 @@ class DQNAgent(AgentBase):
 
         """
         import json
+
         dump = self.buffer.dump_buffer(serialize=True)
-        with open(path, 'w') as f:
+        with open(path, "w") as f:
             json.dump(dump, f)
 
     def load_buffer(self, path: str) -> None:
@@ -333,6 +346,7 @@ class DQNAgent(AgentBase):
 
         """
         import json
-        with open(path, 'r') as f:
+
+        with open(path, "r") as f:
             buffer_dump = json.load(f)
         self.buffer.load_buffer(buffer_dump)

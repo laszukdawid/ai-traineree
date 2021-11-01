@@ -10,7 +10,10 @@ from ai_traineree.buffers import ReplayBuffer
 def buffer_callback(buffer):
     def callback(obs_t, obs_next, action, rew, done, *args, **kwargs):
         buffer.add(**dict(state=obs_t, action=[action], reward=[rew], done=[done]), next_state=obs_next)
-        return [rew,]
+        return [
+            rew,
+        ]
+
     return callback
 
 
@@ -26,7 +29,7 @@ play(env, fps=20, callback=plotter.callback)
 t = []
 exp_dump = buffer.dump_buffer(serialize=True)
 t.append(time.time())
-with gzip.open('buffer.gzip', 'wt') as f:
+with gzip.open("buffer.gzip", "wt") as f:
     for exp in exp_dump:
         f.write(json.dumps(exp))
         f.write("\n")

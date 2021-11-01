@@ -26,15 +26,17 @@ def state_transform(img):
 
 def network_fn(state_dim, output_dim, device):
     conv_net = ConvNet(state_dim, hidden_layers=(10, 10), device=device)
-    return NetChainer(net_classes=[
-        ScaleNet(scale=1./255),
-        conv_net,
-        FlattenNet(),
-        FcNet(conv_net.output_size, output_dim, hidden_layers=(100, 100, 50), device=device),
-    ])
+    return NetChainer(
+        net_classes=[
+            ScaleNet(scale=1.0 / 255),
+            conv_net,
+            FlattenNet(),
+            FcNet(conv_net.output_size, output_dim, hidden_layers=(100, 100, 50), device=device),
+        ]
+    )
 
 
-env_name = 'SpaceInvaders-v0'
+env_name = "SpaceInvaders-v0"
 data_logger = TensorboardLogger()
 task = GymTask(env_name, state_transform=state_transform)
 config = {
@@ -56,8 +58,11 @@ env_runner = EnvRunner(task, agent, data_logger=data_logger)
 
 # env_runner.interact_episode(0, render=True)
 scores = env_runner.run(
-    reward_goal=1000, max_episodes=20000,
-    log_every=1, eps_start=0.9, gif_every_episodes=200,
+    reward_goal=1000,
+    max_episodes=20000,
+    log_every=1,
+    eps_start=0.9,
+    gif_every_episodes=200,
     force_new=True,
 )
 # env_runner.interact_episode(render=True)
@@ -67,7 +72,7 @@ data_logger.close()
 fig = plt.figure()
 ax = fig.add_subplot(111)
 plt.plot(scores)
-plt.ylabel('Score')
-plt.xlabel('Episode #')
-plt.savefig(f'{env_name}.png', dpi=120)
+plt.ylabel("Score")
+plt.xlabel("Episode #")
+plt.savefig(f"{env_name}.png", dpi=120)
 plt.show()

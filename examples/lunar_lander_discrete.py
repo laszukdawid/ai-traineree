@@ -7,9 +7,9 @@ from ai_traineree.tasks import GymTask
 from ai_traineree.types import TaskType
 
 
-env_name = 'LunarLander-v2'
+env_name = "LunarLander-v2"
 task: TaskType = GymTask(env_name)
-config = {'batch_size': 64}
+config = {"batch_size": 64}
 agent = DQNAgent(task.obs_size, task.action_size, config=config)
 env_runner = EnvRunner(task, agent)
 
@@ -21,7 +21,7 @@ env_runner.interact_episode(0, render=True)
 fig = plt.figure()
 ax = fig.add_subplot(111)
 plt.plot(np.arange(len(scores)), scores)
-plt.ylabel('Score')
-plt.xlabel('Episode #')
-plt.savefig(f'{env_name}.png', dpi=120)
+plt.ylabel("Score")
+plt.xlabel("Episode #")
+plt.savefig(f"{env_name}.png", dpi=120)
 plt.show()

@@ -27,9 +27,9 @@ class ReplayBuffer(BufferBase):
         self.indices = range(batch_size)
         self.data: List[Experience] = []
 
-        self._states_mng = kwargs.get('compress_state', False)
+        self._states_mng = kwargs.get("compress_state", False)
         self._states = ReferenceBuffer(buffer_size + 20)
-        self._rng = random.Random(kwargs.get('seed'))
+        self._rng = random.Random(kwargs.get("seed"))
 
     def __len__(self) -> int:
         return len(self.data)
@@ -46,9 +46,9 @@ class ReplayBuffer(BufferBase):
 
     def add(self, **kwargs):
         if self._states_mng:
-            kwargs['state_idx'] = self._states.add(kwargs.pop("state"))
+            kwargs["state_idx"] = self._states.add(kwargs.pop("state"))
             if "next_state" in kwargs:
-                kwargs['next_state_idx'] = self._states.add(kwargs.pop("next_state", "None"))
+                kwargs["next_state_idx"] = self._states.add(kwargs.pop("next_state", "None"))
         self.data.append(Experience(**kwargs))
 
         if len(self.data) > self.buffer_size:
@@ -57,7 +57,7 @@ class ReplayBuffer(BufferBase):
                 self._states.remove(drop_exp.state_idx)
                 self._states.remove(drop_exp.next_state_idx)
 
-    def sample(self, keys: Optional[Sequence[str]]=None) -> Dict[str, List]:
+    def sample(self, keys: Optional[Sequence[str]] = None) -> Dict[str, List]:
         """
         Parameters:
             keys: A list of keys which limit the return.
@@ -71,8 +71,8 @@ class ReplayBuffer(BufferBase):
         all_experiences = {k: [] for k in keys}
         for data in sampled_exp:
             for key in keys:
-                if self._states_mng and (key == 'state' or key == 'next_state'):
-                    value = self._states.get(getattr(data, key + '_idx'))
+                if self._states_mng and (key == "state" or key == "next_state"):
+                    value = self._states.get(getattr(data, key + "_idx"))
                 else:
                     value = getattr(data, key)
 
@@ -88,7 +88,7 @@ class ReplayBuffer(BufferBase):
             buffer.load_buffer(state.data)
         return buffer
 
-    def dump_buffer(self, serialize: bool=False) -> Iterator[Dict[str, List]]:
+    def dump_buffer(self, serialize: bool = False) -> Iterator[Dict[str, List]]:
         for data in self.data:
             yield data.get_dict(serialize=serialize)
 

@@ -141,7 +141,9 @@ def test_multiagent_cycle_env_runner_interact_episode_log_interaction_without_da
 def test_multiagent_cycle_env_runner_interact_episode_log_interaction(mock_data_logger):
     # Assign
     test_agent.log_metrics = mock.MagicMock()
-    multi_sync_env_runner = MultiAgentCycleEnvRunner(test_task, test_agent, data_logger=mock_data_logger, max_iterations=10)
+    multi_sync_env_runner = MultiAgentCycleEnvRunner(
+        test_task, test_agent, data_logger=mock_data_logger, max_iterations=10
+    )
 
     # Act
     multi_sync_env_runner.interact_episode(log_interaction_freq=1)
@@ -176,9 +178,11 @@ def test_multiagent_cycle_env_runner_log_episode_metrics(mock_data_logger, mock_
     episodes = [1, 2]
     epsilons = [0.2, 0.1]
     mean_scores = [0.5, 1]
-    scores = [[1.5, 5], [2., 0.1]]
+    scores = [[1.5, 5], [2.0, 0.1]]
     iterations = [10, 10]
-    episode_data = dict(episodes=episodes, epsilons=epsilons, mean_scores=mean_scores, iterations=iterations, scores=scores)
+    episode_data = dict(
+        episodes=episodes, epsilons=epsilons, mean_scores=mean_scores, iterations=iterations, scores=scores
+    )
     env_runner = MultiAgentCycleEnvRunner(mock_task, mock_agent, data_logger=mock_data_logger)
 
     # Act
@@ -247,14 +251,14 @@ def test_multiagent_cycle_env_runner_save_state(mock_task, mock_agent, mock_json
 
     # Act
     env_runner.run(max_episodes=10)
-    with mock.patch('builtins.open'):
-        env_runner.save_state('saved_state.state')
+    with mock.patch("builtins.open"):
+        env_runner.save_state("saved_state.state")
 
     # Assert
     mock_agent.save_state.assert_called_once()
     state = mock_json.dump.call_args[0][0]
-    assert state['episode'] == 10
-    assert state['tot_iterations'] == 10 * 10
+    assert state["episode"] == 10
+    assert state["tot_iterations"] == 10 * 10
 
 
 @mock.patch("ai_traineree.runners.multiagent_env_runner.MultiAgentType")
@@ -265,7 +269,7 @@ def test_multiagent_cycle_env_runner_load_state_no_file(mock_task, mock_agent):
     env_runner.logger = mock.MagicMock()
 
     # Act
-    env_runner.load_state(file_prefix='saved_state')
+    env_runner.load_state(file_prefix="saved_state")
 
     # Assert
     env_runner.logger.warning.assert_called_once_with("Couldn't load state. Forcing restart.")
@@ -278,13 +282,13 @@ def test_multiagent_cycle_env_runner_load_state_no_file(mock_task, mock_agent):
 def test_multiagent_cycle_env_runner_load_state(mock_task, mock_agent, mock_os):
     # Assign
     env_runner = MultiAgentCycleEnvRunner(mock_task, mock_agent, max_iterations=10)
-    mock_os.listdir.return_value = ['saved_state_e10.json', 'saved_state_e999.json', 'other.file']
+    mock_os.listdir.return_value = ["saved_state_e10.json", "saved_state_e999.json", "other.file"]
     mocked_state = '{"episode": 10, "epsilon": 0.2, "score": 0.3, "average_score": -0.1}'
 
     # Act
-    with mock.patch('builtins.open', mock.mock_open(read_data=mocked_state)) as mock_file:
-        env_runner.load_state(file_prefix='saved_state')
-        mock_file.assert_called_once_with(f'{env_runner.state_dir}/saved_state_e999.json', 'r')
+    with mock.patch("builtins.open", mock.mock_open(read_data=mocked_state)) as mock_file:
+        env_runner.load_state(file_prefix="saved_state")
+        mock_file.assert_called_once_with(f"{env_runner.state_dir}/saved_state_e999.json", "r")
 
     # Assert
     mock_agent.load_state.assert_called_once()

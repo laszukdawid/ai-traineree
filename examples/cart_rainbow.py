@@ -12,11 +12,11 @@ def running_mean(x, N):
     return (cumsum[N:] - cumsum[:-N]) / float(N)
 
 
-env_name = 'CartPole-v1'
+env_name = "CartPole-v1"
 task = GymTask(env_name)
 data_logger = TensorboardLogger()
 
-agent = Agent(task.obs_space, task.action_space, device='cpu')
+agent = Agent(task.obs_space, task.action_space, device="cpu")
 env_runner = EnvRunner(task, agent, data_logger=data_logger)
 
 scores = env_runner.run(reward_goal=100, max_episodes=500, eps_decay=0.98, force_new=True)
@@ -30,8 +30,8 @@ ma = running_mean(scores, avg_length)
 fig = plt.figure()
 ax = fig.add_subplot(111)
 plt.plot(range(len(scores)), scores)
-plt.plot(range(avg_length, avg_length+len(ma)), ma)
-plt.ylabel('Score')
-plt.xlabel('Episode #')
-plt.savefig(f'{env_name}.png', dpi=120)
+plt.plot(range(avg_length, avg_length + len(ma)), ma)
+plt.ylabel("Score")
+plt.xlabel("Episode #")
+plt.savefig(f"{env_name}.png", dpi=120)
 plt.show()

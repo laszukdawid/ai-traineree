@@ -20,8 +20,8 @@ from ai_traineree.utils import to_numbers_seq, to_tensor
 class RainbowAgent(AgentBase):
     """Rainbow agent as described in [1].
 
-    Rainbow is a DQN agent with some improvments that were suggested before 2017.
-    As mentioned by the authors it's not exhaustive improvment but all changes are in
+    Rainbow is a DQN agent with some improvements that were suggested before 2017.
+    As mentioned by the authors it's not exhaustive improvement but all changes are in
     relatively separate areas so their connection makes sense. These improvements are:
     * Priority Experience Replay
     * Multi-step
@@ -42,9 +42,9 @@ class RainbowAgent(AgentBase):
         self,
         obs_space: DataSpace,
         action_space: DataSpace,
-        state_transform: Optional[Callable]=None,
-        reward_transform: Optional[Callable]=None,
-        **kwargs
+        state_transform: Optional[Callable] = None,
+        reward_transform: Optional[Callable] = None,
+        **kwargs,
     ):
         """
         A wrapper over the DQN thus majority of the logic is in the DQNAgent.
@@ -83,19 +83,19 @@ class RainbowAgent(AgentBase):
 
         self.obs_space = obs_space
         self.action_space = action_space
-        self._config['obs_space'] = self.obs_space
-        self._config['action_space'] = self.action_space
+        self._config["obs_space"] = self.obs_space
+        self._config["action_space"] = self.action_space
         self.action_size = action_space.to_feature()
 
-        self.lr = float(self._register_param(kwargs, 'lr', 3e-4))
-        self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))
-        self.tau = float(self._register_param(kwargs, 'tau', 0.002))
-        self.update_freq = int(self._register_param(kwargs, 'update_freq', 1))
-        self.batch_size = int(self._register_param(kwargs, 'batch_size', 80, update=True))
-        self.buffer_size = int(self._register_param(kwargs, 'buffer_size', int(1e5), update=True))
-        self.warm_up = int(self._register_param(kwargs, 'warm_up', 0))
-        self.number_updates = int(self._register_param(kwargs, 'number_updates', 1))
-        self.max_grad_norm = float(self._register_param(kwargs, 'max_grad_norm', 10))
+        self.lr = float(self._register_param(kwargs, "lr", 3e-4))
+        self.gamma = float(self._register_param(kwargs, "gamma", 0.99))
+        self.tau = float(self._register_param(kwargs, "tau", 0.002))
+        self.update_freq = int(self._register_param(kwargs, "update_freq", 1))
+        self.batch_size = int(self._register_param(kwargs, "batch_size", 80, update=True))
+        self.buffer_size = int(self._register_param(kwargs, "buffer_size", int(1e5), update=True))
+        self.warm_up = int(self._register_param(kwargs, "warm_up", 0))
+        self.number_updates = int(self._register_param(kwargs, "number_updates", 1))
+        self.max_grad_norm = float(self._register_param(kwargs, "max_grad_norm", 10))
 
         self.iteration: int = 0
         self.using_double_q = bool(self._register_param(kwargs, "using_double_q", True))
@@ -123,16 +123,16 @@ class RainbowAgent(AgentBase):
 
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
         self.dist_probs = None
-        self._loss = float('nan')
+        self._loss = float("nan")
 
     @property
     def loss(self):
-        return {'loss': self._loss}
+        return {"loss": self._loss}
 
     @loss.setter
     def loss(self, value):
         if isinstance(value, dict):
-            value = value['loss']
+            value = value["loss"]
         self._loss = value
 
     def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType) -> None:
@@ -174,7 +174,7 @@ class RainbowAgent(AgentBase):
             # Update networks only once - sync local & target
             soft_update(self.target_net, self.net, self.tau)
 
-    def act(self, obs: ObsType, eps: float = 0.) -> int:
+    def act(self, obs: ObsType, eps: float = 0.0) -> int:
         """
         Returns actions for given state as per current policy.
 
@@ -202,11 +202,11 @@ class RainbowAgent(AgentBase):
                 Each key contains a array and all arrays have to have the same length.
 
         """
-        rewards = to_tensor(experiences['reward']).float().to(self.device)
-        dones = to_tensor(experiences['done']).type(torch.int).to(self.device)
-        states = to_tensor(experiences['state']).float().to(self.device)
-        next_states = to_tensor(experiences['next_state']).float().to(self.device)
-        actions = to_tensor(experiences['action']).type(torch.long).to(self.device)
+        rewards = to_tensor(experiences["reward"]).float().to(self.device)
+        dones = to_tensor(experiences["done"]).type(torch.int).to(self.device)
+        states = to_tensor(experiences["state"]).float().to(self.device)
+        next_states = to_tensor(experiences["next_state"]).float().to(self.device)
+        actions = to_tensor(experiences["action"]).type(torch.long).to(self.device)
         assert rewards.shape == dones.shape == (self.batch_size, 1)
         assert states.shape == next_states.shape == (self.batch_size,) + self.obs_space.shape
         assert actions.shape == (self.batch_size, 1)  # Discrete domain
@@ -242,9 +242,9 @@ class RainbowAgent(AgentBase):
         self.optimizer.step()
         self._loss = float(loss.item())
 
-        if hasattr(self.buffer, 'priority_update'):
+        if hasattr(self.buffer, "priority_update"):
             assert (~torch.isnan(error)).any()
-            self.buffer.priority_update(experiences['index'], error.detach().cpu().numpy())
+            self.buffer.priority_update(experiences["index"], error.detach().cpu().numpy())
 
         # Update networks - sync local & target
         soft_update(self.target_net, self.net, self.tau)
@@ -258,7 +258,7 @@ class RainbowAgent(AgentBase):
         """
         return {"net": self.net.state_dict(), "target_net": self.target_net.state_dict()}
 
-    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
+    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool = False):
         data_logger.log_value("loss/agent", self._loss, step)
 
         if full_log and self.dist_probs is not None:
@@ -266,11 +266,17 @@ class RainbowAgent(AgentBase):
             action_size = self.action_size[0]
             for action_idx in range(action_size):
                 dist = self.dist_probs[0, action_idx]
-                data_logger.log_value(f'dist/expected_{action_idx}', (dist*self.z_atoms).sum().item(), step)
+                data_logger.log_value(f"dist/expected_{action_idx}", (dist * self.z_atoms).sum().item(), step)
                 data_logger.add_histogram(
-                    f'dist/Q_{action_idx}', min=self.z_atoms[0], max=self.z_atoms[-1], num=len(self.z_atoms),
-                    sum=dist.sum(), sum_squares=dist.pow(2).sum(), bucket_limits=self.z_atoms+self.z_delta,
-                    bucket_counts=dist, global_step=step
+                    f"dist/Q_{action_idx}",
+                    min=self.z_atoms[0],
+                    max=self.z_atoms[-1],
+                    num=len(self.z_atoms),
+                    sum=dist.sum(),
+                    sum_squares=dist.pow(2).sum(),
+                    bucket_limits=self.z_atoms + self.z_delta,
+                    bucket_counts=dist,
+                    global_step=step,
                 )
 
         # This method, `log_metrics`, isn't executed on every iteration but just in case we delay plotting weights.
@@ -304,7 +310,7 @@ class RainbowAgent(AgentBase):
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
         config = copy.copy(state.config)
-        config.update({'obs_space': state.obs_space, 'action_space': state.action_space})
+        config.update({"obs_space": state.obs_space, "action_space": state.action_space})
         agent = RainbowAgent(**config)
         if state.network is not None:
             agent.set_network(state.network)
@@ -313,8 +319,8 @@ class RainbowAgent(AgentBase):
         return agent
 
     def set_network(self, network_state: NetworkState) -> None:
-        self.net.load_state_dict(network_state.net['net'])
-        self.target_net.load_state_dict(network_state.net['target_net'])
+        self.net.load_state_dict(network_state.net["net"])
+        self.target_net.load_state_dict(network_state.net["target_net"])
 
     def set_buffer(self, buffer_state: BufferState) -> None:
         self.buffer = BufferFactory.from_state(buffer_state)
@@ -337,11 +343,11 @@ class RainbowAgent(AgentBase):
 
         """
         agent_state = torch.load(path)
-        self._config = agent_state.get('config', {})
+        self._config = agent_state.get("config", {})
         self.__dict__.update(**self._config)
 
-        self.net.load_state_dict(agent_state['net'])
-        self.target_net.load_state_dict(agent_state['target_net'])
+        self.net.load_state_dict(agent_state["net"])
+        self.target_net.load_state_dict(agent_state["target_net"])
 
     def save_buffer(self, path: str) -> None:
         """Saves data from the buffer into a file under provided path.
@@ -351,8 +357,9 @@ class RainbowAgent(AgentBase):
 
         """
         import json
+
         dump = self.buffer.dump_buffer(serialize=True)
-        with open(path, 'w') as f:
+        with open(path, "w") as f:
             json.dump(dump, f)
 
     def load_buffer(self, path: str) -> None:
@@ -363,13 +370,16 @@ class RainbowAgent(AgentBase):
 
         """
         import json
-        with open(path, 'r') as f:
+
+        with open(path, "r") as f:
             buffer_dump = json.load(f)
         self.buffer.load_buffer(buffer_dump)
 
     def __eq__(self, o: object) -> bool:
-        return super().__eq__(o) \
-            and isinstance(o, type(self)) \
-            and self._config == o._config \
-            and self.buffer == o.buffer \
+        return (
+            super().__eq__(o)
+            and isinstance(o, type(self))
+            and self._config == o._config
+            and self.buffer == o.buffer
             and self.get_network_state() == o.get_network_state()
+        )

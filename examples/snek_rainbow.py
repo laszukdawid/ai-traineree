@@ -25,7 +25,7 @@ def reward_transform(reward) -> float:
 
 
 data_logger = TensorboardLogger()
-env_name = 'hungrysnek-raw-16-v1'
+env_name = "hungrysnek-raw-16-v1"
 task = GymTask(env_name, state_transform=state_transform, reward_transform=reward_transform)
 obs_size = np.array(task.reset()).shape
 
@@ -46,13 +46,7 @@ config = {
 agent = RainbowAgent(obs_size, task.action_size, **config)
 env_runner = EnvRunner(task, agent, max_iterations=2000, data_logger=data_logger)
 
-scores = env_runner.run(
-    reward_goal=0.75,
-    max_episodes=50000,
-    log_every=1,
-    gif_every_episodes=1000,
-    force_new=True
-)
+scores = env_runner.run(reward_goal=0.75, max_episodes=50000, log_every=1, gif_every_episodes=1000, force_new=True)
 env_runner.interact_episode(render=True)
 data_logger.close()
 
@@ -63,8 +57,8 @@ ma = running_mean(scores, avg_length)
 fig = plt.figure()
 ax = fig.add_subplot(111)
 plt.plot(range(len(scores)), scores)
-plt.plot(range(avg_length, avg_length+len(ma)), ma)
-plt.ylabel('Score')
-plt.xlabel('Episode #')
-plt.savefig(f'{env_name}.png', dpi=120)
+plt.plot(range(avg_length, avg_length + len(ma)), ma)
+plt.ylabel("Score")
+plt.xlabel("Episode #")
+plt.savefig(f"{env_name}.png", dpi=120)
 plt.show()

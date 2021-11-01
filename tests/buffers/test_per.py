@@ -5,7 +5,7 @@ import pytest
 from ai_traineree.buffers import Experience, PERBuffer
 
 
-def generate_sample_SARS(iterations, obs_size: int=4, action_size: int=2, dict_type=False):
+def generate_sample_SARS(iterations, obs_size: int = 4, action_size: int = 2, dict_type=False):
     state_fn = lambda: np.random.random(obs_size)
     action_fn = lambda: np.random.random(action_size)
     reward_fn = lambda: float(np.random.random() - 0.5)
@@ -16,7 +16,11 @@ def generate_sample_SARS(iterations, obs_size: int=4, action_size: int=2, dict_t
         next_state = state_fn()
         if dict_type:
             yield dict(
-                state=list(state), action=list(action_fn()), reward=[reward_fn()], next_state=list(next_state), done=[bool(done_fn())]
+                state=list(state),
+                action=list(action_fn()),
+                reward=[reward_fn()],
+                next_state=list(next_state),
+                done=[bool(done_fn())],
             )
         else:
             yield (list(state), list(action_fn()), reward_fn(), list(next_state), bool(done_fn()))
@@ -35,7 +39,7 @@ def test_per_buffer_len():
     per_buffer = PERBuffer(5, buffer_size)
 
     # Act & Assert
-    for sample_num in range(buffer_size+2):
+    for sample_num in range(buffer_size + 2):
         assert len(per_buffer) == min(sample_num, buffer_size)
         per_buffer.add(priority=1, state=1)
 
@@ -51,7 +55,7 @@ def test_per_buffer_too_few_samples():
         assert per_buffer.sample() is None
 
     per_buffer.add(priority=0.1, reward=0.1)
-    assert len(per_buffer.sample()['reward']) == 5
+    assert len(per_buffer.sample()["reward"]) == 5
 
 
 def test_per_buffer_add_one_sample_one():
@@ -64,9 +68,9 @@ def test_per_buffer_add_one_sample_one():
     # Assert
     samples = per_buffer.sample()
     assert samples is not None
-    assert samples['state'] == [range(5)]
-    assert samples['weight'] == [1.]  # max scale
-    assert samples['index'] == [0]
+    assert samples["state"] == [range(5)]
+    assert samples["weight"] == [1.0]  # max scale
+    assert samples["index"] == [0]
 
 
 def test_per_buffer_add_two_sample_two_beta():
@@ -80,7 +84,7 @@ def test_per_buffer_add_two_sample_two_beta():
     # Assert
     experiences = per_buffer.sample(beta=0.6)
     assert experiences is not None
-    for (state, weight) in zip(experiences['state'], experiences['weight']):
+    for (state, weight) in zip(experiences["state"], experiences["weight"]):
         if weight == 1:
             assert state == range(3, 8)
         else:
@@ -95,15 +99,15 @@ def test_per_buffer_sample():
 
     # Act
     for priority in range(buffer_size):
-        state = np.arange(priority, priority+10)
-        per_buffer.add(priority=priority+0.01, state=state)
+        state = np.arange(priority, priority + 10)
+        per_buffer.add(priority=priority + 0.01, state=state)
 
     # Assert
     experiences = per_buffer.sample()
     assert experiences is not None
-    state = experiences['state']
-    weight = experiences['weight']
-    index = experiences['index']
+    state = experiences["state"]
+    weight = experiences["weight"]
+    index = experiences["index"]
     assert len(state) == len(weight) == len(index) == buffer_size
     assert all([s is not None for s in state])
 
@@ -114,14 +118,14 @@ def test_per_buffer_priority_update():
     batch_size = 5
     buffer_size = 10
     per_buffer = PERBuffer(batch_size, buffer_size)
-    for _ in range(2*buffer_size):  # Make sure we fill the whole buffer
+    for _ in range(2 * buffer_size):  # Make sure we fill the whole buffer
         per_buffer.add(priority=np.random.randint(10), state=np.random.random(10))
     per_buffer.add(priority=100, state=np.random.random(10))  # Make sure there's one highest
 
     # Act & Assert
     experiences = per_buffer.sample(beta=0.5)
     assert experiences is not None
-    assert sum(experiences['weight']) < batch_size
+    assert sum(experiences["weight"]) < batch_size
     # assert sum([weight for exp in experiences]) < batch_size
 
     per_buffer.priority_update(indices=range(buffer_size), priorities=np.ones(buffer_size))
@@ -129,8 +133,8 @@ def test_per_buffer_priority_update():
     assert experiences is not None
     # weights = [exp.weight for exp in experiences]
 
-    assert sum(experiences['weight']) == batch_size
-    assert all([w == 1 for w in experiences['weight']])
+    assert sum(experiences["weight"]) == batch_size
+    assert all([w == 1 for w in experiences["weight"]])
 
 
 def test_per_buffer_reset_alpha():
@@ -146,9 +150,9 @@ def test_per_buffer_reset_alpha():
 
     # Assert
     assert old_experiences is not None and new_experiences is not None
-    old_index, new_index = np.array(old_experiences['index']), np.array(new_experiences['index'])
-    old_weight, new_weight = np.array(old_experiences['weight']), np.array(new_experiences['weight'])
-    old_reward, new_reward = np.array(old_experiences['reward']), np.array(new_experiences['reward'])
+    old_index, new_index = np.array(old_experiences["index"]), np.array(new_experiences["index"])
+    old_weight, new_weight = np.array(old_experiences["weight"]), np.array(new_experiences["weight"])
+    old_reward, new_reward = np.array(old_experiences["reward"]), np.array(new_experiences["reward"])
     old_sort, new_sort = np.argsort(old_index), np.argsort(new_index)
     assert all([i1 == i2 for (i1, i2) in zip(old_index[old_sort], new_index[new_sort])])
     assert all([w1 != w2 for (w1, w2) in zip(old_weight[old_sort], new_weight[new_sort])])
@@ -182,11 +186,18 @@ def test_per_buffer_seed():
 def test_priority_buffer_dump_serializable():
     import json
     import torch
+
     # Assign
     filled_buffer = 8
     buffer = PERBuffer(batch_size=5, buffer_size=10)
     for sars in generate_sample_SARS(filled_buffer):
-        buffer.add(state=torch.tensor(sars[0]), reward=sars[1], action=[sars[2]], next_state=torch.tensor(sars[3]), dones=sars[4])
+        buffer.add(
+            state=torch.tensor(sars[0]),
+            reward=sars[1],
+            action=[sars[2]],
+            next_state=torch.tensor(sars[3]),
+            dones=sars[4],
+        )
 
     # Act
     dump = list(buffer.dump_buffer(serialize=True))

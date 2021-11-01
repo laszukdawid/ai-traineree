@@ -4,7 +4,7 @@ import pytest
 from ai_traineree.buffers import Experience, RolloutBuffer
 
 
-def generate_sample_SARS(iterations, obs_space: int=4, action_size: int=2, dict_type=False):
+def generate_sample_SARS(iterations, obs_space: int = 4, action_size: int = 2, dict_type=False):
     state_fn = lambda: np.random.random(obs_space)
     action_fn = lambda: np.random.random(action_size)
     reward_fn = lambda: float(np.random.random() - 0.5)
@@ -15,7 +15,11 @@ def generate_sample_SARS(iterations, obs_space: int=4, action_size: int=2, dict_
         next_state = state_fn()
         if dict_type:
             yield dict(
-                state=list(state), action=list(action_fn()), reward=[reward_fn()], next_state=list(next_state), done=[bool(done_fn())]
+                state=list(state),
+                action=list(action_fn()),
+                reward=[reward_fn()],
+                next_state=list(next_state),
+                done=[bool(done_fn())],
             )
         else:
             yield (list(state), list(action_fn()), reward_fn(), list(next_state), bool(done_fn()))
@@ -34,7 +38,7 @@ def test_rollout_buffer_length():
     buffer = RolloutBuffer(batch_size=5, buffer_size=buffer_size)
 
     # Act
-    for (state, action, reward, next_state, done) in generate_sample_SARS(buffer_size+1):
+    for (state, action, reward, next_state, done) in generate_sample_SARS(buffer_size + 1):
         buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
 
     # Assert
@@ -47,7 +51,7 @@ def test_rollout_buffer_sample_batch_equal_buffer():
     buffer = RolloutBuffer(batch_size=batch_size, buffer_size=buffer_size)
 
     # Act
-    for (state, action, reward, next_state, done) in generate_sample_SARS(buffer_size+1):
+    for (state, action, reward, next_state, done) in generate_sample_SARS(buffer_size + 1):
         buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
 
     # Assert
@@ -66,7 +70,7 @@ def test_rollout_buffer_size_multiple_of_minibatch():
     buffer = RolloutBuffer(batch_size=batch_size, buffer_size=buffer_size)
 
     # Act
-    for (state, action, reward, next_state, done) in generate_sample_SARS(buffer_size+1):
+    for (state, action, reward, next_state, done) in generate_sample_SARS(buffer_size + 1):
         buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
 
     # Assert
@@ -94,10 +98,10 @@ def test_rollout_buffer_size_not_multiple_of_minibatch():
     num_samples = 0
     for idx, samples in enumerate(buffer.sample()):
         num_samples += 1
-        rewards = samples['reward']
+        rewards = samples["reward"]
         if idx != 5:
             assert len(rewards) == batch_size
-            assert rewards == list(range(idx*10, (idx+1)*10))
+            assert rewards == list(range(idx * 10, (idx + 1) * 10))
         else:
             assert len(rewards) == 5
             assert rewards == [50, 51, 52, 53, 54]
@@ -122,14 +126,14 @@ def test_rollout_buffer_travers_buffer_twice():
     # First pass
     for idx, samples in enumerate(buffer.sample()):
         num_samples += 1
-        rewards = samples['reward']
-        assert rewards == list(range(idx*10, (idx+1)*10))
+        rewards = samples["reward"]
+        assert rewards == list(range(idx * 10, (idx + 1) * 10))
 
     # Second pass
     for idx, samples in enumerate(buffer.sample()):
         num_samples += 1
-        rewards = samples['reward']
-        assert rewards == list(range(idx*10, (idx+1)*10))
+        rewards = samples["reward"]
+        assert rewards == list(range(idx * 10, (idx + 1) * 10))
 
     assert num_samples == 6  # 2 * ceil(buffer_size / batch_size)
 
@@ -148,8 +152,8 @@ def test_rollout_buffer_clear_buffer():
 
     # Assert
     for idx, samples in enumerate(buffer.sample()):
-        rewards = samples['reward']
-        assert rewards == list(range(idx*10, (idx+1)*10))
+        rewards = samples["reward"]
+        assert rewards == list(range(idx * 10, (idx + 1) * 10))
 
     buffer.clear()
     assert len(buffer) == 0

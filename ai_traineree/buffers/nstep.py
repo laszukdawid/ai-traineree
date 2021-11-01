@@ -15,7 +15,7 @@ class NStepBuffer(BufferBase):
         super().__init__()
         self.gamma = gamma
         self.n_steps = n_steps
-        self.n_gammas = [gamma**i for i in range(1, n_steps+1)]
+        self.n_gammas = [gamma ** i for i in range(1, n_steps + 1)]
 
         self.data: Deque = deque(maxlen=n_steps)
 
@@ -46,10 +46,10 @@ class NStepBuffer(BufferBase):
         for (idx, exp) in enumerate(self.data):
             if exp.done[0]:
                 break
-            current_exp.reward[0] += self.n_gammas[idx]*exp.reward[0]
+            current_exp.reward[0] += self.n_gammas[idx] * exp.reward[0]
         return current_exp
 
-    def get_state(self, include_data: bool=True) -> BufferState:
+    def get_state(self, include_data: bool = True) -> BufferState:
         state = super().get_state(include_data=include_data)
         state.extra = dict(gamma=self.gamma)
         return state

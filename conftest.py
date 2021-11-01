@@ -56,7 +56,7 @@ def deterministic_interactions(agent: AgentType, num_iters=50):
         actions.append(action)
 
         next_state[i % obs_size] = (next_state[i % obs_size] + 1) % 2
-        reward = (i % 4 - 2) / 2.
+        reward = (i % 4 - 2) / 2.0
         done = (i + 1) % 100 == 0
 
         agent.step(state, action, reward, next_state, done)
@@ -76,7 +76,7 @@ def feed_agent(agent: AgentBase, num_samples: int, as_list=False):
 
     for _ in range(num_samples):
         s, r, d = fake_step(agent.obs_space.shape)
-        if action_space.dtype == 'int':
+        if action_space.dtype == "int":
             # a = random.randint(0, agent.action_size-1)
             a = int(np.random.randint(0, action_space.shape)[0])  # Only one action allowed
         else:

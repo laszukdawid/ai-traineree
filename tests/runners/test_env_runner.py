@@ -13,7 +13,7 @@ from ai_traineree.types import TaskType
 #       by aggressive mocking. The other part, however, is the burden of keeping env mocks.
 #       This results in unnecessary performance hit. A lightweight env would be nice.
 
-test_task = GymTask('LunarLanderContinuous-v2')
+test_task = GymTask("LunarLanderContinuous-v2")
 test_agent = PPOAgent(test_task.obs_space, test_task.action_space)
 
 
@@ -61,7 +61,8 @@ def test_env_runner_log_episode_metrics(mock_data_logger, mock_task, mock_agent)
     scores = [1.5, 5]
     iterations = [10, 10]
     episode_data = dict(
-        episodes=episodes, epsilons=epsilons, mean_scores=mean_scores, iterations=iterations, scores=scores)
+        episodes=episodes, epsilons=epsilons, mean_scores=mean_scores, iterations=iterations, scores=scores
+    )
     env_runner = EnvRunner(mock_task, mock_agent, data_logger=mock_data_logger)
 
     # Act
@@ -149,14 +150,14 @@ def test_env_runner_save_state(mock_task, mock_agent, mock_json, mock_path):
 
     # Act
     env_runner.run(max_episodes=10, force_new=True)
-    with mock.patch('builtins.open'):
-        env_runner.save_state('saved_state.state')
+    with mock.patch("builtins.open"):
+        env_runner.save_state("saved_state.state")
 
     # Assert
     mock_agent.save_state.assert_called_once()
     state = mock_json.dump.call_args[0][0]
-    assert state['episode'] == 10
-    assert state['tot_iterations'] == 10 * 10
+    assert state["episode"] == 10
+    assert state["tot_iterations"] == 10 * 10
 
 
 @mock.patch("ai_traineree.runners.env_runner.AgentBase")
@@ -167,7 +168,7 @@ def test_env_runner_load_state_no_file(mock_task, mock_agent):
     env_runner.logger = mock.MagicMock()
 
     # Act
-    env_runner.load_state(file_prefix='saved_state')
+    env_runner.load_state(file_prefix="saved_state")
 
     # Assert
     env_runner.logger.warning.assert_called_once_with("Couldn't load state. Forcing restart.")
@@ -180,13 +181,13 @@ def test_env_runner_load_state_no_file(mock_task, mock_agent):
 def test_env_runner_load_state(mock_task, mock_agent, mock_os):
     # Assign
     env_runner = EnvRunner(mock_task, mock_agent, max_iterations=10)
-    mock_os.listdir.return_value = ['saved_state_e10.json', 'saved_state_e999.json', 'other.file']
+    mock_os.listdir.return_value = ["saved_state_e10.json", "saved_state_e999.json", "other.file"]
     mocked_state = '{"episode": 10, "epsilon": 0.2, "score": 0.3, "average_score": -0.1}'
 
     # Act
-    with mock.patch('builtins.open', mock.mock_open(read_data=mocked_state)) as mock_file:
-        env_runner.load_state(file_prefix='saved_state')
-        mock_file.assert_called_once_with(f'{env_runner.state_dir}/saved_state_e999.json', 'r')
+    with mock.patch("builtins.open", mock.mock_open(read_data=mocked_state)) as mock_file:
+        env_runner.load_state(file_prefix="saved_state")
+        mock_file.assert_called_once_with(f"{env_runner.state_dir}/saved_state_e999.json", "r")
 
     # Assert
     mock_agent.load_state.assert_called_once()
@@ -198,6 +199,7 @@ def test_env_runner_load_state(mock_task, mock_agent, mock_os):
 
 ###########################################################
 # Multi Sync Env Runner
+
 
 @mock.patch("ai_traineree.runners.env_runner.AgentBase")
 @mock.patch("ai_traineree.runners.env_runner.TaskType")
@@ -313,7 +315,8 @@ def test_multi_sync_env_runner_log_episode_metrics(mock_data_logger, mock_task, 
     scores = [1.5, 5]
     iterations = [10, 10]
     episode_data = dict(
-        episodes=episodes, epsilons=epsilons, mean_scores=mean_scores, iterations=iterations, scores=scores)
+        episodes=episodes, epsilons=epsilons, mean_scores=mean_scores, iterations=iterations, scores=scores
+    )
     env_runner = MultiSyncEnvRunner(mock_task, mock_agent, data_logger=mock_data_logger)
 
     # Act
@@ -396,14 +399,14 @@ def test_multi_sync_env_runner_save_state(mock_json, mock_path):
 
     # Act
     env_runner.run(max_episodes=10, max_iterations=10, force_new=True)
-    with mock.patch('builtins.open'):
-        env_runner.save_state('saved_state.state')
+    with mock.patch("builtins.open"):
+        env_runner.save_state("saved_state.state")
 
     # Assert
     test_agent.save_state.assert_called_once()
     state = mock_json.dump.call_args[0][0]
-    assert state['episode'] == 10
-    assert state['tot_iterations'] == 10 * 10
+    assert state["episode"] == 10
+    assert state["tot_iterations"] == 10 * 10
 
 
 @mock.patch("ai_traineree.runners.env_runner.AgentBase")
@@ -414,7 +417,7 @@ def test_multi_sync_env_runner_load_state_no_file(mock_task, mock_agent):
     env_runner.logger = mock.MagicMock()
 
     # Act
-    env_runner.load_state(file_prefix='saved_state')
+    env_runner.load_state(file_prefix="saved_state")
 
     # Assert
     env_runner.logger.warning.assert_called_once_with("Couldn't load state. Forcing restart.")
@@ -427,13 +430,13 @@ def test_multi_sync_env_runner_load_state_no_file(mock_task, mock_agent):
 def test_multi_sync_env_runner_load_state(mock_task, mock_agent, mock_os):
     # Assign
     env_runner = MultiSyncEnvRunner(mock_task, mock_agent, max_iterations=10)
-    mock_os.listdir.return_value = ['saved_state_e10.json', 'saved_state_e999.json', 'other.file']
+    mock_os.listdir.return_value = ["saved_state_e10.json", "saved_state_e999.json", "other.file"]
     mocked_state = '{"episode": 10, "epsilon": 0.2, "score": 0.3, "average_score": -0.1}'
 
     # Act
-    with mock.patch('builtins.open', mock.mock_open(read_data=mocked_state)) as mock_file:
-        env_runner.load_state(file_prefix='saved_state')
-        mock_file.assert_called_once_with(f'{env_runner.state_dir}/saved_state_e999.json', 'r')
+    with mock.patch("builtins.open", mock.mock_open(read_data=mocked_state)) as mock_file:
+        env_runner.load_state(file_prefix="saved_state")
+        mock_file.assert_called_once_with(f"{env_runner.state_dir}/saved_state_e999.json", "r")
 
     # Assert
     mock_agent.load_state.assert_called_once()

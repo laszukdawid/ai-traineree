@@ -20,10 +20,10 @@ task.reset()
 for actor_name in task.agent_iter(max_iter=10000):
     last = task.last()
     obs, reward, done, info = last
-    
+
     agent = agents[actor_name]
     action = agent.act(obs[None, ...])
-    
+
     if done:
         print(f"Finished. Actor: {actor_name};\tReward: {reward}")
         break

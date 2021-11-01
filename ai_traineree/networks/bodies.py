@@ -12,11 +12,11 @@ from ai_traineree.types import FeatureType
 
 def hidden_init(layer: nn.Module):
     fan_in = layer.weight.data.size()[0]  # type: ignore
-    lim = 1. / sqrt(fan_in)
+    lim = 1.0 / sqrt(fan_in)
     return (-lim, lim)
 
 
-def layer_init(layer: nn.Module, range_value: Optional[Tuple[float, float]]=None, remove_mean=True):
+def layer_init(layer: nn.Module, range_value: Optional[Tuple[float, float]] = None, remove_mean=True):
     if not (isinstance(layer, nn.Conv2d) or isinstance(layer, nn.Linear)):
         return
     if range_value is not None:
@@ -76,13 +76,14 @@ class ConvNet(NetworkType):
         strides = self._expand_to_seq(kwargs.get("stride", 1), len(hidden_layers))
         paddings = self._expand_to_seq(kwargs.get("padding", 0), len(hidden_layers))
         dilations = self._expand_to_seq(kwargs.get("dilation", 1), len(hidden_layers))
-        biases = self._expand_to_seq(kwargs.get('bias', True), len(hidden_layers))
+        biases = self._expand_to_seq(kwargs.get("bias", True), len(hidden_layers))
 
         layers = []
         for layer_idx in range(len(hidden_layers)):
             layers.append(
                 nn.Conv2d(
-                    num_layers[layer_idx], num_layers[layer_idx+1],
+                    num_layers[layer_idx],
+                    num_layers[layer_idx + 1],
                     kernel_size=kernel_sizes[layer_idx],
                     stride=strides[layer_idx],
                     padding=paddings[layer_idx],
@@ -106,11 +107,11 @@ class ConvNet(NetworkType):
 
     @staticmethod
     def _expand_to_seq(o: Union[Any, Sequence[Any]], size) -> Sequence[Any]:
-        return o if isinstance(o, Sequence) else (o,)*size
+        return o if isinstance(o, Sequence) else (o,) * size
 
     @property
     def output_size(self):
-        return reduce(lambda a, b: a*b, self._calculate_output_size(self.input_dim, self.layers))
+        return reduce(lambda a, b: a * b, self._calculate_output_size(self.input_dim, self.layers))
 
     @torch.no_grad()
     def _calculate_output_size(self, input_dim: Sequence[int], layers) -> Sequence[int]:
@@ -138,14 +139,15 @@ class FcNet(NetworkType):
             by M. Andrychowicz et al. (2020). Link: https://arxiv.org/abs/2006.05990
 
     """
+
     def __init__(
         self,
         in_features: FeatureType,
         out_features: FeatureType,
-        hidden_layers: Optional[Sequence[int]]=(200, 100),
+        hidden_layers: Optional[Sequence[int]] = (200, 100),
         last_layer_range=(-3e-4, 3e-4),
-        bias: bool=True,
-        **kwargs
+        bias: bool = True,
+        **kwargs,
     ):
         """Fully Connected network with default APIs.
 
@@ -206,14 +208,15 @@ class CriticBody(NetworkType):
 
     Since the main purpose for this is value function estimation the output is a single value.
     """
+
     def __init__(
-            self,
-            in_features: FeatureType,
-            inj_action_size: int,
-            out_features: FeatureType = (1,),
-            hidden_layers: Optional[Sequence[int]]=(100, 100),
-            inj_actions_layer: int=1,
-            **kwargs
+        self,
+        in_features: FeatureType,
+        inj_action_size: int,
+        out_features: FeatureType = (1,),
+        hidden_layers: Optional[Sequence[int]] = (100, 100),
+        inj_actions_layer: int = 1,
+        **kwargs,
     ):
         """
         Parameters:
@@ -242,10 +245,10 @@ class CriticBody(NetworkType):
         if not (0 <= inj_actions_layer < len(num_layers)):
             raise ValueError("Action layer needs to be within the network")
 
-        bias = bool(kwargs.get('bias', True))
+        bias = bool(kwargs.get("bias", True))
         layers = []
-        for in_idx in range(len(num_layers)-1):
-            in_dim, out_dim = num_layers[in_idx], num_layers[in_idx+1]
+        for in_idx in range(len(num_layers) - 1):
+            in_dim, out_dim = num_layers[in_idx], num_layers[in_idx + 1]
             if in_idx == inj_actions_layer:  # Injects `actions` into specified (default: 2nd) layer of the Critic
                 in_dim += inj_action_size
             layers.append(nn.Linear(in_dim, out_dim, bias=bias))
@@ -253,8 +256,8 @@ class CriticBody(NetworkType):
         self.layers = nn.ModuleList(layers)
         self.reset_parameters()
 
-        self.gate = kwargs.get('gate', nn.Identity())
-        self.gate_out = kwargs.get('gate_out', nn.Identity())
+        self.gate = kwargs.get("gate", nn.Identity())
+        self.gate_out = kwargs.get("gate_out", nn.Identity())
         self.to(kwargs.get("device"))
 
     def reset_parameters(self):
@@ -276,7 +279,9 @@ class CriticBody(NetworkType):
 
 
 class NoisyLayer(nn.Module):
-    def __init__(self, in_features: FeatureType, out_features: FeatureType, sigma: float=0.4, factorised: bool=True):
+    def __init__(
+        self, in_features: FeatureType, out_features: FeatureType, sigma: float = 0.4, factorised: bool = True
+    ):
         """
         A linear layer with added noise perturbations in training as described in [1].
         For a fully connected network of NoisyLayers see :class:`.NoisyNet`.
@@ -307,8 +312,8 @@ class NoisyLayer(nn.Module):
         self.bias_mu = nn.Parameter(torch.zeros(out_features[0]))
         self.bias_sigma = nn.Parameter(torch.zeros(out_features[0]))
 
-        self.register_buffer('weight_eps', torch.zeros((out_features[0], in_features[0])))
-        self.register_buffer('bias_eps', torch.zeros(out_features[0]))
+        self.register_buffer("weight_eps", torch.zeros((out_features[0], in_features[0])))
+        self.register_buffer("bias_eps", torch.zeros(out_features[0]))
 
         self.bias_noise = torch.zeros(out_features[0])
         if factorised:
@@ -330,10 +335,10 @@ class NoisyLayer(nn.Module):
 
     def reset_parameters(self) -> None:
         if self.factorised:
-            bound = sqrt(1./self.in_features[0])
+            bound = sqrt(1.0 / self.in_features[0])
             sigma = self.sigma_0 * bound
         else:
-            bound = sqrt(3./self.in_features[0])
+            bound = sqrt(3.0 / self.in_features[0])
             sigma = 0.017  # Yes, that's correct. [1]
 
         self.weight_mu.data.uniform_(-bound, bound)
@@ -365,9 +370,13 @@ class NoisyLayer(nn.Module):
 
 class NoisyNet(NetworkType):
     def __init__(
-        self, in_features: FeatureType, out_features: FeatureType,
-        hidden_layers: Optional[Sequence[int]]=(100, 100), sigma=0.4,
-        factorised=True, **kwargs,
+        self,
+        in_features: FeatureType,
+        out_features: FeatureType,
+        hidden_layers: Optional[Sequence[int]] = (100, 100),
+        sigma=0.4,
+        factorised=True,
+        **kwargs,
     ):
         """
         Parameters:
@@ -398,7 +407,10 @@ class NoisyNet(NetworkType):
         self.out_features = out_features
         num_layers = list(hidden_layers) if hidden_layers is not None else []
         num_layers = [self.in_features[0]] + num_layers + [self.out_features[0]]
-        layers = [NoisyLayer((dim_in,), (dim_out,), sigma=sigma, factorised=factorised) for dim_in, dim_out in zip(num_layers[:-1], num_layers[1:])]
+        layers = [
+            NoisyLayer((dim_in,), (dim_out,), sigma=sigma, factorised=factorised)
+            for dim_in, dim_out in zip(num_layers[:-1], num_layers[1:])
+        ]
         self.layers = nn.ModuleList(layers)
 
         self.gate = kwargs.get("gate", torch.tanh)
@@ -406,7 +418,7 @@ class NoisyNet(NetworkType):
         if not callable(self.gate) or not callable(self.gate_out):
             raise ValueError("Passed gate or gate_out is no callable and cannot be used as a function")
 
-        self.to(device=kwargs.get('device', None))
+        self.to(device=kwargs.get("device", None))
 
     def reset_noise(self) -> None:
         for layer in self.layers:

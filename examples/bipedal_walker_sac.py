@@ -9,12 +9,12 @@ import pylab as plt
 
 
 data_logger = TensorboardLogger()
-env_name = 'BipedalWalker-v3'
+env_name = "BipedalWalker-v3"
 task: TaskType = GymTask(env_name)
 config = {
-    'warm_up': 500,
-    'batch_size': 200,
-    'update_freq': 30,
+    "warm_up": 500,
+    "batch_size": 200,
+    "update_freq": 30,
     "number_updates": 1,
     "gamma": 0.99,
     "critic_lr": 1e-3,
@@ -29,14 +29,16 @@ agent = Agent(task.obs_space, task.action_space, hidden_layers=(100, 100), **con
 
 env_runner = EnvRunner(task, agent, max_iterations=10000, data_logger=data_logger)
 # env_runner.interact_episode(render=True)
-scores = env_runner.run(reward_goal=10, max_episodes=500, eps_decay=0.99, log_episode_freq=1, gif_every_episodes=200, force_new=True)
+scores = env_runner.run(
+    reward_goal=10, max_episodes=500, eps_decay=0.99, log_episode_freq=1, gif_every_episodes=200, force_new=True
+)
 env_runner.interact_episode(render=True)
 
 # plot the scores
 fig = plt.figure()
 ax = fig.add_subplot(111)
 plt.plot(np.arange(len(scores)), scores)
-plt.ylabel('Score')
-plt.xlabel('Episode #')
-plt.savefig(f'{env_name}.png', dpi=120)
+plt.ylabel("Score")
+plt.xlabel("Episode #")
+plt.savefig(f"{env_name}.png", dpi=120)
 plt.show()

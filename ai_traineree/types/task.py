@@ -27,7 +27,7 @@ class TaskType(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def render(self, mode: Optional[str]=None) -> None:
+    def render(self, mode: Optional[str] = None) -> None:
         pass
 
     @abc.abstractmethod
@@ -36,7 +36,6 @@ class TaskType(abc.ABC):
 
 
 class MultiAgentTaskType(TaskType):
-
     @abc.abstractmethod
     def reset(self) -> List[StateType]:
         pass

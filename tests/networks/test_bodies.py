@@ -95,7 +95,7 @@ def test_critic_body_default():
 
 
 def test_critic_forward():
-    in_features = (4, )
+    in_features = (4,)
     action_size = 2
     net = bodies.CriticBody(in_features=in_features, inj_action_size=action_size, hidden_layers=(20, 20))
     test_tensor = torch.rand(in_features)
@@ -109,10 +109,12 @@ def test_critic_forward():
 
 
 def test_critic_forward_out_features():
-    in_features = (4, )
-    out_features = (4, )
+    in_features = (4,)
+    out_features = (4,)
     action_size = 2
-    net = bodies.CriticBody(in_features=in_features, inj_action_size=action_size, out_features=out_features, hidden_layers=(20, 20))
+    net = bodies.CriticBody(
+        in_features=in_features, inj_action_size=action_size, out_features=out_features, hidden_layers=(20, 20)
+    )
     test_tensor = torch.rand(in_features)
     test_action = torch.rand((action_size,))
 
@@ -129,7 +131,8 @@ def test_critic_action_layer_outside():
     for inj_actions_layer in [-1, 4]:
         with pytest.raises(ValueError):
             bodies.CriticBody(
-                in_features=(3,), inj_action_size=4, inj_actions_layer=inj_actions_layer, hidden_layers=hidden_layers)
+                in_features=(3,), inj_action_size=4, inj_actions_layer=inj_actions_layer, hidden_layers=hidden_layers
+            )
 
 
 def test_noisy_layer_default():
@@ -216,7 +219,7 @@ def test_noisy_layer_reset_parameters():
 
     assert layer.factorised, "Default factorised is True"
     assert layer.sigma_0 == sigma, "Sigma for noise generation"
-    expected_sigma = sigma/math.sqrt(in_features[0])
+    expected_sigma = sigma / math.sqrt(in_features[0])
     assert torch.isclose(bias_sigma, torch.full(bias_sigma.shape, expected_sigma)).all()
     assert torch.isclose(weight_sigma, torch.full(weight_sigma.shape, expected_sigma)).all()
 
@@ -275,11 +278,11 @@ def test_noisy_net_incorrect_init():
 
     # Wrong gate function
     with pytest.raises(ValueError):
-        bodies.NoisyNet(in_features=(3,), out_features=(3,), gate='gate')
+        bodies.NoisyNet(in_features=(3,), out_features=(3,), gate="gate")
 
     # Wrong gate function
     with pytest.raises(ValueError):
-        bodies.NoisyNet(in_features=(3,), out_features=(3,), gate_out='gate_out')
+        bodies.NoisyNet(in_features=(3,), out_features=(3,), gate_out="gate_out")
 
 
 def test_noisy_net_no_hidden_layers():

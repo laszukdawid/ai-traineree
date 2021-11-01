@@ -13,7 +13,6 @@ except ImportError:
 
 
 class DataLogger(abc.ABC):
-
     def __dell__(self):
         self.close()
 

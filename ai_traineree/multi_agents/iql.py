@@ -46,20 +46,19 @@ class IQLAgents(MultiAgentType):
         self.num_agents = num_agents
         self.agent_names = kwargs.get("agent_names", map(str, range(self.num_agents)))
 
-        kwargs['device'] = self._register_param(kwargs, "device", DEVICE)
-        kwargs['hidden_layers'] = to_numbers_seq(self._register_param(kwargs, 'hidden_layers', (64, 64)))
-        kwargs['gamma'] = float(self._register_param(kwargs, 'gamma', 0.99))
-        kwargs['tau'] = float(self._register_param(kwargs, 'tau', 0.002))
-        kwargs['gradient_clip'] = self._register_param(kwargs, 'gradient_clip')
-        kwargs['batch_size'] = int(self._register_param(kwargs, 'batch_size', 64))
-        kwargs['buffer_size'] = int(self._register_param(kwargs, 'buffer_size', int(1e6)))
-        kwargs['warm_up'] = int(self._register_param(kwargs, 'warm_up', 0))
-        kwargs['update_freq'] = int(self._register_param(kwargs, 'update_freq', 1))
-        kwargs['number_updates'] = int(self._register_param(kwargs, 'number_updates', 1))
+        kwargs["device"] = self._register_param(kwargs, "device", DEVICE)
+        kwargs["hidden_layers"] = to_numbers_seq(self._register_param(kwargs, "hidden_layers", (64, 64)))
+        kwargs["gamma"] = float(self._register_param(kwargs, "gamma", 0.99))
+        kwargs["tau"] = float(self._register_param(kwargs, "tau", 0.002))
+        kwargs["gradient_clip"] = self._register_param(kwargs, "gradient_clip")
+        kwargs["batch_size"] = int(self._register_param(kwargs, "batch_size", 64))
+        kwargs["buffer_size"] = int(self._register_param(kwargs, "buffer_size", int(1e6)))
+        kwargs["warm_up"] = int(self._register_param(kwargs, "warm_up", 0))
+        kwargs["update_freq"] = int(self._register_param(kwargs, "update_freq", 1))
+        kwargs["number_updates"] = int(self._register_param(kwargs, "number_updates", 1))
 
         self.agents: Dict[str, DQNAgent] = {
-            agent_name: DQNAgent(obs_space, action_space, name=agent_name, **kwargs)
-            for agent_name in self.agent_names
+            agent_name: DQNAgent(obs_space, action_space, name=agent_name, **kwargs) for agent_name in self.agent_names
         }
 
         self.reset()
@@ -89,11 +88,13 @@ class IQLAgents(MultiAgentType):
         for agent in self.agents.values():
             agent.reset()
 
-    def step(self, agent_name: str, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType) -> None:
+    def step(
+        self, agent_name: str, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType
+    ) -> None:
         return self.agents[agent_name].step(obs, action, reward, next_obs, done)
 
     @torch.no_grad()
-    def act(self, agent_name: str, obs: ObsType, noise: float=0.0) -> int:
+    def act(self, agent_name: str, obs: ObsType, noise: float = 0.0) -> int:
         return self.agents[agent_name].act(obs, noise)
 
     def commit(self) -> None:
@@ -103,15 +104,15 @@ class IQLAgents(MultiAgentType):
         """
         pass
 
-    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
+    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool = False):
         for agent_name, agent in self.agents.items():
             data_logger.log_values_dict(f"{agent_name}/loss", agent.loss, step)
 
     def get_state(self):
         agents_state = {}
-        agents_state['config'] = self._config
+        agents_state["config"] = self._config
         for agent_name, agent in self.agents.items():
-            agents_state[agent_name] = {'network': agent.state_dict(), 'config': agent.hparams}
+            agents_state[agent_name] = {"network": agent.state_dict(), "config": agent.hparams}
         return agents_state
 
     def save_state(self, path: str):
@@ -120,12 +121,12 @@ class IQLAgents(MultiAgentType):
 
     def load_state(self, path: str):
         all_agent_state = torch.load(path)
-        self._config = all_agent_state.get('config', {})
+        self._config = all_agent_state.get("config", {})
         self.__dict__.update(**self._config)
         for agent_name, agent in self.agents.items():
             agent_state = all_agent_state[agent_name]
-            agent.load_state(agent_state=agent_state['network'])
-            agent._config = agent_state.get('config', {})
+            agent.load_state(agent_state=agent_state["network"])
+            agent._config = agent_state.get("config", {})
             agent.__dict__.update(**agent._config)
 
     def state_dict(self) -> Dict[str, dict]:

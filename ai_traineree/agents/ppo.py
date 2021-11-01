@@ -73,8 +73,8 @@ class PPOAgent(AgentBase):
         assert len(action_space.shape) == 1, "Only 1D actions are supported"
         self.action_size = action_space.shape[0]
 
-        self._config['obs_space'] = self.obs_space
-        self._config['action_space'] = self.action_space
+        self._config["obs_space"] = self.obs_space
+        self._config["action_space"] = self.action_space
         self.hidden_layers = to_numbers_seq(self._register_param(kwargs, "hidden_layers", (128, 128)))
         self.iteration = 0
 
@@ -82,17 +82,17 @@ class PPOAgent(AgentBase):
         self.using_gae = bool(self._register_param(kwargs, "using_gae", True))
         self.gae_lambda = float(self._register_param(kwargs, "gae_lambda", 0.96))
 
-        self.actor_lr = float(self._register_param(kwargs, 'actor_lr', 3e-4))
-        self.actor_betas = to_numbers_seq(self._register_param(kwargs, 'actor_betas', (0.9, 0.999)))
-        self.critic_lr = float(self._register_param(kwargs, 'critic_lr', 1e-3))
-        self.critic_betas = to_numbers_seq(self._register_param(kwargs, 'critic_betas', (0.9, 0.999)))
+        self.actor_lr = float(self._register_param(kwargs, "actor_lr", 3e-4))
+        self.actor_betas = to_numbers_seq(self._register_param(kwargs, "actor_betas", (0.9, 0.999)))
+        self.critic_lr = float(self._register_param(kwargs, "critic_lr", 1e-3))
+        self.critic_betas = to_numbers_seq(self._register_param(kwargs, "critic_betas", (0.9, 0.999)))
         self.gamma = float(self._register_param(kwargs, "gamma", 0.99))
         self.ppo_ratio_clip = float(self._register_param(kwargs, "ppo_ratio_clip", 0.25))
 
         self.using_kl_div = bool(self._register_param(kwargs, "using_kl_div", False))
-        self.kl_beta = float(self._register_param(kwargs, 'kl_beta', 0.1))
+        self.kl_beta = float(self._register_param(kwargs, "kl_beta", 0.1))
         self.target_kl = float(self._register_param(kwargs, "target_kl", 0.01))
-        self.kl_div = float('inf')
+        self.kl_div = float("inf")
 
         self.num_workers = int(self._register_param(kwargs, "num_workers", 1))
         self.num_epochs = int(self._register_param(kwargs, "num_epochs", 1))
@@ -115,45 +115,51 @@ class PPOAgent(AgentBase):
 
         self.buffer = RolloutBuffer(batch_size=self.batch_size, buffer_size=self.rollout_length)
         self.actor = ActorBody(
-            self.obs_space.shape, (self.policy.param_dim*self.action_size,),
-            gate_out=torch.tanh, hidden_layers=self.hidden_layers, device=self.device)
+            self.obs_space.shape,
+            (self.policy.param_dim * self.action_size,),
+            gate_out=torch.tanh,
+            hidden_layers=self.hidden_layers,
+            device=self.device,
+        )
         self.critic = ActorBody(
-            self.obs_space.shape, (1,),
-            gate_out=nn.Identity(), hidden_layers=self.hidden_layers, device=self.device)
+            self.obs_space.shape, (1,), gate_out=nn.Identity(), hidden_layers=self.hidden_layers, device=self.device
+        )
         self.actor_params = list(self.actor.parameters()) + list(self.policy.parameters())
         self.critic_params = list(self.critic.parameters())
 
         self.actor_opt = optim.Adam(self.actor_params, lr=self.actor_lr, betas=self.actor_betas)
         self.critic_opt = optim.Adam(self.critic_params, lr=self.critic_lr, betas=self.critic_betas)
-        self._loss_actor = float('nan')
-        self._loss_critic = float('nan')
+        self._loss_actor = float("nan")
+        self._loss_critic = float("nan")
         self._metrics: Dict[str, float] = {}
 
     @property
     def loss(self) -> Dict[str, float]:
-        return {'actor': self._loss_actor, 'critic': self._loss_critic}
+        return {"actor": self._loss_actor, "critic": self._loss_critic}
 
     @loss.setter
     def loss(self, value):
         if isinstance(value, dict):
-            self._loss_actor = value['actor']
-            self._loss_critic = value['critic']
+            self._loss_actor = value["actor"]
+            self._loss_critic = value["critic"]
         else:
             self._loss_actor = value
             self._loss_critic = value
 
     def __eq__(self, o: object) -> bool:
-        return super().__eq__(o) \
-            and isinstance(o, type(self)) \
-            and self._config == o._config \
-            and self.buffer == o.buffer \
+        return (
+            super().__eq__(o)
+            and isinstance(o, type(self))
+            and self._config == o._config
+            and self.buffer == o.buffer
             and self.get_network_state() == o.get_network_state()  # TODO @dawid: Currently net isn't compared properly
+        )
 
     def __clear_memory(self):
         self.buffer.clear()
 
     @torch.no_grad()
-    def act(self, obs: ObsType, epsilon: float=0.):
+    def act(self, obs: ObsType, epsilon: float = 0.0):
         """Acting on the observations. Returns action.
 
         Parameters:
@@ -185,8 +191,8 @@ class PPOAgent(AgentBase):
                 action = action.cpu().numpy().flatten().tolist()
             actions.append(action)
 
-        self.local_memory_buffer['value'] = torch.cat(values)
-        self.local_memory_buffer['logprob'] = torch.stack(logprobs)
+        self.local_memory_buffer["value"] = torch.cat(values)
+        self.local_memory_buffer["logprob"] = torch.stack(logprobs)
         assert len(actions) == self.num_workers
         return actions if self.num_workers > 1 else actions[0]
 
@@ -198,8 +204,8 @@ class PPOAgent(AgentBase):
             action=torch.tensor(action).reshape((self.num_workers,) + self.action_space.shape).float(),
             reward=torch.tensor(reward).reshape(self.num_workers, 1),
             done=torch.tensor(done).reshape(self.num_workers, 1),
-            logprob=self.local_memory_buffer['logprob'].reshape(self.num_workers, 1),
-            value=self.local_memory_buffer['value'].reshape(self.num_workers, 1),
+            logprob=self.local_memory_buffer["logprob"].reshape(self.num_workers, 1),
+            value=self.local_memory_buffer["value"].reshape(self.num_workers, 1),
         )
 
         if self.iteration % self.rollout_length == 0:
@@ -211,17 +217,19 @@ class PPOAgent(AgentBase):
         Main loop that initiates the training.
         """
         experiences = self.buffer.all_samples()
-        rewards = to_tensor(experiences['reward']).to(self.device)
-        dones = to_tensor(experiences['done']).type(torch.int).to(self.device)
-        states = to_tensor(experiences['state']).to(self.device)
-        actions = to_tensor(experiences['action']).to(self.device)
-        values = to_tensor(experiences['value']).to(self.device)
-        logprobs = to_tensor(experiences['logprob']).to(self.device)
+        rewards = to_tensor(experiences["reward"]).to(self.device)
+        dones = to_tensor(experiences["done"]).type(torch.int).to(self.device)
+        states = to_tensor(experiences["state"]).to(self.device)
+        actions = to_tensor(experiences["action"]).to(self.device)
+        values = to_tensor(experiences["value"]).to(self.device)
+        logprobs = to_tensor(experiences["logprob"]).to(self.device)
         assert rewards.shape == dones.shape == values.shape == logprobs.shape
-        assert states.shape == (self.rollout_length, self.num_workers) + self.obs_space.shape, \
-            f"Wrong states shape: {states.shape}"
-        assert actions.shape == (self.rollout_length, self.num_workers) + self.action_space.shape, \
-            f"Wrong action shape: {actions.shape}"
+        assert (
+            states.shape == (self.rollout_length, self.num_workers) + self.obs_space.shape
+        ), f"Wrong states shape: {states.shape}"
+        assert (
+            actions.shape == (self.rollout_length, self.num_workers) + self.action_space.shape
+        ), f"Wrong action shape: {actions.shape}"
 
         with torch.no_grad():
             if self.using_gae:
@@ -241,15 +249,17 @@ class PPOAgent(AgentBase):
             idx = 0
             self.kl_div = 0
             while idx < self.rollout_length:
-                _states = states[idx:idx+self.batch_size].view((-1,) + self.obs_space.shape).detach()
-                _actions = actions[idx:idx+self.batch_size].view((-1,) + self.action_space.shape).detach()
-                _logprobs = logprobs[idx:idx+self.batch_size].view(-1, 1).detach()
-                _returns = returns[idx:idx+self.batch_size].view(-1, 1).detach()
-                _advantages = advantages[idx:idx+self.batch_size].view(-1, 1).detach()
+                _states = states[idx : idx + self.batch_size].view((-1,) + self.obs_space.shape).detach()
+                _actions = actions[idx : idx + self.batch_size].view((-1,) + self.action_space.shape).detach()
+                _logprobs = logprobs[idx : idx + self.batch_size].view(-1, 1).detach()
+                _returns = returns[idx : idx + self.batch_size].view(-1, 1).detach()
+                _advantages = advantages[idx : idx + self.batch_size].view(-1, 1).detach()
                 idx += self.batch_size
                 self.learn((_states, _actions, _logprobs, _returns, _advantages))
 
-            self.kl_div = abs(self.kl_div) / (self.actor_number_updates * self.num_workers * self.rollout_length / self.batch_size)
+            self.kl_div = abs(self.kl_div) / (
+                self.actor_number_updates * self.num_workers * self.rollout_length / self.batch_size
+            )
 
             if self.using_kl_div:
                 if self.kl_div > self.target_kl * 1.5:
@@ -260,7 +270,7 @@ class PPOAgent(AgentBase):
             if self.kl_div > self.target_kl * 1.5:
                 self.logger.warning("Early stopping")
                 break
-            self._metrics['policy/kl_beta'] = self.kl_beta
+            self._metrics["policy/kl_beta"] = self.kl_beta
 
     def compute_policy_loss(self, samples):
         states, actions, old_log_probs, _, advantages = samples
@@ -288,20 +298,20 @@ class PPOAgent(AgentBase):
         entropy_loss = -self.entropy_weight * entropy.mean()
 
         loss = policy_loss + entropy_loss
-        self._metrics['policy/kl_div'] = approx_kl_div
-        self._metrics['policy/policy_ratio'] = float(r_theta.mean())
-        self._metrics['policy/policy_ratio_clip_mean'] = float(r_theta_clip.mean())
+        self._metrics["policy/kl_div"] = approx_kl_div
+        self._metrics["policy/policy_ratio"] = float(r_theta.mean())
+        self._metrics["policy/policy_ratio_clip_mean"] = float(r_theta_clip.mean())
         return loss, approx_kl_div
 
     def compute_value_loss(self, samples):
         states, _, _, returns, _ = samples
         values = self.critic(states)
-        self._metrics['value/value_mean'] = values.mean()
-        self._metrics['value/value_std'] = values.std()
+        self._metrics["value/value_mean"] = values.mean()
+        self._metrics["value/value_std"] = values.std()
         return F.mse_loss(values, returns)
 
     def learn(self, samples):
-        self._loss_actor = 0.
+        self._loss_actor = 0.0
 
         for actor_iter in range(self.actor_number_updates):
             self.actor_opt.zero_grad()
@@ -309,7 +319,9 @@ class PPOAgent(AgentBase):
             self.kl_div += kl_div
             if kl_div > 1.5 * self.target_kl:
                 # Early break
-                self.logger.warning("Early break after %i iterations. %f > %f", actor_iter, kl_div, 1.5*self.target_kl)
+                self.logger.warning(
+                    "Early break after %i iterations. %f > %f", actor_iter, kl_div, 1.5 * self.target_kl
+                )
                 break
             loss_actor.backward()
             nn.utils.clip_grad_norm_(self.actor_params, self.max_grad_norm_actor)
@@ -324,7 +336,7 @@ class PPOAgent(AgentBase):
             self.critic_opt.step()
             self._loss_critic = float(loss_critic.item())
 
-    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
+    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool = False):
         data_logger.log_value("loss/actor", self._loss_actor, step)
         data_logger.log_value("loss/critic", self._loss_critic, step)
         for metric_name, metric_value in self._metrics.items():
@@ -353,28 +365,30 @@ class PPOAgent(AgentBase):
             action_space=self.action_space,
             config=self._config,
             buffer=copy.deepcopy(self.buffer.get_state()),
-            network=copy.deepcopy(self.get_network_state())
+            network=copy.deepcopy(self.get_network_state()),
         )
 
     def get_network_state(self) -> NetworkState:
-        return NetworkState(net=dict(
-            policy=self.policy.state_dict(),
-            actor=self.actor.state_dict(),
-            critic=self.critic.state_dict(),
-        ))
+        return NetworkState(
+            net=dict(
+                policy=self.policy.state_dict(),
+                actor=self.actor.state_dict(),
+                critic=self.critic.state_dict(),
+            )
+        )
 
     def set_buffer(self, buffer_state: BufferState) -> None:
         self.buffer = BufferFactory.from_state(buffer_state)
 
     def set_network(self, network_state: NetworkState) -> None:
-        self.policy.load_state_dict(network_state.net['policy'])
-        self.actor.load_state_dict(network_state.net['actor'])
-        self.critic.load_state_dict(network_state.net['critic'])
+        self.policy.load_state_dict(network_state.net["policy"])
+        self.actor.load_state_dict(network_state.net["actor"])
+        self.critic.load_state_dict(network_state.net["critic"])
 
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
         config = copy.copy(state.config)
-        config.update({'obs_space': state.obs_space, 'action_space': state.action_space})
+        config.update({"obs_space": state.obs_space, "action_space": state.action_space})
         agent = PPOAgent(**config)
         if state.network is not None:
             agent.set_network(state.network)
@@ -388,9 +402,9 @@ class PPOAgent(AgentBase):
 
     def load_state(self, path: str):
         agent_state = torch.load(path)
-        self._config = agent_state.get('config', {})
+        self._config = agent_state.get("config", {})
         self.__dict__.update(**self._config)
 
-        self.policy.load_state_dict(agent_state['policy'])
-        self.actor.load_state_dict(agent_state['actor'])
-        self.critic.load_state_dict(agent_state['critic'])
+        self.policy.load_state_dict(agent_state["policy"])
+        self.actor.load_state_dict(agent_state["actor"])
+        self.critic.load_state_dict(agent_state["critic"])

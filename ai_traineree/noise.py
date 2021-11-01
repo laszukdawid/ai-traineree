@@ -7,7 +7,7 @@ from ai_traineree.types.primitive import FeatureType
 
 
 class GaussianNoise:
-    def __init__(self, shape: FeatureType, mu=0., sigma=1., scale=1., device=None):
+    def __init__(self, shape: FeatureType, mu=0.0, sigma=1.0, scale=1.0, device=None):
         self.shape = shape
         self.mu = torch.zeros(size=shape) + mu  # type: ignore
         self.std = torch.zeros(size=shape) + math.sqrt(sigma)  # type: ignore
@@ -27,6 +27,7 @@ class OUProcess:
     Deriv of Weiner process is assumed to be white (uniform) noise.
     https://en.wikipedia.org/wiki/Ornstein-Uhlenbeck_process
     """
+
     def __init__(self, shape: int, scale=0.2, mu=0.0, theta=0.15, sigma=0.2, device=None):
         """
         `theta` denotes the feedback factor. The smaller it is, the bigger drift is observed.

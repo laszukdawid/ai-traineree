@@ -28,7 +28,9 @@ class MultivariateGaussianPolicySimple(PolicyType):
 
     param_dim = 1
 
-    def __init__(self, size: int, std_init: float=1.0, std_min: float=0.1, std_max: float=3., device=None, **kwargs):
+    def __init__(
+        self, size: int, std_init: float = 1.0, std_min: float = 0.1, std_max: float = 3.0, device=None, **kwargs
+    ):
         """
         Parameters:
             size: Size of the observation.
@@ -71,7 +73,9 @@ class MultivariateGaussianPolicySimple(PolicyType):
             std = self._empty_std(batch_size, self.size, x.device).scatter(-1, idx, self.std.repeat(new_shape))
         else:
             std = self.std.repeat((batch_size, 1, 1))
-            std = self._empty_std(batch_size, self.size, x.device).scatter(1, self.diag_idx(batch_size, self.size, x.device), std)
+            std = self._empty_std(batch_size, self.size, x.device).scatter(
+                1, self.diag_idx(batch_size, self.size, x.device), std
+            )
         return self.dist(x, scale_tril=std)
 
     def act(self, x):
@@ -95,7 +99,7 @@ class MultivariateGaussianPolicy(PolicyType):
 
     param_dim = 2
 
-    def __init__(self, size: int, std_init: float=1.0, std_min: float=0.1, std_max: float=3., device=None):
+    def __init__(self, size: int, std_init: float = 1.0, std_min: float = 0.1, std_max: float = 3.0, device=None):
         """
         Parameters:
             size: Observation's dimensionality upon sampling.
@@ -132,7 +136,9 @@ class MultivariateGaussianPolicy(PolicyType):
             idx = torch.arange(self.size, device=x.device).view(1, self.size, 1)
             std = torch.zeros((1, self.size, self.size), device=x.device).scatter(-1, idx, std)
         else:
-            std = self._empty_std(batch_size, self.size, x.device).scatter(-1, self.diag_idx(batch_size, self.size, x.device), std)
+            std = self._empty_std(batch_size, self.size, x.device).scatter(
+                -1, self.diag_idx(batch_size, self.size, x.device), std
+            )
         return self.dist(mu, scale_tril=std)
 
     def act(self, x) -> torch.Tensor:
@@ -150,7 +156,7 @@ class GaussianPolicy(PolicyType):
     Has two heads; one for location estimate and one for standard deviation.
     """
 
-    def __init__(self, in_features: FeatureType, out_features: FeatureType, out_scale: float=1, **kwargs):
+    def __init__(self, in_features: FeatureType, out_features: FeatureType, out_scale: float = 1, **kwargs):
         """
         Parameters:
             size: Observation's dimensionality upon sampling.
@@ -187,7 +193,7 @@ class GaussianPolicy(PolicyType):
         # Try deriving it yourself as a (very difficult) exercise. :)
         actions = self._last_samples
         logprob = self._last_dist.log_prob(actions).sum(axis=-1)
-        logprob -= 2*(math.log(2) - actions - F.softplus(-2*actions)).sum(axis=1)
+        logprob -= 2 * (math.log(2) - actions - F.softplus(-2 * actions)).sum(axis=1)
         return logprob.view(-1, 1)
 
     def forward(self, x, deterministic=False) -> torch.Tensor:
@@ -218,7 +224,7 @@ class BetaPolicy(PolicyType):
 
     param_dim = 2
 
-    def __init__(self, size: int, bounds: Tuple[float, float]=(1, float('inf'))):
+    def __init__(self, size: int, bounds: Tuple[float, float] = (1, float("inf"))):
         """
         Parameters:
             size: Observation's dimensionality upon sampling.
@@ -246,7 +252,7 @@ class DirichletPolicy(PolicyType):
 
     param_dim = 1
 
-    def __init__(self, *, alpha_min: float=0.05):
+    def __init__(self, *, alpha_min: float = 0.05):
         super(DirichletPolicy, self).__init__()
         self.alpha_min = alpha_min
 

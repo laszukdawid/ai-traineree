@@ -22,7 +22,7 @@ def test_gym_task_actual_openai_discrete():
 
 def test_gym_task_actual_openai_continious():
     # Assign
-    gym_name = 'Pendulum-v0'
+    gym_name = "Pendulum-v0"
 
     # Act
     task = GymTask(gym_name, can_render=False)
@@ -74,7 +74,7 @@ def test_gym_task_step_discrete(mock_gym, fix_env_discrete):
     # Assign
     mock_gym.make.return_value = fix_env_discrete
     task = GymTask("example")
-    action = 2.
+    action = 2.0
 
     # Act
     out = task.step(action=action)
@@ -137,7 +137,7 @@ def test_gym_seed():
         return states
 
     # Assign
-    task = GymTask('CartPole-v1')
+    task = GymTask("CartPole-v1")
 
     # Act
     task.seed(0)

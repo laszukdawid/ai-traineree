@@ -4,7 +4,7 @@ import pytest
 from ai_traineree.buffers import Experience, NStepBuffer
 
 
-def generate_sample_SARS(iterations, obs_space: int=4, action_size: int=2, dict_type=False):
+def generate_sample_SARS(iterations, obs_space: int = 4, action_size: int = 2, dict_type=False):
     state_fn = lambda: np.random.random(obs_space)
     action_fn = lambda: np.random.random(action_size)
     reward_fn = lambda: float(np.random.random() - 0.5)
@@ -15,7 +15,11 @@ def generate_sample_SARS(iterations, obs_space: int=4, action_size: int=2, dict_
         next_state = state_fn()
         if dict_type:
             yield dict(
-                state=list(state), action=list(action_fn()), reward=[reward_fn()], next_state=list(next_state), done=[bool(done_fn())]
+                state=list(state),
+                action=list(action_fn()),
+                reward=[reward_fn()],
+                next_state=list(next_state),
+                done=[bool(done_fn())],
             )
         else:
             yield (list(state), list(action_fn()), reward_fn(), list(next_state), bool(done_fn()))
@@ -30,7 +34,7 @@ def populate_buffer(buffer, num_samples):
 
 def test_nstep_buffer_add_sample():
     # Assign
-    buffer = NStepBuffer(2, gamma=1.)
+    buffer = NStepBuffer(2, gamma=1.0)
 
     # Act
     sars = next(generate_sample_SARS(1, dict_type=True))
@@ -44,15 +48,15 @@ def test_nstep_buffer_add_sample():
 def test_nstep_buffer_add_many_samples():
     # Assign
     buffer_size = 4
-    gamma = 1.
+    gamma = 1.0
     buffer = NStepBuffer(n_steps=buffer_size, gamma=gamma)
     populate_buffer(buffer, 20)  # in-place
     last_samples = [sars for sars in generate_sample_SARS(buffer_size, dict_type=True)]
-    last_rewards = [s['reward'][0] for s in last_samples]
+    last_rewards = [s["reward"][0] for s in last_samples]
 
     # Act
     for sample in last_samples:
-        sample['done'] = [False]  # Make sure all samples are counted
+        sample["done"] = [False]  # Make sure all samples are counted
         buffer.add(**sample)
 
     # Assert
@@ -60,7 +64,7 @@ def test_nstep_buffer_add_many_samples():
     for expected_len in range(buffer_size)[::-1]:
         sample = buffer.get()
         assert len(buffer) == expected_len
-        assert sample.reward[0] == sum(last_rewards[-expected_len-1:])
+        assert sample.reward[0] == sum(last_rewards[-expected_len - 1 :])
 
 
 def test_nstep_buffer_add_many_samples_discounted():
@@ -70,18 +74,18 @@ def test_nstep_buffer_add_many_samples_discounted():
     buffer = NStepBuffer(n_steps=buffer_size, gamma=gamma)
     populate_buffer(buffer, 20)  # in-place
     last_samples = [sars for sars in generate_sample_SARS(4, dict_type=True)]
-    last_rewards = [s['reward'][0] for s in last_samples]
+    last_rewards = [s["reward"][0] for s in last_samples]
 
     # Act
     for sample in last_samples:
-        sample['done'] = [False]  # Make sure all samples are counted
+        sample["done"] = [False]  # Make sure all samples are counted
         buffer.add(**sample)
 
     # Assert
     assert len(buffer) == buffer_size
     for expected_len in range(buffer_size)[::-1]:
         sample = buffer.get()
-        discounted_reward = sum([r * gamma**idx for (idx, r) in enumerate(last_rewards[-expected_len-1:])])
+        discounted_reward = sum([r * gamma ** idx for (idx, r) in enumerate(last_rewards[-expected_len - 1 :])])
         assert len(buffer) == expected_len
         assert sample.reward[0] == discounted_reward, f"{sample}"
 
@@ -96,11 +100,11 @@ def test_nstep_buffer_add_many_samples_discounted_terminate():
 
     expected_rewards = []
     for idx, sample in enumerate(last_samples):
-        expected_rewards.append(sample['reward'][0])
-        for iidx, sample in enumerate(last_samples[idx+1:]):
-            if any(sample['done']):
+        expected_rewards.append(sample["reward"][0])
+        for iidx, sample in enumerate(last_samples[idx + 1 :]):
+            if any(sample["done"]):
                 break
-            expected_rewards[-1] += gamma ** (iidx+1) * sample['reward'][0]
+            expected_rewards[-1] += gamma ** (iidx + 1) * sample["reward"][0]
 
     # Act
     for sample in last_samples:
@@ -116,7 +120,7 @@ def test_nstep_buffer_add_many_samples_discounted_terminate():
 
 def test_nstep_buffer_clear():
     # Assign
-    buffer = NStepBuffer(n_steps=5, gamma=1.)
+    buffer = NStepBuffer(n_steps=5, gamma=1.0)
     populate_buffer(buffer, 10)  # in-place
 
     # Act & assert
@@ -128,7 +132,7 @@ def test_nstep_buffer_clear():
 
 def test_nstep_buffer_get_state_without_data():
     # Assign
-    buffer = NStepBuffer(n_steps=5, gamma=1.)
+    buffer = NStepBuffer(n_steps=5, gamma=1.0)
 
     # Act
     state = buffer.get_state()
@@ -142,7 +146,7 @@ def test_nstep_buffer_get_state_without_data():
 
 def test_nstep_buffer_get_state_with_data():
     # Assign
-    buffer = NStepBuffer(n_steps=5, gamma=1.)
+    buffer = NStepBuffer(n_steps=5, gamma=1.0)
     populate_buffer(buffer, 10)  # in-place
 
     # Act
@@ -175,7 +179,7 @@ def test_nstep_buffer_from_state_without_data():
 def test_nstep_buffer_from_state_with_data():
     # Assign
     buffer_size = 5
-    buffer = NStepBuffer(n_steps=buffer_size, gamma=1.)
+    buffer = NStepBuffer(n_steps=buffer_size, gamma=1.0)
     buffer = populate_buffer(buffer, 10)  # in-place
     last_samples = [sars for sars in generate_sample_SARS(buffer_size, dict_type=True)]
     for sample in last_samples:
@@ -197,7 +201,7 @@ def test_nstep_buffer_from_state_with_data():
 
 def test_per_from_state_wrong_type():
     # Assign
-    buffer = NStepBuffer(n_steps=5, gamma=1.)
+    buffer = NStepBuffer(n_steps=5, gamma=1.0)
     state = buffer.get_state()
     state.type = "WrongType"
 
@@ -208,7 +212,7 @@ def test_per_from_state_wrong_type():
 
 def test_per_from_state_wrong_batch_size():
     # Assign
-    buffer = NStepBuffer(n_steps=5, gamma=1.)
+    buffer = NStepBuffer(n_steps=5, gamma=1.0)
     state = buffer.get_state()
     state.batch_size = 5
 

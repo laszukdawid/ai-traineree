@@ -15,10 +15,10 @@ obs_size = ma_task.obs_size[0]
 action_size = ma_task.action_size.n
 agent_number = ma_task.num_agents
 config = {
-    'device': 'cpu',
-    'update_freq': 10,
-    'batch_size': 200,
-    'agent_names': env.agents,
+    "device": "cpu",
+    "update_freq": 10,
+    "batch_size": 200,
+    "agent_names": env.agents,
 }
 ma_agent = IQLAgents(obs_size, action_size, agent_number, **config)
 data_logger = TensorboardLogger(log_dir="runs/Prison-IQL")
@@ -39,13 +39,13 @@ fig = plt.figure()
 ax = fig.add_subplot(211)
 for label, values in parsed_scores.items():
     plt.plot(range(len(scores)), values, label=label)
-plt.ylabel('Score')
-plt.xlabel('Episode #')
+plt.ylabel("Score")
+plt.xlabel("Episode #")
 
 ax = fig.add_subplot(212)
 plt.plot(range(len(scores)), summed_score)
-plt.ylabel('Summed score')
-plt.xlabel('Episode #')
+plt.ylabel("Summed score")
+plt.xlabel("Episode #")
 
-plt.savefig('prison.png', dpi=120)
+plt.savefig("prison.png", dpi=120)
 plt.show()

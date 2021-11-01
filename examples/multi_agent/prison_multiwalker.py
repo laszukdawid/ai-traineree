@@ -16,11 +16,11 @@ obs_size = int(ma_task.obs_size[0])
 action_size = int(ma_task.action_size.shape[0])
 agent_number = ma_task.num_agents
 config = {
-    'device': 'cuda',
-    'update_freq': 20,
-    'batch_size': 200,
-    'agent_names': env.agents,
-    'hidden_layers': (500, 300, 100),
+    "device": "cuda",
+    "update_freq": 20,
+    "batch_size": 200,
+    "agent_names": env.agents,
+    "hidden_layers": (500, 300, 100),
 }
 ma_agent = MADDPGAgent(obs_size, action_size, agent_number, **config)
 data_logger = TensorboardLogger(log_dir="runs/Multiwalkers-MADDPG")
@@ -42,13 +42,13 @@ fig = plt.figure()
 ax = fig.add_subplot(211)
 for label, values in parsed_scores.items():
     plt.plot(range(len(scores)), values, label=label)
-plt.ylabel('Score')
-plt.xlabel('Episode #')
+plt.ylabel("Score")
+plt.xlabel("Episode #")
 
 ax = fig.add_subplot(212)
 plt.plot(range(len(scores)), summed_score)
-plt.ylabel('Summed score')
-plt.xlabel('Episode #')
+plt.ylabel("Summed score")
+plt.xlabel("Episode #")
 
-plt.savefig('prison.png', dpi=120)
+plt.savefig("prison.png", dpi=120)
 plt.show()

@@ -19,7 +19,7 @@ class DataSpace:
 
     @staticmethod
     def from_int(size: int):
-        return DataSpace(dtype="int", shape=(size, ), low=0, high=(size-1))
+        return DataSpace(dtype="int", shape=(size,), low=0, high=(size - 1))
 
     @staticmethod
     def from_gym_space(space) -> DataSpace:
@@ -63,6 +63,6 @@ class DataSpace:
         Likely this method isn't necessary with some cleaver dataspace arrangement or additional property.
         However, for now, it simplifies.
         """
-        if self.dtype.startswith('int') and len(self.shape) == 1:
-            return (self.high - self.low + 1, )
+        if self.dtype.startswith("int") and len(self.shape) == 1:
+            return (self.high - self.low + 1,)
         return self.shape

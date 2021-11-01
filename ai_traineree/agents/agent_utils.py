@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-
 from torch import Tensor
 
 EPS = 1e-7
@@ -18,7 +17,7 @@ def hard_update(target: nn.Module, source: nn.Module):
 
 
 def compute_gae(rewards: Tensor, dones: Tensor, values: Tensor, next_value: Tensor, gamma=0.99, lamb=0.9) -> Tensor:
-    """Uses General Advantage Estimator to compute... general advantage estiomation."""
+    """Uses General Advantage Estimator to compute... general advantage estimation."""
     _tmp_values = torch.cat((values, next_value[None, ...]))
     masks = 1 - dones.int()
     gaes = torch.zeros_like(_tmp_values)
@@ -29,7 +28,7 @@ def compute_gae(rewards: Tensor, dones: Tensor, values: Tensor, next_value: Tens
     return gaes[:-1]
 
 
-def normalize(t: Tensor, dim: int=0) -> Tensor:
+def normalize(t: Tensor, dim: int = 0) -> Tensor:
     """Returns normalized (zero 0 and std 1) tensor along specified axis (default: 0)."""
     if dim == 0:
         # Special case since by default it reduces on dim 0 and it should be faster.
@@ -38,7 +37,7 @@ def normalize(t: Tensor, dim: int=0) -> Tensor:
         return (t - t.mean(dim=dim, keepdim=True)) / torch.clamp(t.std(dim=dim, keepdim=True), EPS)
 
 
-def revert_norm_returns(rewards: Tensor, dones: Tensor, gamma: float=0.99) -> Tensor:
+def revert_norm_returns(rewards: Tensor, dones: Tensor, gamma: float = 0.99) -> Tensor:
     """
     Parameters:
         rewards: Rewards to discount. Expected shape (..., 1)

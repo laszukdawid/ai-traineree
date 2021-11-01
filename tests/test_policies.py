@@ -28,7 +28,7 @@ def test_multi_gauss_simple_std_updates():
     std_init, std_min, std_max = 2, 0.01, 10
     test_loc = torch.arange(size).unsqueeze(0)  # Shape: (1, 5)
     test_std = torch.full((size,), std_init)  # Shape: (5,)
-    test_cov_mat = torch.eye(size).unsqueeze(0) * std_init**2  # Shape: (1, 5, 5)
+    test_cov_mat = torch.eye(size).unsqueeze(0) * std_init ** 2  # Shape: (1, 5, 5)
     policy = MultivariateGaussianPolicySimple(size, std_init=std_init, std_min=std_min, std_max=std_max)
 
     # Act
@@ -47,9 +47,9 @@ def test_multi_gauss_simple_statistic():
     # Assign
     size = 3
     batch_size = 3000
-    expected_loc = torch.tensor([-2., 0, 2.])  # Shape: (3,)
-    expected_std = test_std = torch.tensor([0.1, 1, 2.])
-    policy = MultivariateGaussianPolicySimple(size, std_max=max(expected_std)*2)
+    expected_loc = torch.tensor([-2.0, 0, 2.0])  # Shape: (3,)
+    expected_std = test_std = torch.tensor([0.1, 1, 2.0])
+    policy = MultivariateGaussianPolicySimple(size, std_max=max(expected_std) * 2)
     policy.std.data = test_std
     test_loc = expected_loc.repeat((batch_size, 1))  # Shape: (3000, 3)
 

@@ -6,7 +6,7 @@ from ai_traineree.buffers import ReplayBuffer, PERBuffer, NStepBuffer, RolloutBu
 from ai_traineree.buffers.buffer_factory import BufferFactory
 
 
-def generate_sample_SARS(iterations, obs_size: int=4, action_size: int=2, dict_type=False):
+def generate_sample_SARS(iterations, obs_size: int = 4, action_size: int = 2, dict_type=False):
     state_fn = lambda: numpy.random.random(obs_size)
     action_fn = lambda: numpy.random.random(action_size)
     reward_fn = lambda: float(numpy.random.random() - 0.5)
@@ -17,7 +17,11 @@ def generate_sample_SARS(iterations, obs_size: int=4, action_size: int=2, dict_t
         next_state = state_fn()
         if dict_type:
             yield dict(
-                state=list(state), action=list(action_fn()), reward=[reward_fn()], next_state=list(next_state), done=[bool(done_fn())]
+                state=list(state),
+                action=list(action_fn()),
+                reward=[reward_fn()],
+                next_state=list(next_state),
+                done=[bool(done_fn())],
             )
         else:
             yield (list(state), list(action_fn()), reward_fn(), list(next_state), bool(done_fn()))
@@ -50,7 +54,7 @@ def test_factory_nstep_buffer_from_state_without_data():
 def test_factory_nstep_buffer_from_state_with_data():
     # Assign
     buffer_size = 5
-    buffer = NStepBuffer(n_steps=buffer_size, gamma=1.)
+    buffer = NStepBuffer(n_steps=buffer_size, gamma=1.0)
     buffer = populate_buffer(buffer, 10)  # in-place
     last_samples = [sars for sars in generate_sample_SARS(buffer_size, dict_type=True)]
     for sample in last_samples:

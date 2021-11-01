@@ -18,10 +18,7 @@ from ai_traineree.utils import save_gif
 FRAMES_PER_SEC = 45
 
 logging.basicConfig(
-    stream=sys.stdout,
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)-8s %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+    stream=sys.stdout, level=logging.INFO, format="%(asctime)s %(levelname)-8s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
 )
 
 
@@ -38,7 +35,7 @@ class EnvRunner:
 
     logger = logging.getLogger("EnvRunner")
 
-    def __init__(self, task: TaskType, agent: AgentBase, max_iterations: int=int(1e5), **kwargs):
+    def __init__(self, task: TaskType, agent: AgentBase, max_iterations: int = int(1e5), **kwargs):
         """
         Expects the environment to come as the TaskType and the agent as the AgentBase.
 
@@ -51,13 +48,13 @@ class EnvRunner:
         self.agent = agent
         self.max_iterations = max_iterations
         self.model_path = f"{task.name}_{agent.model}"
-        self.state_dir = 'run_states'
+        self.state_dir = "run_states"
 
         self.episode = 0
         self.iteration = 0
         self.all_scores = []
         self.all_iterations = []
-        self.window_len = kwargs.get('window_len', 100)
+        self.window_len = kwargs.get("window_len", 100)
         self.scores_window = deque(maxlen=self.window_len)
         self.__images = []
 
@@ -72,7 +69,7 @@ class EnvRunner:
         self._rewards: List[Any] = []
         self._dones: List[Any] = []
 
-        self.seed(kwargs.get('seed'))
+        self.seed(kwargs.get("seed"))
 
     def __str__(self) -> str:
         return f"EnvRunner<{self.task.name}, {self.agent.model}>"
@@ -91,12 +88,12 @@ class EnvRunner:
 
     def interact_episode(
         self,
-        eps: float=0,
-        max_iterations: Optional[int]=None,
-        render: bool=False,
-        render_gif: bool=False,
-        log_interaction_freq: Optional[int]=10,
-        full_log_interaction_freq: Optional[int]=1000,
+        eps: float = 0,
+        max_iterations: Optional[int] = None,
+        render: bool = False,
+        render_gif: bool = False,
+        log_interaction_freq: Optional[int] = 10,
+        full_log_interaction_freq: Optional[int] = 1000,
     ) -> Tuple[RewardType, int]:
         score = 0
         state = self.task.reset()
@@ -108,12 +105,12 @@ class EnvRunner:
         if render_gif:
             self.__images = []
 
-        while(iterations < max_iterations and not done):
+        while iterations < max_iterations and not done:
             iterations += 1
             self.iteration += 1
             if render:
                 self.task.render("human")
-                time.sleep(1./FRAMES_PER_SEC)
+                time.sleep(1.0 / FRAMES_PER_SEC)
 
             action = self.agent.act(state, eps)
 
@@ -128,15 +125,16 @@ class EnvRunner:
             score += float(reward)
             if render_gif:
                 # OpenAI gym still renders the image to the screen even though it shouldn't. Eh.
-                img = self.task.render(mode='rgb_array')
+                img = self.task.render(mode="rgb_array")
                 self.__images.append(img)
 
             self.agent.step(state, action, reward, next_state, done)
 
             # Plot interactions every `log_interaction_freq` iterations.
             # Plot full log (including weights) every `full_log_interaction_freq` iterations.
-            if (log_interaction_freq and (iterations % log_interaction_freq) == 0) \
-               or (full_log_interaction_freq and (self.iteration % full_log_interaction_freq) == 0):
+            if (log_interaction_freq and (iterations % log_interaction_freq) == 0) or (
+                full_log_interaction_freq and (self.iteration % full_log_interaction_freq) == 0
+            ):
                 full_log = full_log_interaction_freq and (iterations % full_log_interaction_freq) == 0
                 self.log_data_interaction(full_log=full_log)
 
@@ -147,16 +145,16 @@ class EnvRunner:
 
     def run(
         self,
-        reward_goal: float=100.0,
-        max_episodes: int=2000,
-        eps_start: float=1.0,
-        eps_end: float=0.01,
-        eps_decay: float=0.995,
-        log_episode_freq: int=1,
-        log_interaction_freq: int=10,
-        gif_every_episodes: Optional[int]=None,
+        reward_goal: float = 100.0,
+        max_episodes: int = 2000,
+        eps_start: float = 1.0,
+        eps_end: float = 0.01,
+        eps_decay: float = 0.995,
+        log_episode_freq: int = 1,
+        log_interaction_freq: int = 10,
+        gif_every_episodes: Optional[int] = None,
         checkpoint_every=200,
-        force_new: bool=False,
+        force_new: bool = False,
     ) -> List[float]:
         """
         Evaluates the agent in the environment.
@@ -194,10 +192,12 @@ class EnvRunner:
         mean_scores = []
         epsilons = []
 
-        while (self.episode < max_episodes):
+        while self.episode < max_episodes:
             self.episode += 1
             render_gif = gif_every_episodes is not None and (self.episode % gif_every_episodes) == 0
-            score, iterations = self.interact_episode(self.epsilon, render_gif=render_gif, log_interaction_freq=log_interaction_freq)
+            score, iterations = self.interact_episode(
+                self.epsilon, render_gif=render_gif, log_interaction_freq=log_interaction_freq
+            )
 
             self.scores_window.append(score)
             self.all_iterations.append(iterations)
@@ -225,9 +225,9 @@ class EnvRunner:
                 self.__images = []
 
             if mean_scores[-1] >= reward_goal and len(self.scores_window) == self.window_len:
-                print(f'Environment solved after {self.episode} episodes!\tAverage Score: {mean_scores[-1]:.2f}')
+                print(f"Environment solved after {self.episode} episodes!\tAverage Score: {mean_scores[-1]:.2f}")
                 self.save_state(self.model_path)
-                self.agent.save_state(f'{self.model_path}_agent.net')
+                self.agent.save_state(f"{self.model_path}_agent.net")
                 break
 
             if self.episode % checkpoint_every == 0:
@@ -259,12 +259,12 @@ class EnvRunner:
 
     def log_logger(self, **kwargs):
         """Writes out env logs via logger (either stdout or a file)."""
-        episode = kwargs.get('episodes')[-1]
-        score = kwargs.get('scores')[-1]
-        iteration = kwargs.get('iterations')[-1]
-        mean_score = kwargs.get('mean_scores')[-1]
-        epsilon = kwargs.get('epsilons')[-1]
-        loss = kwargs.get('loss', {})
+        episode = kwargs.get("episodes")[-1]
+        score = kwargs.get("scores")[-1]
+        iteration = kwargs.get("iterations")[-1]
+        mean_score = kwargs.get("mean_scores")[-1]
+        epsilon = kwargs.get("epsilons")[-1]
+        loss = kwargs.get("loss", {})
         line_chunks = [f"Episode {episode};"]
         line_chunks += [f"Iter: {iteration};"]
         line_chunks += [f"Current Score: {score:.2f};"]
@@ -276,44 +276,44 @@ class EnvRunner:
 
     def log_episode_metrics(self, **kwargs):
         """Uses DataLogger, e.g. TensorboardLogger, to store env metrics."""
-        episodes: List[int] = kwargs.get('episodes', [])
-        for episode, epsilon in zip(episodes, kwargs.get('epsilons', [])):
+        episodes: List[int] = kwargs.get("episodes", [])
+        for episode, epsilon in zip(episodes, kwargs.get("epsilons", [])):
             self.data_logger.log_value("episode/epsilon", epsilon, episode)
 
-        for episode, mean_score in zip(episodes, kwargs.get('mean_scores', [])):
+        for episode, mean_score in zip(episodes, kwargs.get("mean_scores", [])):
             self.data_logger.log_value("episode/avg_score", mean_score, episode)
 
-        for episode, score in zip(episodes, kwargs.get('scores', [])):
+        for episode, score in zip(episodes, kwargs.get("scores", [])):
             self.data_logger.log_value("episode/score", score, episode)
 
-        for episode, iteration in zip(episodes, kwargs.get('iterations', [])):
+        for episode, iteration in zip(episodes, kwargs.get("iterations", [])):
             self.data_logger.log_value("episode/iterations", iteration, episode)
 
     def log_data_interaction(self, **kwargs):
         if self.data_logger is None:
             return
 
-        if hasattr(self.agent, 'log_metrics'):
+        if hasattr(self.agent, "log_metrics"):
             self.agent.log_metrics(self.data_logger, self.iteration, full_log=kwargs.get("full_log", False))
         else:
-            for loss_name, loss_value in kwargs.get('loss', {}).items():
+            for loss_name, loss_value in kwargs.get("loss", {}).items():
                 self.data_logger.log_value(f"loss/{loss_name}", loss_value, self.iteration)
 
-        while(self._debug_log and self._states):
+        while self._debug_log and self._states:
             step, states = self._states.pop(0)
             states = states if isinstance(states, Iterable) else [states]
             self.data_logger.log_values_dict("env/states", {str(i): a for i, a in enumerate(states)}, step)
 
-        while(self._debug_log and self._actions):
+        while self._debug_log and self._actions:
             step, actions = self._actions.pop(0)
             actions = actions if isinstance(actions, Iterable) else [actions]
             self.data_logger.log_values_dict("env/action", {str(i): a for i, a in enumerate(actions)}, step)
 
-        while(self._debug_log and self._rewards):
+        while self._debug_log and self._rewards:
             step, rewards = self._rewards.pop(0)
             self.data_logger.log_value("env/reward", float(rewards), step)
 
-        while(self._debug_log and self._dones):
+        while self._debug_log and self._dones:
             step, dones = self._dones.pop(0)
             self.data_logger.log_value("env/done", int(dones), step)
 
@@ -324,17 +324,17 @@ class EnvRunner:
         Agents are saved with their internal saving mechanism.
         """
         state = {
-            'tot_iterations': sum(self.all_iterations),
-            'episode': self.episode,
-            'epsilon': self.epsilon,
-            'score': self.all_scores[-1],
-            'average_score': sum(self.scores_window) / len(self.scores_window),
-            'loss': self.agent.loss,
+            "tot_iterations": sum(self.all_iterations),
+            "episode": self.episode,
+            "epsilon": self.epsilon,
+            "score": self.all_scores[-1],
+            "average_score": sum(self.scores_window) / len(self.scores_window),
+            "loss": self.agent.loss,
         }
 
         Path(self.state_dir).mkdir(parents=True, exist_ok=True)
-        self.agent.save_state(f'{self.state_dir}/{state_name}_e{self.episode}.agent')
-        with open(f'{self.state_dir}/{state_name}_e{self.episode}.json', 'w') as f:
+        self.agent.save_state(f"{self.state_dir}/{state_name}_e{self.episode}.agent")
+        with open(f"{self.state_dir}/{state_name}_e{self.episode}.json", "w") as f:
             json.dump(state, f)
 
     def load_state(self, file_prefix: str):
@@ -342,29 +342,31 @@ class EnvRunner:
         Loads state with the highest episode value for given agent and environment.
         """
         try:
-            state_files = list(filter(lambda f: f.startswith(file_prefix) and f.endswith('json'), os.listdir(self.state_dir)))
-            recent_episode_num = max([int(f[f.index('_e')+2:f.index('.')]) for f in state_files])
+            state_files = list(
+                filter(lambda f: f.startswith(file_prefix) and f.endswith("json"), os.listdir(self.state_dir))
+            )
+            recent_episode_num = max([int(f[f.index("_e") + 2 : f.index(".")]) for f in state_files])
             state_name = [n for n in state_files if n.endswith(f"_e{recent_episode_num}.json")][0][:-5]
         except Exception:
             self.logger.warning("Couldn't load state. Forcing restart.")
             return
 
         self.logger.info("Loading saved state under: %s/%s.json", self.state_dir, state_name)
-        with open(f'{self.state_dir}/{state_name}.json', 'r') as f:
+        with open(f"{self.state_dir}/{state_name}.json", "r") as f:
             state = json.load(f)
-        self.episode = state.get('episode')
-        self.epsilon = state.get('epsilon')
+        self.episode = state.get("episode")
+        self.epsilon = state.get("epsilon")
 
-        self.all_scores.append(state.get('score'))
+        self.all_scores.append(state.get("score"))
         self.all_iterations = []
 
-        avg_score = state.get('average_score')
+        avg_score = state.get("average_score")
         for _ in range(min(self.window_len, self.episode)):
             self.scores_window.append(avg_score)
 
         self.logger.info("Loading saved agent state: %s/%s.agent", self.state_dir, state_name)
-        self.agent.load_state(path=f'{self.state_dir}/{state_name}.agent')
-        self.agent.loss = state.get('loss', 0)
+        self.agent.load_state(path=f"{self.state_dir}/{state_name}.agent")
+        self.agent.loss = state.get("loss", 0)
 
 
 class MultiSyncEnvRunner:
@@ -379,7 +381,7 @@ class MultiSyncEnvRunner:
 
     logger = logging.getLogger("MultiSyncEnvRunner")
 
-    def __init__(self, tasks: List[TaskType], agent: AgentBase, max_iterations: int=int(1e5), **kwargs):
+    def __init__(self, tasks: List[TaskType], agent: AgentBase, max_iterations: int = int(1e5), **kwargs):
         """
         Expects the environment to come as the TaskType and the agent as the AgentBase.
 
@@ -397,13 +399,13 @@ class MultiSyncEnvRunner:
         self.agent = agent
         self.max_iterations = max_iterations
         self.model_path = f"{tasks[0].name}_{agent.model}"
-        self.state_dir = 'run_states'
+        self.state_dir = "run_states"
 
         self.episode = 0
         self.iteration = 0
         self.all_scores = []
         self.all_iterations = []
-        self.window_len = kwargs.get('window_len', 100)
+        self.window_len = kwargs.get("window_len", 100)
         self.scores_window = deque(maxlen=self.window_len)
 
         self.data_logger: Optional[DataLogger] = kwargs.get("data_logger")
@@ -446,15 +448,17 @@ class MultiSyncEnvRunner:
             task_out = task.step(action)
             next_state, reward, done, _ = task_out
 
-            conn.send({
-                "idx": t_idx,
-                "state": state,
-                "action": action,
-                "next_state": next_state,
-                "reward": reward,
-                "done": done,
-                "iteration": iteration,
-            })
+            conn.send(
+                {
+                    "idx": t_idx,
+                    "state": state,
+                    "action": action,
+                    "next_state": next_state,
+                    "reward": reward,
+                    "done": done,
+                    "iteration": iteration,
+                }
+            )
 
     def init_network(self):
         for p_idx in range(self.num_processes):
@@ -467,13 +471,13 @@ class MultiSyncEnvRunner:
 
     def run(
         self,
-        reward_goal: float=100.0,
-        max_episodes: int=2000,
-        max_iterations: int=int(1e6),
-        eps_start: float=1.0,
-        eps_end: float=0.01,
-        eps_decay: float=0.995,
-        log_episode_freq: int=1,
+        reward_goal: float = 100.0,
+        max_episodes: int = 2000,
+        max_iterations: int = int(1e6),
+        eps_start: float = 1.0,
+        eps_end: float = 0.01,
+        eps_decay: float = 0.995,
+        log_episode_freq: int = 1,
         checkpoint_every=200,
         force_new=False,
     ):
@@ -510,9 +514,15 @@ class MultiSyncEnvRunner:
             self.init_network()
 
             return self._run(
-                reward_goal, max_episodes, max_iterations,
-                eps_start, eps_end, eps_decay,
-                log_episode_freq, checkpoint_every, force_new,
+                reward_goal,
+                max_episodes,
+                max_iterations,
+                eps_start,
+                eps_end,
+                eps_decay,
+                log_episode_freq,
+                checkpoint_every,
+                force_new,
             )
 
         finally:
@@ -522,13 +532,13 @@ class MultiSyncEnvRunner:
 
     def _run(
         self,
-        reward_goal: float=100.0,
-        max_episodes: int=2000,
-        max_iterations: int=1000,
-        eps_start: float=1.0,
-        eps_end: float=0.01,
-        eps_decay: float=0.995,
-        log_episode_freq: int=1,
+        reward_goal: float = 100.0,
+        max_episodes: int = 2000,
+        max_iterations: int = 1000,
+        eps_start: float = 1.0,
+        eps_end: float = 0.01,
+        eps_decay: float = 0.995,
+        log_episode_freq: int = 1,
         checkpoint_every=200,
         force_new=False,
     ):
@@ -557,9 +567,9 @@ class MultiSyncEnvRunner:
 
         mean_scores = []
         epsilons = []
-        mean_score = -float('inf')
+        mean_score = -float("inf")
 
-        while (self.episode < max_episodes):
+        while self.episode < max_episodes:
             self.iteration += self.task_num
             iterations += 1
 
@@ -572,15 +582,15 @@ class MultiSyncEnvRunner:
             for t_idx in range(self.task_num):
                 obj = self.parent_conns[t_idx].recv()
 
-                idx = obj['idx']
-                rewards[idx] = obj['reward']
-                states[idx] = obj['state']
-                actions[idx] = obj['action']
-                next_states[idx] = obj['next_state']
-                dones[idx] = obj['done']
+                idx = obj["idx"]
+                rewards[idx] = obj["reward"]
+                states[idx] = obj["state"]
+                actions[idx] = obj["action"]
+                next_states[idx] = obj["next_state"]
+                dones[idx] = obj["done"]
 
-                iterations[idx] = obj['iteration']
-                scores[idx] += obj['reward']
+                iterations[idx] = obj["iteration"]
+                scores[idx] += obj["reward"]
 
             # All recently evaluated SARS are passed at the same time
             self.agent.step(states, actions, rewards, next_states, dones)
@@ -623,20 +633,20 @@ class MultiSyncEnvRunner:
             self.epsilon = max(eps_end, eps_decay * self.epsilon)
 
             if mean_score >= reward_goal and len(self.scores_window) == self.window_len:
-                print(f'Environment solved after {self.episode} episodes!\tAverage Score: {mean_score:.2f}')
+                print(f"Environment solved after {self.episode} episodes!\tAverage Score: {mean_score:.2f}")
                 self.save_state(self.model_path)
-                self.agent.save_state(f'{self.model_path}_agent.net')
+                self.agent.save_state(f"{self.model_path}_agent.net")
                 break
         return self.all_scores
 
     def close_all(self):
-        while(self.parent_conns):
+        while self.parent_conns:
             self.parent_conns.pop(0).close()
 
-        while(self.child_conns):
+        while self.child_conns:
             self.child_conns.pop(0).close()
 
-        while(self.processes):
+        while self.processes:
             p = self.processes.pop(0)
             p.terminate()
             p.join()
@@ -656,12 +666,12 @@ class MultiSyncEnvRunner:
 
     def log_logger(self, **kwargs):
         """Writes out env logs via logger (either stdout or a file)."""
-        episode = kwargs.get('episodes')[-1]
-        score = kwargs.get('scores')[-1]
-        iteration = kwargs.get('iterations')[-1]
-        loss = kwargs.get('loss', {})
-        mean_score = kwargs.get('mean_scores')[-1]
-        epsilon = kwargs.get('epsilons')[-1]
+        episode = kwargs.get("episodes")[-1]
+        score = kwargs.get("scores")[-1]
+        iteration = kwargs.get("iterations")[-1]
+        loss = kwargs.get("loss", {})
+        mean_score = kwargs.get("mean_scores")[-1]
+        epsilon = kwargs.get("epsilons")[-1]
         line_chunks = [f"Episode {episode};"]
         line_chunks += [f"Iter: {iteration};"]
         line_chunks += [f"Current Score: {score:.2f};"]
@@ -673,21 +683,21 @@ class MultiSyncEnvRunner:
 
     def log_episode_metrics(self, **kwargs):
         """Uses data_logger, e.g. Tensorboard, to store env metrics."""
-        episodes: List[int] = kwargs.get('episodes', [])
-        for episode, epsilon in zip(episodes, kwargs.get('epsilons', [])):
+        episodes: List[int] = kwargs.get("episodes", [])
+        for episode, epsilon in zip(episodes, kwargs.get("epsilons", [])):
             self.data_logger.log_value("episode/epsilon", epsilon, episode)
 
-        for episode, mean_score in zip(episodes, kwargs.get('mean_scores', [])):
+        for episode, mean_score in zip(episodes, kwargs.get("mean_scores", [])):
             self.data_logger.log_value("episode/avg_score", mean_score, episode)
 
-        for episode, score in zip(episodes, kwargs.get('scores', [])):
+        for episode, score in zip(episodes, kwargs.get("scores", [])):
             self.data_logger.log_value("episode/score", score, episode)
 
-        for episode, iteration in zip(episodes, kwargs.get('iterations', [])):
+        for episode, iteration in zip(episodes, kwargs.get("iterations", [])):
             self.data_logger.log_value("episode/iterations", iteration, episode)
 
     def log_data_interaction(self, **kwargs):
-        if self.data_logger and hasattr(self.agent, 'log_metrics'):
+        if self.data_logger and hasattr(self.agent, "log_metrics"):
             self.agent.log_metrics(self.data_logger, self.iteration, full_log=kwargs.get("full_log", False))
 
     def save_state(self, state_name: str):
@@ -697,17 +707,17 @@ class MultiSyncEnvRunner:
         Agents are saved with their internal saving mechanism.
         """
         state = {
-            'tot_iterations': sum(self.all_iterations),
-            'episode': self.episode,
-            'epsilon': self.epsilon,
-            'score': self.all_scores[-1],
-            'average_score': sum(self.scores_window) / len(self.scores_window),
-            'loss': self.agent.loss,
+            "tot_iterations": sum(self.all_iterations),
+            "episode": self.episode,
+            "epsilon": self.epsilon,
+            "score": self.all_scores[-1],
+            "average_score": sum(self.scores_window) / len(self.scores_window),
+            "loss": self.agent.loss,
         }
 
         Path(self.state_dir).mkdir(parents=True, exist_ok=True)
-        self.agent.save_state(f'{self.state_dir}/{state_name}_e{self.episode}.agent')
-        with open(f'{self.state_dir}/{state_name}_e{self.episode}.json', 'w') as f:
+        self.agent.save_state(f"{self.state_dir}/{state_name}_e{self.episode}.agent")
+        with open(f"{self.state_dir}/{state_name}_e{self.episode}.json", "w") as f:
             json.dump(state, f)
 
     def load_state(self, file_prefix: str):
@@ -715,26 +725,28 @@ class MultiSyncEnvRunner:
         Loads state with the highest episode value for given agent and environment.
         """
         try:
-            state_files = list(filter(lambda f: f.startswith(file_prefix) and f.endswith('json'), os.listdir(self.state_dir)))
-            recent_episode_num = max([int(f[f.index('_e')+2:f.index('.')]) for f in state_files])
+            state_files = list(
+                filter(lambda f: f.startswith(file_prefix) and f.endswith("json"), os.listdir(self.state_dir))
+            )
+            recent_episode_num = max([int(f[f.index("_e") + 2 : f.index(".")]) for f in state_files])
             state_name = [n for n in state_files if n.endswith(f"_e{recent_episode_num}.json")][0][:-5]
         except Exception:
             self.logger.warning("Couldn't load state. Forcing restart.")
             return
 
         self.logger.info("Loading saved state under: %s/%s.json", self.state_dir, state_name)
-        with open(f'{self.state_dir}/{state_name}.json', 'r') as f:
+        with open(f"{self.state_dir}/{state_name}.json", "r") as f:
             state = json.load(f)
-        self.episode = state.get('episode')
-        self.epsilon = state.get('epsilon')
+        self.episode = state.get("episode")
+        self.epsilon = state.get("epsilon")
 
-        self.all_scores.append(state.get('score'))
+        self.all_scores.append(state.get("score"))
         self.all_iterations = []
 
-        avg_score = state.get('average_score')
+        avg_score = state.get("average_score")
         for _ in range(min(self.window_len, self.episode)):
             self.scores_window.append(avg_score)
 
         self.logger.info("Loading saved agent state: %s/%s.agent", self.state_dir, state_name)
-        self.agent.load_state(f'{self.state_dir}/{state_name}.agent')
-        self.agent.loss = state.get('loss', 0)
+        self.agent.load_state(f"{self.state_dir}/{state_name}.agent")
+        self.agent.loss = state.get("loss", 0)

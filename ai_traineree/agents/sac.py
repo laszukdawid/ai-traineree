@@ -64,46 +64,54 @@ class SACAgent(AgentBase):
         self.device = kwargs.get("device", DEVICE)
         self.obs_space = obs_space
         self.action_space = action_space
-        self._config['obs_space'] = self.obs_space
-        self._config['action_space'] = self.action_space
+        self._config["obs_space"] = self.obs_space
+        self._config["action_space"] = self.action_space
         action_size = self.action_space.shape[0]  # Because of 1D
 
-        self.gamma: float = float(self._register_param(kwargs, 'gamma', 0.99))
-        self.tau: float = float(self._register_param(kwargs, 'tau', 0.02))
-        self.batch_size: int = int(self._register_param(kwargs, 'batch_size', 64))
-        self.buffer_size: int = int(self._register_param(kwargs, 'buffer_size', int(1e6)))
+        self.gamma: float = float(self._register_param(kwargs, "gamma", 0.99))
+        self.tau: float = float(self._register_param(kwargs, "tau", 0.02))
+        self.batch_size: int = int(self._register_param(kwargs, "batch_size", 64))
+        self.buffer_size: int = int(self._register_param(kwargs, "buffer_size", int(1e6)))
         self.buffer = PERBuffer(self.batch_size, self.buffer_size)
 
-        self.action_min = self._register_param(kwargs, 'action_min', -1)
-        self.action_max = self._register_param(kwargs, 'action_max', 1)
-        self.action_scale = self._register_param(kwargs, 'action_scale', 1)
+        self.action_min = self._register_param(kwargs, "action_min", -1)
+        self.action_max = self._register_param(kwargs, "action_max", 1)
+        self.action_scale = self._register_param(kwargs, "action_scale", 1)
 
-        self.warm_up = int(self._register_param(kwargs, 'warm_up', 0))
-        self.update_freq = int(self._register_param(kwargs, 'update_freq', 1))
-        self.number_updates = int(self._register_param(kwargs, 'number_updates', 1))
-        self.actor_number_updates = int(self._register_param(kwargs, 'actor_number_updates', 1))
-        self.critic_number_updates = int(self._register_param(kwargs, 'critic_number_updates', 1))
+        self.warm_up = int(self._register_param(kwargs, "warm_up", 0))
+        self.update_freq = int(self._register_param(kwargs, "update_freq", 1))
+        self.number_updates = int(self._register_param(kwargs, "number_updates", 1))
+        self.actor_number_updates = int(self._register_param(kwargs, "actor_number_updates", 1))
+        self.critic_number_updates = int(self._register_param(kwargs, "critic_number_updates", 1))
 
         # Reason sequence initiation.
-        hidden_layers = to_numbers_seq(self._register_param(kwargs, 'hidden_layers', (128, 128)))
-        actor_hidden_layers = to_numbers_seq(self._register_param(kwargs, 'actor_hidden_layers', hidden_layers))
-        critic_hidden_layers = to_numbers_seq(self._register_param(kwargs, 'critic_hidden_layers', hidden_layers))
+        hidden_layers = to_numbers_seq(self._register_param(kwargs, "hidden_layers", (128, 128)))
+        actor_hidden_layers = to_numbers_seq(self._register_param(kwargs, "actor_hidden_layers", hidden_layers))
+        critic_hidden_layers = to_numbers_seq(self._register_param(kwargs, "critic_hidden_layers", hidden_layers))
 
         self.simple_policy = bool(self._register_param(kwargs, "simple_policy", False))
         if self.simple_policy:
             self.policy = MultivariateGaussianPolicySimple(action_size, **kwargs)
             self.actor = ActorBody(
-                obs_space.shape, (self.policy.param_dim*action_size,), hidden_layers=actor_hidden_layers, device=self.device)
+                obs_space.shape,
+                (self.policy.param_dim * action_size,),
+                hidden_layers=actor_hidden_layers,
+                device=self.device,
+            )
         else:
             self.policy = GaussianPolicy(
-                (actor_hidden_layers[-1],), self.action_space.shape, out_scale=self.action_scale, device=self.device)
+                (actor_hidden_layers[-1],), self.action_space.shape, out_scale=self.action_scale, device=self.device
+            )
             self.actor = ActorBody(
-                obs_space.shape, (actor_hidden_layers[-1],), hidden_layers=actor_hidden_layers[:-1], device=self.device)
+                obs_space.shape, (actor_hidden_layers[-1],), hidden_layers=actor_hidden_layers[:-1], device=self.device
+            )
 
         self.double_critic = DoubleCritic(
-            obs_space.shape, action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device)
+            obs_space.shape, action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device
+        )
         self.target_double_critic = DoubleCritic(
-            obs_space.shape, action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device)
+            obs_space.shape, action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device
+        )
 
         # Target sequence initiation
         hard_update(self.target_double_critic, self.double_critic)
@@ -115,8 +123,8 @@ class SACAgent(AgentBase):
         alpha_init = float(self._register_param(kwargs, "alpha", 0.2))
         self.log_alpha = torch.tensor(np.log(alpha_init), device=self.device, requires_grad=True)
 
-        actor_lr = float(self._register_param(kwargs, 'actor_lr', 3e-4))
-        critic_lr = float(self._register_param(kwargs, 'critic_lr', 3e-4))
+        actor_lr = float(self._register_param(kwargs, "actor_lr", 3e-4))
+        critic_lr = float(self._register_param(kwargs, "critic_lr", 3e-4))
 
         self.actor_params = list(self.actor.parameters()) + list(self.policy.parameters())
         self.critic_params = list(self.double_critic.parameters())
@@ -131,8 +139,8 @@ class SACAgent(AgentBase):
         # Breath, my child.
         self.iteration = 0
 
-        self._loss_actor = float('nan')
-        self._loss_critic = float('nan')
+        self._loss_actor = float("nan")
+        self._loss_critic = float("nan")
         self._metrics: Dict[str, Union[float, Dict[str, float]]] = {}
 
     @property
@@ -141,23 +149,25 @@ class SACAgent(AgentBase):
 
     @property
     def loss(self) -> Dict[str, float]:
-        return {'actor': self._loss_actor, 'critic': self._loss_critic}
+        return {"actor": self._loss_actor, "critic": self._loss_critic}
 
     @loss.setter
     def loss(self, value):
         if isinstance(value, dict):
-            self._loss_actor = value['actor']
-            self._loss_critic = value['critic']
+            self._loss_actor = value["actor"]
+            self._loss_critic = value["critic"]
         else:
             self._loss_actor = value
             self._loss_critic = value
 
     def __eq__(self, o: object) -> bool:
-        return super().__eq__(o) \
-            and isinstance(o, type(self)) \
-            and self._config == o._config \
-            and self.buffer == o.buffer \
+        return (
+            super().__eq__(o)
+            and isinstance(o, type(self))
+            and self._config == o._config
+            and self.buffer == o.buffer
             and self.get_network_state() == o.get_network_state()  # TODO @dawid: Currently net isn't compared properly
+        )
 
     def reset_agent(self) -> None:
         self.actor.reset_parameters()
@@ -178,7 +188,7 @@ class SACAgent(AgentBase):
         }
 
     @torch.no_grad()
-    def act(self, obs: ObsType, epsilon: float=0.0, deterministic: bool=False) -> List[float]:
+    def act(self, obs: ObsType, epsilon: float = 0.0, deterministic: bool = False) -> List[float]:
         """Acting on the observations. Returns action.
 
         Parameters:
@@ -204,7 +214,11 @@ class SACAgent(AgentBase):
     def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType):
         self.iteration += 1
         self.buffer.add(
-            state=obs, action=action, reward=reward, next_state=next_obs, done=done,
+            state=obs,
+            action=action,
+            reward=reward,
+            next_state=next_obs,
+            done=done,
         )
 
         if self.iteration < self.warm_up:
@@ -237,17 +251,17 @@ class SACAgent(AgentBase):
         Q1_diff = Q1_expected - Q_target
         error_1 = Q1_diff.pow(2)
         mse_loss_1: Tensor = error_1.mean()
-        self._metrics['value/critic1'] = {'mean': float(Q1_expected.mean()), 'std': float(Q1_expected.std())}
-        self._metrics['value/critic1_lse'] = float(mse_loss_1.item())
+        self._metrics["value/critic1"] = {"mean": float(Q1_expected.mean()), "std": float(Q1_expected.std())}
+        self._metrics["value/critic1_lse"] = float(mse_loss_1.item())
 
         Q2_diff = Q2_expected - Q_target
         error_2 = Q2_diff.pow(2)
         mse_loss_2: Tensor = error_2.mean()
-        self._metrics['value/critic2'] = {'mean': float(Q2_expected.mean()), 'std': float(Q2_expected.std())}
-        self._metrics['value/critic2_lse'] = float(mse_loss_2.item())
+        self._metrics["value/critic2"] = {"mean": float(Q2_expected.mean()), "std": float(Q2_expected.std())}
+        self._metrics["value/critic2_lse"] = float(mse_loss_2.item())
 
         Q_diff = Q1_expected - Q2_expected
-        self._metrics['value/Q_diff'] = {'mean': float(Q_diff.mean()), 'std': float(Q_diff.std())}
+        self._metrics["value/Q_diff"] = {"mean": float(Q_diff.mean()), "std": float(Q_diff.std())}
 
         error: Tensor = torch.min(error_1, error_2)
         loss = mse_loss_1 + mse_loss_2
@@ -262,7 +276,7 @@ class SACAgent(AgentBase):
         Q_estimate = torch.min(*self.double_critic(states, pred_actions))
         assert Q_estimate.shape == (self.batch_size, 1)
 
-        self._metrics['policy/entropy'] = -float(log_prob.detach().mean())
+        self._metrics["policy/entropy"] = -float(log_prob.detach().mean())
         loss = (self.alpha * log_prob - Q_estimate).mean()
 
         # Update alpha
@@ -276,15 +290,15 @@ class SACAgent(AgentBase):
         return loss
 
     def learn(self, samples):
-        """update the critics and actors of all the agents """
+        """update the critics and actors of all the agents"""
         batch_obs_shape = (self.batch_size,) + self.obs_space.shape
         batch_action_shape = (self.batch_size,) + self.action_space.shape
 
-        rewards = to_tensor(samples['reward']).float().to(self.device).view(self.batch_size, 1)
-        dones = to_tensor(samples['done']).int().to(self.device).view(self.batch_size, 1)
-        states = to_tensor(samples['state']).float().to(self.device).view(batch_obs_shape)
-        next_states = to_tensor(samples['next_state']).float().to(self.device).view(batch_obs_shape)
-        actions = to_tensor(samples['action']).to(self.device).view(batch_action_shape)
+        rewards = to_tensor(samples["reward"]).float().to(self.device).view(self.batch_size, 1)
+        dones = to_tensor(samples["done"]).int().to(self.device).view(self.batch_size, 1)
+        states = to_tensor(samples["state"]).float().to(self.device).view(batch_obs_shape)
+        next_states = to_tensor(samples["next_state"]).float().to(self.device).view(batch_obs_shape)
+        actions = to_tensor(samples["action"]).to(self.device).view(batch_action_shape)
 
         # Critic (value) update
         for _ in range(self.critic_number_updates):
@@ -304,13 +318,13 @@ class SACAgent(AgentBase):
             self.actor_optimizer.step()
             self._loss_actor = float(policy_loss.item())
 
-        if hasattr(self.buffer, 'priority_update'):
+        if hasattr(self.buffer, "priority_update"):
             assert any(~torch.isnan(error))
-            self.buffer.priority_update(samples['index'], error.abs())
+            self.buffer.priority_update(samples["index"], error.abs())
 
         soft_update(self.target_double_critic, self.double_critic, self.tau)
 
-    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
+    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool = False):
         data_logger.log_value("loss/actor", self._loss_actor, step)
         data_logger.log_value("loss/critic", self._loss_critic, step)
         data_logger.log_value("loss/alpha", self.alpha, step)
@@ -356,26 +370,28 @@ class SACAgent(AgentBase):
         )
 
     def get_network_state(self) -> NetworkState:
-        return NetworkState(net=dict(
-            policy=self.policy.state_dict(),
-            actor=self.actor.state_dict(),
-            double_critic=self.double_critic.state_dict(),
-            target_double_critic=self.target_double_critic.state_dict(),
-        ))
+        return NetworkState(
+            net=dict(
+                policy=self.policy.state_dict(),
+                actor=self.actor.state_dict(),
+                double_critic=self.double_critic.state_dict(),
+                target_double_critic=self.target_double_critic.state_dict(),
+            )
+        )
 
     def set_buffer(self, buffer_state: BufferState) -> None:
         self.buffer = BufferFactory.from_state(buffer_state)
 
     def set_network(self, network_state: NetworkState) -> None:
-        self.policy.load_state_dict(network_state.net['policy'])
-        self.actor.load_state_dict(network_state.net['actor'])
-        self.double_critic.load_state_dict(network_state.net['double_critic'])
-        self.target_double_critic.load_state_dict(network_state.net['target_double_critic'])
+        self.policy.load_state_dict(network_state.net["policy"])
+        self.actor.load_state_dict(network_state.net["actor"])
+        self.double_critic.load_state_dict(network_state.net["double_critic"])
+        self.target_double_critic.load_state_dict(network_state.net["target_double_critic"])
 
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
         config = copy.copy(state.config)
-        config.update({'obs_space': state.obs_space, 'action_space': state.action_space})
+        config.update({"obs_space": state.obs_space, "action_space": state.action_space})
         agent = SACAgent(**config)
         if state.network is not None:
             agent.set_network(state.network)
@@ -389,10 +405,10 @@ class SACAgent(AgentBase):
 
     def load_state(self, path: str):
         agent_state = torch.load(path)
-        self._config = agent_state.get('config', {})
+        self._config = agent_state.get("config", {})
         self.__dict__.update(**self._config)
 
-        self.actor.load_state_dict(agent_state['actor'])
-        self.policy.load_state_dict(agent_state['policy'])
-        self.double_critic.load_state_dict(agent_state['double_critic'])
-        self.target_double_critic.load_state_dict(agent_state['target_double_critic'])
+        self.actor.load_state_dict(agent_state["actor"])
+        self.policy.load_state_dict(agent_state["policy"])
+        self.double_critic.load_state_dict(agent_state["double_critic"])
+        self.target_double_critic.load_state_dict(agent_state["target_double_critic"])

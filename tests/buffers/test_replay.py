@@ -6,7 +6,7 @@ from ai_traineree.buffers import Experience, ReplayBuffer
 from ai_traineree.types.state import BufferState
 
 
-def generate_sample_SARS(iterations, obs_size: int=4, action_size: int=2, dict_type=False):
+def generate_sample_SARS(iterations, obs_size: int = 4, action_size: int = 2, dict_type=False):
     state_fn = lambda: list(numpy.random.random(obs_size))
     action_fn = lambda: list(numpy.random.random(action_size))
     reward_fn = lambda: float(numpy.random.random() - 0.5)
@@ -36,7 +36,7 @@ def test_buffer_size():
     buffer = ReplayBuffer(batch_size=5, buffer_size=buffer_size)
 
     # Act
-    for (state, action, reward, next_state, done) in generate_sample_SARS(buffer_size+1):
+    for (state, action, reward, next_state, done) in generate_sample_SARS(buffer_size + 1):
         buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
 
     # Assert
@@ -116,12 +116,19 @@ def test_replay_buffer_seed():
 
 def test_replay_buffer_dump():
     import torch
+
     # Assign
     filled_buffer = 8
     prop_keys = ["state", "action", "reward", "next_state"]
     buffer = ReplayBuffer(batch_size=5, buffer_size=10)
     for sars in generate_sample_SARS(filled_buffer):
-        buffer.add(state=torch.tensor(sars[0]), reward=sars[1], action=[sars[2]], next_state=torch.tensor(sars[3]), dones=sars[4])
+        buffer.add(
+            state=torch.tensor(sars[0]),
+            reward=sars[1],
+            action=[sars[2]],
+            next_state=torch.tensor(sars[3]),
+            dones=sars[4],
+        )
 
     # Act
     dump = list(buffer.dump_buffer())
@@ -134,13 +141,14 @@ def test_replay_buffer_dump():
 def test_replay_buffer_dump_serializable():
     import json
     import torch
+
     # Assign
     filled_buffer = 8
     buffer = ReplayBuffer(batch_size=5, buffer_size=10)
 
     for sars in generate_sample_SARS(filled_buffer, dict_type=True):
-        sars['state'] = torch.tensor(sars['state'])
-        sars['next_state'] = torch.tensor(sars['next_state'])
+        sars["state"] = torch.tensor(sars["state"])
+        sars["next_state"] = torch.tensor(sars["next_state"])
         buffer.add(**sars)
 
     # Act
@@ -194,7 +202,7 @@ def test_replay_buffer_get_state_with_data():
     buffer_size = 20
     buffer = ReplayBuffer(batch_size=batch_size, buffer_size=buffer_size)
 
-    for (state, action, reward, next_state, done) in generate_sample_SARS(buffer_size+1):
+    for (state, action, reward, next_state, done) in generate_sample_SARS(buffer_size + 1):
         buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
 
     # Act
@@ -219,7 +227,7 @@ def test_replay_buffer_get_state_without_data():
     buffer_size = 20
     buffer = ReplayBuffer(batch_size=batch_size, buffer_size=buffer_size)
 
-    for (state, action, reward, next_state, done) in generate_sample_SARS(buffer_size+1):
+    for (state, action, reward, next_state, done) in generate_sample_SARS(buffer_size + 1):
         buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
 
     # Act

@@ -6,14 +6,14 @@ from ai_traineree.types import TaskType
 import pylab as plt
 
 
-env_name = 'LunarLanderContinuous-v2'
+env_name = "LunarLanderContinuous-v2"
 task: TaskType = GymTask(env_name)
 config = {
-    'action_scale': 2,
-    'batch_size': 200,
-    'number_updates': 5,
-    'update_freq': 10,
-    'update_policy_freq': 10,
+    "action_scale": 2,
+    "batch_size": 200,
+    "number_updates": 5,
+    "update_freq": 10,
+    "update_policy_freq": 10,
 }
 agent = Agent(task.obs_size, task.action_size, **config)
 env_runner = EnvRunner(task, agent)
@@ -26,7 +26,7 @@ env_runner.interact_episode(0, render=True)
 fig = plt.figure()
 ax = fig.add_subplot(111)
 plt.plot(range(len(scores)), scores)
-plt.ylabel('Score')
-plt.xlabel('Episode #')
-plt.savefig(f'{env_name}.png', dpi=120)
+plt.ylabel("Score")
+plt.xlabel("Episode #")
+plt.savefig(f"{env_name}.png", dpi=120)
 plt.show()

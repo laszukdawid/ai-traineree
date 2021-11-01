@@ -34,7 +34,12 @@ class DDPGAgent(AgentBase):
     model = "DDPG"
 
     def __init__(
-        self, obs_space: DataSpace, action_space: DataSpace, noise_scale: float=0.2, noise_sigma: float=0.1, **kwargs
+        self,
+        obs_space: DataSpace,
+        action_space: DataSpace,
+        noise_scale: float = 0.2,
+        noise_sigma: float = 0.1,
+        **kwargs,
     ):
         """
         Parameters:
@@ -62,54 +67,55 @@ class DDPGAgent(AgentBase):
         self.device = self._register_param(kwargs, "device", DEVICE)
         self.obs_space = obs_space
         self.action_space = action_space
-        self._config['obs_space'] = self.obs_space
-        self._config['action_space'] = self.action_space
+        self._config["obs_space"] = self.obs_space
+        self._config["action_space"] = self.action_space
 
         action_shape = action_space.to_feature()
         action_size = reduce(operator.mul, action_shape)
 
         # Reason sequence initiation.
-        hidden_layers = to_numbers_seq(self._register_param(kwargs, 'hidden_layers', (64, 64)))
-        self.actor = ActorBody(
-            obs_space.shape, action_shape, hidden_layers=hidden_layers, gate_out=torch.tanh).to(self.device)
-        self.critic = CriticBody(
-            obs_space.shape, action_size, hidden_layers=hidden_layers).to(self.device)
+        hidden_layers = to_numbers_seq(self._register_param(kwargs, "hidden_layers", (64, 64)))
+        self.actor = ActorBody(obs_space.shape, action_shape, hidden_layers=hidden_layers, gate_out=torch.tanh).to(
+            self.device
+        )
+        self.critic = CriticBody(obs_space.shape, action_size, hidden_layers=hidden_layers).to(self.device)
         self.target_actor = ActorBody(
-            obs_space.shape, action_shape, hidden_layers=hidden_layers, gate_out=torch.tanh).to(self.device)
-        self.target_critic = CriticBody(
-            obs_space.shape, action_size, hidden_layers=hidden_layers).to(self.device)
+            obs_space.shape, action_shape, hidden_layers=hidden_layers, gate_out=torch.tanh
+        ).to(self.device)
+        self.target_critic = CriticBody(obs_space.shape, action_size, hidden_layers=hidden_layers).to(self.device)
 
         # Noise sequence initiation
         self.noise = GaussianNoise(
-            shape=action_shape, mu=1e-8, sigma=noise_sigma, scale=noise_scale, device=self.device)
+            shape=action_shape, mu=1e-8, sigma=noise_sigma, scale=noise_scale, device=self.device
+        )
 
         # Target sequence initiation
         hard_update(self.target_actor, self.actor)
         hard_update(self.target_critic, self.critic)
 
         # Optimization sequence initiation.
-        self.actor_lr = float(self._register_param(kwargs, 'actor_lr', 3e-4))
-        self.critic_lr = float(self._register_param(kwargs, 'critic_lr', 3e-4))
+        self.actor_lr = float(self._register_param(kwargs, "actor_lr", 3e-4))
+        self.critic_lr = float(self._register_param(kwargs, "critic_lr", 3e-4))
         self.actor_optimizer = Adam(self.actor.parameters(), lr=self.actor_lr)
         self.critic_optimizer = Adam(self.critic.parameters(), lr=self.critic_lr)
         self.max_grad_norm_actor = float(self._register_param(kwargs, "max_grad_norm_actor", 10.0))
         self.max_grad_norm_critic = float(self._register_param(kwargs, "max_grad_norm_critic", 10.0))
 
-        self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))
-        self.tau = float(self._register_param(kwargs, 'tau', 0.02))
-        self.batch_size = int(self._register_param(kwargs, 'batch_size', 64))
-        self.buffer_size = int(self._register_param(kwargs, 'buffer_size', int(1e6)))
+        self.gamma = float(self._register_param(kwargs, "gamma", 0.99))
+        self.tau = float(self._register_param(kwargs, "tau", 0.02))
+        self.batch_size = int(self._register_param(kwargs, "batch_size", 64))
+        self.buffer_size = int(self._register_param(kwargs, "buffer_size", int(1e6)))
         self.buffer = ReplayBuffer(self.batch_size, self.buffer_size)
 
-        self.warm_up = int(self._register_param(kwargs, 'warm_up', 0))
-        self.update_freq = int(self._register_param(kwargs, 'update_freq', 1))
-        self.number_updates = int(self._register_param(kwargs, 'number_updates', 1))
+        self.warm_up = int(self._register_param(kwargs, "warm_up", 0))
+        self.update_freq = int(self._register_param(kwargs, "update_freq", 1))
+        self.number_updates = int(self._register_param(kwargs, "number_updates", 1))
 
         # Breath, my child.
         self.reset_agent()
         self.iteration = 0
-        self._loss_actor = 0.
-        self._loss_critic = 0.
+        self._loss_actor = 0.0
+        self._loss_critic = 0.0
 
     def reset_agent(self) -> None:
         self.actor.reset_parameters()
@@ -119,23 +125,25 @@ class DDPGAgent(AgentBase):
 
     @property
     def loss(self) -> Dict[str, float]:
-        return {'actor': self._loss_actor, 'critic': self._loss_critic}
+        return {"actor": self._loss_actor, "critic": self._loss_critic}
 
     @loss.setter
     def loss(self, value):
         if isinstance(value, dict):
-            self._loss_actor = value['actor']
-            self._loss_critic = value['critic']
+            self._loss_actor = value["actor"]
+            self._loss_critic = value["critic"]
         else:
             self._loss_actor = value
             self._loss_critic = value
 
     def __eq__(self, o: object) -> bool:
-        return super().__eq__(o) \
-            and isinstance(o, type(self)) \
-            and self._config == o._config \
-            and self.buffer == o.buffer \
+        return (
+            super().__eq__(o)
+            and isinstance(o, type(self))
+            and self._config == o._config
+            and self.buffer == o.buffer
             and self.get_network_state() == o.get_network_state()
+        )
 
     @cached_property
     def action_min(self):
@@ -146,7 +154,7 @@ class DDPGAgent(AgentBase):
         return to_tensor(self.action_space.high)
 
     @torch.no_grad()
-    def act(self, obs: ObsType, noise: float=0.0) -> List[float]:
+    def act(self, obs: ObsType, noise: float = 0.0) -> List[float]:
         """Acting on the observations. Returns action.
 
         Parameters:
@@ -158,7 +166,7 @@ class DDPGAgent(AgentBase):
         """
         t_obs = to_tensor(obs).float().to(self.device)
         action = self.actor(t_obs)
-        action += noise*self.noise.sample()
+        action += noise * self.noise.sample()
         action = torch.clamp(action, self.action_min, self.action_max)
         return action.cpu().numpy().tolist()
 
@@ -193,14 +201,16 @@ class DDPGAgent(AgentBase):
 
     def learn(self, experiences) -> None:
         """Update critics and actors"""
-        rewards = to_tensor(experiences['reward']).float().to(self.device).unsqueeze(1)
-        dones = to_tensor(experiences['done']).type(torch.int).to(self.device).unsqueeze(1)
-        states = to_tensor(experiences['state']).float().to(self.device)
-        actions = to_tensor(experiences['action']).float().to(self.device).view((-1,) + self.action_space.shape)
-        next_states = to_tensor(experiences['next_state']).float().to(self.device)
+        rewards = to_tensor(experiences["reward"]).float().to(self.device).unsqueeze(1)
+        dones = to_tensor(experiences["done"]).type(torch.int).to(self.device).unsqueeze(1)
+        states = to_tensor(experiences["state"]).float().to(self.device)
+        actions = to_tensor(experiences["action"]).float().to(self.device).view((-1,) + self.action_space.shape)
+        next_states = to_tensor(experiences["next_state"]).float().to(self.device)
 
         assert rewards.shape == dones.shape == (self.batch_size, 1), f"R.shape={rewards.shape}, D.shap={dones.shape}"
-        assert states.shape == next_states.shape == (self.batch_size,) + self.obs_space.shape, f"states.shape: {states.shape}"
+        assert (
+            states.shape == next_states.shape == (self.batch_size,) + self.obs_space.shape
+        ), f"states.shape: {states.shape}"
         assert actions.shape == (self.batch_size,) + self.action_space.shape, f"actions.shape: {actions.shape}"  # type: ignore
 
         # Value (critic) optimization
@@ -234,10 +244,10 @@ class DDPGAgent(AgentBase):
             "actor": self.actor.state_dict(),
             "target_actor": self.target_actor.state_dict(),
             "critic": self.critic.state_dict(),
-            "target_critic": self.target_critic.state_dict()
+            "target_critic": self.target_critic.state_dict(),
         }
 
-    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
+    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool = False):
         data_logger.log_value("loss/actor", self._loss_actor, step)
         data_logger.log_value("loss/critic", self._loss_critic, step)
 
@@ -276,7 +286,7 @@ class DDPGAgent(AgentBase):
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
         config = copy.copy(state.config)
-        config.update({'obs_space': state.obs_space, 'action_space': state.action_space})
+        config.update({"obs_space": state.obs_space, "action_space": state.action_space})
         agent = DDPGAgent(**config)
         if state.network is not None:
             agent.set_network(state.network)
@@ -288,24 +298,24 @@ class DDPGAgent(AgentBase):
         self.buffer = BufferFactory.from_state(buffer_state)
 
     def set_network(self, network_state: NetworkState) -> None:
-        self.actor.load_state_dict(copy.deepcopy(network_state.net['actor']))
-        self.target_actor.load_state_dict(network_state.net['target_actor'])
-        self.critic.load_state_dict(network_state.net['critic'])
-        self.target_critic.load_state_dict(network_state.net['target_critic'])
+        self.actor.load_state_dict(copy.deepcopy(network_state.net["actor"]))
+        self.target_actor.load_state_dict(network_state.net["target_actor"])
+        self.critic.load_state_dict(network_state.net["critic"])
+        self.target_critic.load_state_dict(network_state.net["target_critic"])
 
     def save_state(self, path: str) -> None:
         agent_state = self.get_state()
         torch.save(agent_state, path)
 
-    def load_state(self, *, path: Optional[str]=None, agent_state: Optional[dict]=None):
+    def load_state(self, *, path: Optional[str] = None, agent_state: Optional[dict] = None):
         if path is None and agent_state:
             raise ValueError("Either `path` or `agent_state` must be provided to load agent's state.")
         if path is not None and agent_state is None:
             agent_state = torch.load(path)
-        self._config = agent_state.get('config', {})
+        self._config = agent_state.get("config", {})
         self.__dict__.update(**self._config)
 
-        self.actor.load_state_dict(agent_state['actor'])
-        self.critic.load_state_dict(agent_state['critic'])
-        self.target_actor.load_state_dict(agent_state['target_actor'])
-        self.target_critic.load_state_dict(agent_state['target_critic'])
+        self.actor.load_state_dict(agent_state["actor"])
+        self.critic.load_state_dict(agent_state["critic"])
+        self.target_actor.load_state_dict(agent_state["target_actor"])
+        self.target_critic.load_state_dict(agent_state["target_critic"])

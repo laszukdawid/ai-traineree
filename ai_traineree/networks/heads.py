@@ -33,6 +33,7 @@ class NetChainer(NetworkType):
     As it stands it is a wrapper around pytroch.nn.ModuleList.
     The need for wrapper comes from unified API to reset properties.
     """
+
     def __init__(self, net_classes: List[NetworkTypeClass], **kwargs):
         super(NetChainer, self).__init__()
         self.nets = nn.ModuleList(net_classes)
@@ -42,7 +43,7 @@ class NetChainer(NetworkType):
 
     @staticmethod
     def _determin_feature_size(layer, is_in=True):
-        if 'Conv' in str(layer):
+        if "Conv" in str(layer):
             return layer.in_channels if is_in else layer.out_channels
         else:
             return layer.in_features if is_in else layer.out_features
@@ -66,9 +67,11 @@ class DoubleCritic(NetworkType):
         super(DoubleCritic, self).__init__()
         hidden_layers = kwargs.pop("hidden_layers", (200, 200))
         self.critic_1 = body_cls(
-            in_features=in_features, inj_action_size=action_size, hidden_layers=hidden_layers, **kwargs)
+            in_features=in_features, inj_action_size=action_size, hidden_layers=hidden_layers, **kwargs
+        )
         self.critic_2 = body_cls(
-            in_features=in_features, inj_action_size=action_size, hidden_layers=hidden_layers, **kwargs)
+            in_features=in_features, inj_action_size=action_size, hidden_layers=hidden_layers, **kwargs
+        )
 
     def reset_parameters(self):
         self.critic_1.reset_parameters()
@@ -83,9 +86,12 @@ class DoubleCritic(NetworkType):
 
 class DuelingNet(NetworkType):
     def __init__(
-        self, in_features: Sequence[int], out_features: Sequence[int], hidden_layers: Sequence[int],
-        net_fn: Optional[Callable[..., NetworkType]]=None,
-        net_class: Optional[NetworkTypeClass]=None,
+        self,
+        in_features: Sequence[int],
+        out_features: Sequence[int],
+        hidden_layers: Sequence[int],
+        net_fn: Optional[Callable[..., NetworkType]] = None,
+        net_class: Optional[NetworkTypeClass] = None,
         **kwargs
     ):
         """
@@ -111,9 +117,11 @@ class DuelingNet(NetworkType):
             self.advantage_net = net_class(in_features, out_features, hidden_layers=hidden_layers, device=device)
         else:
             self.value_net = FcNet(
-                in_features, (1,), hidden_layers=hidden_layers, gate_out=nn.Identity(), device=device)
+                in_features, (1,), hidden_layers=hidden_layers, gate_out=nn.Identity(), device=device
+            )
             self.advantage_net = FcNet(
-                in_features, out_features, hidden_layers=hidden_layers, gate_out=nn.Identity(), device=device)
+                in_features, out_features, hidden_layers=hidden_layers, gate_out=nn.Identity(), device=device
+            )
 
     def reset_parameters(self) -> None:
         self.value_net.reset_parameters()
@@ -147,16 +155,17 @@ class CategoricalNet(NetworkType):
             Link: http://arxiv.org/abs/1707.06887
 
     """
+
     def __init__(
         self,
-        num_atoms: int=21,
-        v_min: float=-20.,
-        v_max: float=20.,
-        in_features: Optional[FeatureType]=None,
-        out_features: Optional[FeatureType]=None,
-        hidden_layers: Sequence[int]=(200, 200),
-        net: Optional[NetworkType]=None,
-        device: Optional[torch.device]=None,
+        num_atoms: int = 21,
+        v_min: float = -20.0,
+        v_max: float = 20.0,
+        in_features: Optional[FeatureType] = None,
+        out_features: Optional[FeatureType] = None,
+        hidden_layers: Sequence[int] = (200, 200),
+        net: Optional[NetworkType] = None,
+        device: Optional[torch.device] = None,
     ):
         """
         Parameters:
@@ -185,10 +194,12 @@ class CategoricalNet(NetworkType):
             self.net = net
         elif in_features is not None and out_features is not None:
             assert len(out_features) == 1, "Expecting single dimension for output features"
-            _out_features = (out_features[0]*self.num_atoms, )
+            _out_features = (out_features[0] * self.num_atoms,)
             self.net = FcNet(in_features, _out_features, hidden_layers=hidden_layers, device=self.device)
         else:
-            raise ValueError("CategoricalNet needs to be instantiated either with `net` or (`obs_space` and `action_size`)")
+            raise ValueError(
+                "CategoricalNet needs to be instantiated either with `net` or (`obs_space` and `action_size`)"
+            )
 
         assert len(self.net.out_features) == 1, "Expecting single dimension for output features"
         self.in_featores = self.net.in_features
@@ -210,7 +221,7 @@ class CategoricalNet(NetworkType):
         return offset.unsqueeze(1).expand(batch_size, self.num_atoms)
 
     def mean(self, values):
-        return (self.z_atoms*values).mean()
+        return (self.z_atoms * values).mean()
 
     def dist_projection(
         self, rewards: torch.Tensor, masks: torch.Tensor, discount: float, prob_next: torch.Tensor
@@ -255,9 +266,8 @@ class CategoricalNet(NetworkType):
 
 
 class RainbowNet(NetworkType, nn.Module):
-    """Rainbow networks combines dueling and categorical networks.
+    """Rainbow networks combines dueling and categorical networks."""
 
-    """
     def __init__(self, in_features: FeatureType, out_features: FeatureType, **kwargs):
         """
         Parameters
@@ -279,7 +289,7 @@ class RainbowNet(NetworkType, nn.Module):
         self.device = device = kwargs.get("device", None)
 
         self.pre_network = None
-        if 'pre_network_fn' in kwargs:
+        if "pre_network_fn" in kwargs:
             self.pre_network = kwargs.get("pre_network_fn")(in_features=in_features)
             self.pre_netowrk_params = self.pre_network.parameters()  # Registers pre_network's parameters to this module
             pof = self.pre_network.out_features
@@ -292,14 +302,14 @@ class RainbowNet(NetworkType, nn.Module):
         self.z_delta = self.z_atoms[1] - self.z_atoms[0]
 
         in_size, out_size = reduce(mul, in_features), reduce(mul, out_features)
-        hidden_layers = to_numbers_seq(kwargs.get('hidden_layers', (128, 128)))
+        hidden_layers = to_numbers_seq(kwargs.get("hidden_layers", (128, 128)))
         self.noisy = kwargs.get("noisy", False)
         if self.noisy:
             self.value_net = NoisyNet((in_size,), out_features=(num_atoms,), hidden_layers=hidden_layers, device=device)
-            self.advantage_net = NoisyNet((in_size,), out_size*num_atoms, hidden_layers=hidden_layers, device=device)
+            self.advantage_net = NoisyNet((in_size,), out_size * num_atoms, hidden_layers=hidden_layers, device=device)
         else:
             self.value_net = FcNet(in_features, out_features=(num_atoms,), hidden_layers=hidden_layers, device=device)
-            self.advantage_net = FcNet(in_features, (out_size*num_atoms,), hidden_layers=hidden_layers, device=device)
+            self.advantage_net = FcNet(in_features, (out_size * num_atoms,), hidden_layers=hidden_layers, device=device)
 
         if self.pre_network is not None:
             pif = self.pre_network.in_features

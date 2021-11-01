@@ -1,10 +1,11 @@
+import logging
 import os
 from pathlib import Path
 from typing import Any, List, Tuple, Union
 
 import jsons
-import torch
 import numpy as np
+import torch
 
 # Update serializaiton rules for `jsons` module used by `serialize` function (below).
 jsons.set_serializer(lambda x, **kwargs: x.tolist(), torch.Tensor)  # type: ignore
@@ -23,8 +24,9 @@ def to_tensor(x) -> torch.Tensor:
 
 
 def save_gif(path, images: List[np.ndarray]) -> None:
-    print(f"Saving as a gif to {path}")
+    logging.debug(f"Saving as a gif to {path}")
     from PIL import Image
+
     imgs = [Image.fromarray(img[::2, ::2]) for img in images]  # Reduce /4 size; pick w/2 h/2 pix
 
     Path(os.path.dirname(path)).mkdir(parents=True, exist_ok=True)
@@ -46,12 +48,12 @@ def str_to_list(s: str) -> List:
         [2.5, 1]
 
     """
-    if s[0] == '[' and s[-1] == ']':
+    if s[0] == "[" and s[-1] == "]":
         s = s[1:-1]
-    elif s[0] == '[' or s[-1] == ']':
+    elif s[0] == "[" or s[-1] == "]":
         raise ValueError(f"Passed a string `{s}` with uneven parathesis. Will not tolerate such disgrace.")
 
-    return [str_to_number(num) for num in s.split(',')]
+    return [str_to_number(num) for num in s.split(",")]
 
 
 def str_to_tuple(s: str) -> Tuple:
@@ -66,9 +68,9 @@ def str_to_tuple(s: str) -> Tuple:
         (1, 2, 3)
 
     """
-    if s[0] == '(' and s[-1] == ')':
+    if s[0] == "(" and s[-1] == ")":
         s = s[1:-1]
-    elif s[0] == '(' or s[-1] == ')':
+    elif s[0] == "(" or s[-1] == ")":
         raise ValueError(f"Passed a string `{s}` with uneven parathesis. Will not tolerate such disgrace.")
 
     return tuple(map(str_to_number, s.split(",")))

@@ -5,13 +5,12 @@ from ai_traineree.types import AgentType
 
 
 class AgentBase(AgentType):
-
     def __init__(self, *args, **kwargs):
         self._config = {}
         self._rng = random.Random()
-        if 'seed' in kwargs:
-            self.seed(kwargs.get('seed'))
-    
+        if "seed" in kwargs:
+            self.seed(kwargs.get("seed"))
+
     def reset(self) -> None:
         """Resets data not associated with learning."""
         pass
@@ -34,5 +33,5 @@ class AgentBase(AgentType):
         self._rng.seed(seed)
         torch.manual_seed(seed)
 
-        if hasattr(self, 'buffer'):
+        if hasattr(self, "buffer"):
             self.buffer.seed(seed)

@@ -14,7 +14,7 @@ def state_transform(state):
     """
     Simple cropping of the top and bottom edge and converting to blackwhite scale.
     """
-    return state.mean(2)[None, ...]/256.
+    return state.mean(2)[None, ...] / 256.0
 
 
 def agent_state_tranform(state):
@@ -22,20 +22,24 @@ def agent_state_tranform(state):
 
 
 def network_fn(state_dim, output_dim, device=None):
-    conv_net = ConvNet(state_dim, hidden_layers=(30, 30), kernel_sze=(16, 8), max_pool_size=(4, 2), stride=(4, 2), device=device)
-    return NetChainer(net_classes=[
-        conv_net,
-        nn.Flatten(),
-        FcNet(conv_net.output_size, output_dim, hidden_layers=(200, 200), device=device),
-    ])
+    conv_net = ConvNet(
+        state_dim, hidden_layers=(30, 30), kernel_sze=(16, 8), max_pool_size=(4, 2), stride=(4, 2), device=device
+    )
+    return NetChainer(
+        net_classes=[
+            conv_net,
+            nn.Flatten(),
+            FcNet(conv_net.output_size, output_dim, hidden_layers=(200, 200), device=device),
+        ]
+    )
 
 
-env_name = 'SpaceInvaders-v0'
+env_name = "SpaceInvaders-v0"
 task = GymTask(env_name, state_transform=state_transform)
 
 device = "cuda"
 config = {
-    'device': device,
+    "device": device,
     "update_freq": 50,
     "number_updates": 5,
     "batch_size": 200,
@@ -51,14 +55,16 @@ agent = RainbowAgent(obs_size, task.action_size, **config)
 data_logger = TensorboardLogger(f'runs/{env_name}_{agent.name}_{datetime.datetime.now().strftime("%b%d_%H-%m-%s")}')
 env_runner = EnvRunner(task, agent, max_iterations=10000, data_logger=data_logger)
 
-scores = env_runner.run(reward_goal=1000, max_episodes=1000, log_every=1, eps_start=0.99, gif_every_episodes=100, force_new=True)
+scores = env_runner.run(
+    reward_goal=1000, max_episodes=1000, log_every=1, eps_start=0.99, gif_every_episodes=100, force_new=True
+)
 env_runner.interact_episode(render=True)
 
 # plot the scores
 fig = plt.figure()
 ax = fig.add_subplot(111)
 plt.plot(range(len(scores)), scores)
-plt.ylabel('Score')
-plt.xlabel('Episode #')
-plt.savefig(f'{env_name}.png', dpi=120)
+plt.ylabel("Score")
+plt.xlabel("Episode #")
+plt.savefig(f"{env_name}.png", dpi=120)
 plt.show()

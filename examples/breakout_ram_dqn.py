@@ -5,7 +5,7 @@ from ai_traineree.tasks import GymTask
 import pylab as plt
 
 
-env_name = 'Breakout-ram-v0'
+env_name = "Breakout-ram-v0"
 config = {
     "hidden_layers": (500, 400),
     "lr": 1e-3,
@@ -23,7 +23,7 @@ env_runner.interact_episode(100, render=True)
 fig = plt.figure()
 ax = fig.add_subplot(111)
 plt.plot(range(len(scores)), scores)
-plt.ylabel('Score')
-plt.xlabel('Episode #')
-plt.savefig(f'{env_name}.png', dpi=120)
+plt.ylabel("Score")
+plt.xlabel("Episode #")
+plt.savefig(f"{env_name}.png", dpi=120)
 plt.show()

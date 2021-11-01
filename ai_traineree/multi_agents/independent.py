@@ -29,9 +29,7 @@ class IndependentAgents(MultiAgentType):
         assert len(agent_names) == len(agents), "Expecting `agents` and `agent_names` to have the same lengths"
 
         self.num_agents = len(agents)
-        self.agents: Dict[str, AgentType] = {
-            agent_name: agent for (agent_name, agent) in zip(agent_names, agents)
-        }
+        self.agents: Dict[str, AgentType] = {agent_name: agent for (agent_name, agent) in zip(agent_names, agents)}
 
         self.reset()
 
@@ -57,11 +55,13 @@ class IndependentAgents(MultiAgentType):
         for agent in self.agents.values():
             agent.reset()
 
-    def step(self, agent_name: str, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType) -> None:
+    def step(
+        self, agent_name: str, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType
+    ) -> None:
         return self.agents[agent_name].step(obs, action, reward, next_obs, done)
 
     @torch.no_grad()
-    def act(self, agent_name: str, obs: ObsType, noise: float=0.0) -> ActionType:
+    def act(self, agent_name: str, obs: ObsType, noise: float = 0.0) -> ActionType:
         return self.agents[agent_name].act(obs, noise)
 
     def commit(self) -> None:
@@ -71,15 +71,15 @@ class IndependentAgents(MultiAgentType):
         """
         pass
 
-    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
+    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool = False):
         for agent_name, agent in self.agents.items():
             data_logger.log_values_dict(f"{agent_name}/loss", agent.loss, step)
 
     def get_state(self):
         agents_state = {}
-        agents_state['config'] = self._config
+        agents_state["config"] = self._config
         for agent_name, agent in self.agents.items():
-            agents_state[agent_name] = {'network': agent.state_dict(), 'config': agent.hparams}
+            agents_state[agent_name] = {"network": agent.state_dict(), "config": agent.hparams}
         return agents_state
 
     def save_state(self, path: str):
@@ -88,12 +88,12 @@ class IndependentAgents(MultiAgentType):
 
     def load_state(self, path: str):
         all_agent_state = torch.load(path)
-        self._config = all_agent_state.get('config', {})
+        self._config = all_agent_state.get("config", {})
         self.__dict__.update(**self._config)
         for agent_name, agent in self.agents.items():
             agent_state = all_agent_state[agent_name]
-            agent.load_state(agent_state=agent_state['network'])
-            agent._config = agent_state.get('config', {})
+            agent.load_state(agent_state=agent_state["network"])
+            agent._config = agent_state.get("config", {})
             agent.__dict__.update(**agent._config)
 
     def state_dict(self) -> Dict[str, dict]:

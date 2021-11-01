@@ -15,17 +15,14 @@ from ai_traineree.utils import save_gif
 FRAMES_PER_SEC = 45
 
 logging.basicConfig(
-    stream=sys.stdout,
-    level=logging.INFO,
-    format='%(asctime)s %(levelname)-8s %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
+    stream=sys.stdout, level=logging.INFO, format="%(asctime)s %(levelname)-8s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
 )
 
 
 class MultiAgentEnvRunner:
     """
-    MultiAgentEnvRunner has the same purpose as the EnvRunner but specifically for environments that support multiple agents.
-    It's expected that the environments are wrapped in a Task which has typical step and act methods.
+    MultiAgentEnvRunner has the same purpose as the EnvRunner but specifically for environments that support multiple
+    agents. It's expected that the environments are wrapped in a Task which has typical step and act methods.
     The agent can be any agent which *makes sense* as there aren't any checks like whether the output is discrete.
 
     Example:
@@ -34,21 +31,28 @@ class MultiAgentEnvRunner:
 
     """
 
-    def __init__(self, task: MultiAgentTaskType, multi_agent: MultiAgentType, mode: str ='coop', max_iterations: int=int(1e5), **kwargs):
+    def __init__(
+        self,
+        task: MultiAgentTaskType,
+        multi_agent: MultiAgentType,
+        mode: str = "coop",
+        max_iterations: int = int(1e5),
+        **kwargs,
+    ):
         """Expects the environment to come as the TaskType and the agent as the MultiAgentBase.
 
         Parameters:
             task: An OpenAI gym API compatible task.
             multi_agent: An instance which handles interations between multiple agents.
             mode: Type of interaction between agents.
-                Currently supported only `coop` which means that the reward is cummulative for all agents.
+                Currently supported only `coop` which means that the reward is cumulative for all agents.
             max_iterations: How many iterations can one episode have.
 
         Keyword Arguments:
             window_len (int): Length of the averaging window for average reward.
             data_logger: An instance of Data Logger, e.g. TensorboardLogger.
             state_dir (str):  Dir path where states are stored. Default: `run_states`.
-            debug_log (bool): Whether to produce extenstive logging. Default: False.
+            debug_log (bool): Whether to produce extensive logging. Default: False.
 
         """
         self.logger = logging.getLogger("MAEnvRunner")
@@ -56,8 +60,8 @@ class MultiAgentEnvRunner:
         self.multi_agent: MultiAgentType = multi_agent
         self.max_iterations = max_iterations
         self.model_path = f"{task.name}_{multi_agent.model}"
-        self.state_dir = kwargs.get('state_dir', 'run_states')
-        self.window_len = kwargs.get('window_len', 100)
+        self.state_dir = kwargs.get("state_dir", "run_states")
+        self.window_len = kwargs.get("window_len", 100)
 
         self.mode = mode
         self.episode = 0
@@ -89,10 +93,14 @@ class MultiAgentEnvRunner:
         self.scores_window = deque(maxlen=self.window_len)
 
     def interact_episode(
-        self, eps: float=0, max_iterations: Optional[int]=None,
-        render: bool=False, render_gif: bool=False, log_interaction_freq: Optional[int]=None
+        self,
+        eps: float = 0,
+        max_iterations: Optional[int] = None,
+        render: bool = False,
+        render_gif: bool = False,
+        log_interaction_freq: Optional[int] = None,
     ) -> Tuple[List[RewardType], int]:
-        score: List[RewardType] = [0.]*self.multi_agent.num_agents
+        score: List[RewardType] = [0.0] * self.multi_agent.num_agents
         states: List[StateType] = self.task.reset()
 
         iterations = 0
@@ -102,12 +110,12 @@ class MultiAgentEnvRunner:
         if render_gif:
             self._images = []
 
-        while(iterations < max_iterations):
+        while iterations < max_iterations:
             iterations += 1
             self.iteration += 1
             if render:
                 self.task.render("human")
-                time.sleep(1./FRAMES_PER_SEC)
+                time.sleep(1.0 / FRAMES_PER_SEC)
 
             next_states: List[StateType] = []
             rewards: List[RewardType] = []
@@ -124,7 +132,7 @@ class MultiAgentEnvRunner:
                 #     break
             if render_gif:
                 # OpenAI gym still renders the image to the screen even though it shouldn't. Eh.
-                img = self.task.render(mode='rgb_array')
+                img = self.task.render(mode="rgb_array")
                 self._images.append(img)
 
             if self._debug_log:
@@ -142,10 +150,15 @@ class MultiAgentEnvRunner:
 
     def run(
         self,
-        reward_goal: float=100.0, max_episodes: int=2000,
-        eps_start=1.0, eps_end=0.01, eps_decay=0.995,
-        log_episode_freq=1, gif_every_episodes: Optional[int]=None,
-        checkpoint_every=200, force_new=False,
+        reward_goal: float = 100.0,
+        max_episodes: int = 2000,
+        eps_start=1.0,
+        eps_end=0.01,
+        eps_decay=0.995,
+        log_episode_freq=1,
+        gif_every_episodes: Optional[int] = None,
+        checkpoint_every=200,
+        force_new=False,
     ) -> List[List[RewardType]]:
         """
         Evaluates the multi_agent in the environment.
@@ -155,9 +168,9 @@ class MultiAgentEnvRunner:
         To help debugging one can set the `gif_every_episodes` to a positive integer which relates to how often a gif
         of the episode evaluation is written to the disk.
 
-        Every `checkpoint_every` (default: 200) iterations the Runner will store current state of the runner and the agent.
-        These states can be used to resume previous run. By default the runner checks whether there is ongoing run for
-        the combination of the environment and the agent.
+        Every `checkpoint_every` (default: 200) iterations the Runner will store current state of the runner and
+        the agent. These states can be used to resume previous run. By default the runner checks whether there is
+        an ongoing run for the combination of the environment and the agent.
         """
         self.epsilon = eps_start
         self.reset()
@@ -167,7 +180,7 @@ class MultiAgentEnvRunner:
         mean_scores = []
         epsilons = []
 
-        while (self.episode < max_episodes):
+        while self.episode < max_episodes:
             self.episode += 1
             render_gif = gif_every_episodes is not None and (self.episode % gif_every_episodes) == 0
             scores, iterations = self.interact_episode(self.epsilon, render_gif=render_gif)
@@ -201,9 +214,9 @@ class MultiAgentEnvRunner:
                 self._images = []
 
             if mean_scores[-1] >= reward_goal and len(self.scores_window) == self.window_len:
-                print(f'Environment solved after {self.episode} episodes!\tAverage Score: {mean_scores[-1]:.2f}')
+                print(f"Environment solved after {self.episode} episodes!\tAverage Score: {mean_scores[-1]:.2f}")
                 self.save_state(self.model_path)
-                self.multi_agent.save_state(f'{self.model_path}_agent.net')
+                self.multi_agent.save_state(f"{self.model_path}_agent.net")
                 break
 
             if self.episode % checkpoint_every == 0:
@@ -226,12 +239,12 @@ class MultiAgentEnvRunner:
 
     def log_logger(self, **kwargs):
         """Writes out env logs via logger (either stdout or a file)."""
-        episode = kwargs.get('episodes')[-1]
-        score = kwargs.get('scores')[-1]
-        iteration = kwargs.get('iterations')[-1]
-        mean_score = kwargs.get('mean_scores')[-1]
-        epsilon = kwargs.get('epsilons')[-1]
-        loss = kwargs.get('loss', {})
+        episode = kwargs.get("episodes")[-1]
+        score = kwargs.get("scores")[-1]
+        iteration = kwargs.get("iterations")[-1]
+        mean_score = kwargs.get("mean_scores")[-1]
+        epsilon = kwargs.get("epsilons")[-1]
+        loss = kwargs.get("loss", {})
         line_chunks = [f"Episode {episode};"]
         line_chunks += [f"Iter: {iteration};"]
         line_chunks += [f"Current Score: {score:.2f};"]
@@ -247,17 +260,18 @@ class MultiAgentEnvRunner:
 
     def log_episode_metrics(self, **kwargs):
         """Uses data_logger, e.g. Tensorboard, to store env metrics."""
-        episodes: List[int] = kwargs.get('episodes', [])
-        for episode, epsilon in zip(episodes, kwargs.get('epsilons', [])):
+        assert self.data_logger, "Cannot log without DataLogger"
+        episodes: List[int] = kwargs.get("episodes", [])
+        for episode, epsilon in zip(episodes, kwargs.get("epsilons", [])):
             self.data_logger.log_value("episode/epsilon", epsilon, episode)
 
-        for episode, mean_score in zip(episodes, kwargs.get('mean_scores', [])):
+        for episode, mean_score in zip(episodes, kwargs.get("mean_scores", [])):
             self.data_logger.log_value("episode/avg_score", mean_score, episode)
 
-        for episode, score in zip(episodes, kwargs.get('scores', [])):
+        for episode, score in zip(episodes, kwargs.get("scores", [])):
             self.data_logger.log_value("episode/score", score, episode)
 
-        for episode, iteration in zip(episodes, kwargs.get('iterations', [])):
+        for episode, iteration in zip(episodes, kwargs.get("iterations", [])):
             self.data_logger.log_value("episode/iterations", iteration, episode)
 
     def log_data_interaction(self, **kwargs):
@@ -265,24 +279,24 @@ class MultiAgentEnvRunner:
             self.logger.warning("`log_data_interaction` has no effect without `data_logger`")
             return
 
-        if hasattr(self.multi_agent, 'log_metrics'):
+        if hasattr(self.multi_agent, "log_metrics"):
             self.multi_agent.log_metrics(self.data_logger, self.iteration)
         else:
-            for loss_name, loss_value in kwargs.get('loss', {}).items():
+            for loss_name, loss_value in kwargs.get("loss", {}).items():
                 self.data_logger.log_value(f"loss/{loss_name}", loss_value, self.iteration)
 
         if self._debug_log:
-            while(self._actions):
+            while self._actions:
                 step, actions = self._actions.pop(0)
                 actions = actions if isinstance(actions, Iterable) else [actions]
                 self.data_logger.log_values_dict("env/action", {str(i): a for i, a in enumerate(actions)}, step)
 
-            while(self._rewards):
+            while self._rewards:
                 step, rewards = self._rewards.pop(0)
                 rewards = rewards if isinstance(rewards, Iterable) else [rewards]
                 self.data_logger.log_values_dict("env/reward", {str(i): r for i, r in enumerate(rewards)}, step)
 
-            while(self._dones):
+            while self._dones:
                 step, dones = self._dones.pop(0)
                 dones = dones if isinstance(dones, Iterable) else [dones]
                 self.data_logger.log_values_dict("env/done", {str(i): d for i, d in enumerate(dones)}, step)
@@ -294,17 +308,17 @@ class MultiAgentEnvRunner:
         Agents are saved with their internal saving mechanism.
         """
         state = {
-            'tot_iterations': sum(self.all_iterations),
-            'episode': self.episode,
-            'epsilon': self.epsilon,
-            'score': self.all_scores[-1],
-            'average_score': sum(self.scores_window) / len(self.scores_window),
-            'loss': self.multi_agent.loss,
+            "tot_iterations": sum(self.all_iterations),
+            "episode": self.episode,
+            "epsilon": self.epsilon,
+            "score": self.all_scores[-1],
+            "average_score": sum(self.scores_window) / len(self.scores_window),
+            "loss": self.multi_agent.loss,
         }
 
         Path(self.state_dir).mkdir(parents=True, exist_ok=True)
-        self.multi_agent.save_state(f'{self.state_dir}/{state_name}_e{self.episode}.agent')
-        with open(f'{self.state_dir}/{state_name}_e{self.episode}.json', 'w') as f:
+        self.multi_agent.save_state(f"{self.state_dir}/{state_name}_e{self.episode}.agent")
+        with open(f"{self.state_dir}/{state_name}_e{self.episode}.json", "w") as f:
             json.dump(state, f)
 
     def load_state(self, state_prefix: str):
@@ -312,34 +326,37 @@ class MultiAgentEnvRunner:
         Loads state with the highest episode value for given agent and environment.
         """
         try:
-            state_files = list(filter(lambda f: f.startswith(state_prefix) and f.endswith('json'), os.listdir(self.state_dir)))
-            e = max([int(f[f.index('_e')+2:f.index('.')]) for f in state_files])
+            state_files = list(
+                filter(lambda f: f.startswith(state_prefix) and f.endswith("json"), os.listdir(self.state_dir))
+            )
+            e = max([int(f[f.index("_e") + 2 : f.index(".")]) for f in state_files])
         except Exception:
             self.logger.warning("Couldn't load state. Forcing restart.")
             return
 
         state_name = [n for n in state_files if n.endswith(f"_e{e}.json")][0][:-5]
         self.logger.info("Loading saved state under: %s/%s.json", self.state_dir, state_name)
-        with open(f'{self.state_dir}/{state_name}.json', 'r') as f:
+        with open(f"{self.state_dir}/{state_name}.json", "r") as f:
             state = json.load(f)
-        self.episode = state.get('episode')
-        self.all_scores.append(state.get('score'))
+        self.episode = state.get("episode")
+        self.all_scores.append(state.get("score"))
         self.all_iterations = []
 
-        avg_score = state.get('average_score')
+        avg_score = state.get("average_score")
         for _ in range(min(self.window_len, self.episode)):
             self.scores_window.append(avg_score)
 
         self.logger.info("Loading saved agent state: %s/%s.agent", self.state_dir, state_name)
-        self.multi_agent.load_state(f'{self.state_dir}/{state_name}.agent')
-        self.multi_agent.loss = state.get('loss', 0)
+        self.multi_agent.load_state(f"{self.state_dir}/{state_name}.agent")
+        self.multi_agent.loss = state.get("loss", 0)
 
 
 class MultiAgentCycleEnvRunner:
     """
-    MultiAgentCycleEnvRunner has the same purpose as the EnvRunner but specifically for environments that support multiple agents.
-    It's expected that the environments are wrapped in a Task which has typical step and act methods.
-    The agent can be any agent which *makes sense* as there aren't any checks like whether the output is discrete.
+    MultiAgentCycleEnvRunner has the same purpose as the EnvRunner but specifically for environments that
+    support multiple agents. It's expected that the environments are wrapped in a Task which has typical step
+    and act methods. The agent can be any agent which *makes sense* as there aren't any checks like whether
+    the output is discrete.
 
     Examples:
         >>> ma_env_runner = MultiAgentCycleEnvRunner(task, agent)
@@ -349,14 +366,21 @@ class MultiAgentCycleEnvRunner:
 
     logger = logging.getLogger("MAEnvRunner")
 
-    def __init__(self, task: PettingZooTask, multi_agent: MultiAgentType, mode: str ='coop', max_iterations: int=int(1e5), **kwargs):
+    def __init__(
+        self,
+        task: PettingZooTask,
+        multi_agent: MultiAgentType,
+        mode: str = "coop",
+        max_iterations: int = int(1e5),
+        **kwargs,
+    ):
         """Expects the environment to come as the TaskType and the agent as the MultiAgentBase.
 
         Parameters:
             task: An OpenAI gym API compatible task.
             multi_agent: An instance which handles interations between multiple agents.
             mode: Type of interaction between agents.
-                Currently supported only `coop` which means that the reward is cummulative for all agents.
+                Currently supported only `coop` which means that the reward is cumulative for all agents.
             max_iterations: How many iterations can one episode have.
 
         Keyword arguments:
@@ -365,21 +389,21 @@ class MultiAgentCycleEnvRunner:
             window_len (int): Length of the averaging window for average reward. Default: 100.
             data_logger: An instance of Data Logger, e.g. TensorboardLogger. Default: None.
             state_dir (str):  Dir path where states are stored. Default: `run_states`.
-            debug_log (bool): Whether to produce extenstive logging. Default: False.
+            debug_log (bool): Whether to produce extensive logging. Default: False.
 
         """
         self.task: PettingZooTask = task
         self.multi_agent: MultiAgentType = multi_agent
         self.max_iterations = max_iterations
         self.model_path = f"{task.name}_{multi_agent.model}"
-        self.state_dir = kwargs.get('state_dir', 'run_states')
+        self.state_dir = kwargs.get("state_dir", "run_states")
 
         self.mode = mode
         self.episode: float = 0
         self.iteration = 0
         self.all_scores: List[Dict[str, RewardType]] = []
         self.all_iterations: List[int] = []
-        self.window_len = kwargs.get('window_len', 100)
+        self.window_len = kwargs.get("window_len", 100)
         self.scores_window = deque(maxlen=self.window_len)
 
         self._debug_log = kwargs.get("debug_log", False)
@@ -407,8 +431,12 @@ class MultiAgentCycleEnvRunner:
         self.scores_window = deque(maxlen=self.window_len)
 
     def interact_episode(
-        self, eps: float=0, max_iterations: Optional[int]=None,
-        render: bool=False, render_gif: bool=False, log_interaction_freq: Optional[int]=None
+        self,
+        eps: float = 0,
+        max_iterations: Optional[int] = None,
+        render: bool = False,
+        render_gif: bool = False,
+        log_interaction_freq: Optional[int] = None,
     ) -> Tuple[Dict[str, RewardType], int]:
         score = defaultdict(float)
         iterations = 0
@@ -419,12 +447,12 @@ class MultiAgentCycleEnvRunner:
         if render_gif:
             self._images = []
 
-        while(iterations < max_iterations):
+        while iterations < max_iterations:
             iterations += 1
             self.iteration += 1
             if render:
                 self.task.render("human")
-                time.sleep(1./FRAMES_PER_SEC)
+                time.sleep(1.0 / FRAMES_PER_SEC)
 
             # next_states: Dict[str, StateType] = {}
             # rewards: Dict[str, RewardType] = {}
@@ -453,7 +481,7 @@ class MultiAgentCycleEnvRunner:
 
             if render_gif:
                 # OpenAI gym still renders the image to the screen even though it shouldn't. Eh.
-                img = self.task.render(mode='rgb_array')
+                img = self.task.render(mode="rgb_array")
                 self._images.append(img)
 
             if log_interaction_freq is not None and (iterations % log_interaction_freq) == 0:
@@ -466,10 +494,15 @@ class MultiAgentCycleEnvRunner:
 
     def run(
         self,
-        reward_goal: float=100.0, max_episodes: int=2000,
-        eps_start=1.0, eps_end=0.01, eps_decay=0.995,
-        log_episode_freq=1, gif_every_episodes: Optional[int]=None,
-        checkpoint_every=200, force_new=False,
+        reward_goal: float = 100.0,
+        max_episodes: int = 2000,
+        eps_start=1.0,
+        eps_end=0.01,
+        eps_decay=0.995,
+        log_episode_freq=1,
+        gif_every_episodes: Optional[int] = None,
+        checkpoint_every=200,
+        force_new=False,
     ) -> List[Dict[str, RewardType]]:
         """
         Evaluates the Multi Agent in the environment.
@@ -479,9 +512,9 @@ class MultiAgentCycleEnvRunner:
         To help debugging one can set the `gif_every_episodes` to a positive integer which relates to how often a gif
         of the episode evaluation is written to the disk.
 
-        Every `checkpoint_every` (default: 200) iterations the Runner will store current state of the runner and the agent.
-        These states can be used to resume previous run. By default the runner checks whether there is ongoing run for
-        the combination of the environment and the agent.
+        Every `checkpoint_every` (default: 200) iterations the Runner will store current state of the runner and
+        the agent. These states can be used to resume previous run. By default the runner checks whether there is
+        an ongoing run for the combination of the environment and the agent.
         """
         self.epsilon = eps_start
         self.reset()
@@ -491,7 +524,7 @@ class MultiAgentCycleEnvRunner:
         mean_scores = []
         epsilons = []
 
-        while (self.episode < max_episodes):
+        while self.episode < max_episodes:
             self.episode += 1
             render_gif = gif_every_episodes is not None and (self.episode % gif_every_episodes) == 0
             scores, iterations = self.interact_episode(self.epsilon, render_gif=render_gif)
@@ -525,9 +558,9 @@ class MultiAgentCycleEnvRunner:
                 self._images = []
 
             if mean_scores[-1] >= reward_goal and len(self.scores_window) == self.window_len:
-                print(f'Environment solved after {self.episode} episodes!\tAverage Score: {mean_scores[-1]:.2f}')
+                print(f"Environment solved after {self.episode} episodes!\tAverage Score: {mean_scores[-1]:.2f}")
                 self.save_state(self.model_path)
-                self.multi_agent.save_state(f'{self.model_path}_agent.net')
+                self.multi_agent.save_state(f"{self.model_path}_agent.net")
                 break
 
             if self.episode % checkpoint_every == 0:
@@ -550,12 +583,12 @@ class MultiAgentCycleEnvRunner:
 
     def log_logger(self, **kwargs):
         """Writes out env logs via logger (either stdout or a file)."""
-        episode = kwargs.get('episodes')[-1]
+        episode = kwargs.get("episodes")[-1]
         # score = kwargs.get('scores')[-1]
-        iteration = kwargs.get('iterations')[-1]
-        mean_score = kwargs.get('mean_scores')[-1]
-        epsilon = kwargs.get('epsilons')[-1]
-        loss = kwargs.get('loss', {})
+        iteration = kwargs.get("iterations")[-1]
+        mean_score = kwargs.get("mean_scores")[-1]
+        epsilon = kwargs.get("epsilons")[-1]
+        loss = kwargs.get("loss", {})
         line_chunks = [f"Episode {episode};"]
         line_chunks += [f"Iter: {iteration};"]
         # line_chunks += [f"Current Score: {score:.2f};"]
@@ -571,17 +604,18 @@ class MultiAgentCycleEnvRunner:
 
     def log_episode_metrics(self, **kwargs):
         """Uses data_logger, e.g. Tensorboard, to store env metrics."""
-        episodes: List[int] = kwargs.get('episodes', [])
-        for episode, epsilon in zip(episodes, kwargs.get('epsilons', [])):
+        assert self.data_logger, "Cannot log without DataLogger"
+        episodes: List[int] = kwargs.get("episodes", [])
+        for episode, epsilon in zip(episodes, kwargs.get("epsilons", [])):
             self.data_logger.log_value("episode/epsilon", epsilon, episode)
 
-        for episode, mean_score in zip(episodes, kwargs.get('mean_scores', [])):
+        for episode, mean_score in zip(episodes, kwargs.get("mean_scores", [])):
             self.data_logger.log_value("episode/avg_score", mean_score, episode)
 
-        for episode, score in zip(episodes, kwargs.get('scores', [])):
+        for episode, score in zip(episodes, kwargs.get("scores", [])):
             self.data_logger.log_values_dict("episode/score", score, episode)
 
-        for episode, iteration in zip(episodes, kwargs.get('iterations', [])):
+        for episode, iteration in zip(episodes, kwargs.get("iterations", [])):
             self.data_logger.log_value("episode/iterations", iteration, episode)
 
     def log_data_interaction(self, **kwargs):
@@ -589,28 +623,34 @@ class MultiAgentCycleEnvRunner:
             self.logger.warning("`log_data_interaction` has no effect without `data_logger`")
             return
 
-        if hasattr(self.multi_agent, 'log_metrics'):
+        if hasattr(self.multi_agent, "log_metrics"):
             self.multi_agent.log_metrics(self.data_logger, self.iteration, full_log=kwargs.get("full_log", False))
         else:
-            for loss_name, loss_value in kwargs.get('loss', {}).items():
+            for loss_name, loss_value in kwargs.get("loss", {}).items():
                 self.data_logger.log_value(f"loss/{loss_name}", loss_value, self.iteration)
 
         if self._debug_log:
             for agent_name in self.multi_agent.agent_names:
-                while(self._actions[agent_name]):
+                while self._actions[agent_name]:
                     step, actions = self._actions[agent_name].pop(0)
                     actions = actions if isinstance(actions, Iterable) else [actions]
-                    self.data_logger.log_values_dict(f"{agent_name}/action", {str(i): a for i, a in enumerate(actions)}, step)
+                    self.data_logger.log_values_dict(
+                        f"{agent_name}/action", {str(i): a for i, a in enumerate(actions)}, step
+                    )
 
-                while(self._rewards[agent_name]):
+                while self._rewards[agent_name]:
                     step, rewards = self._rewards[agent_name].pop(0)
                     rewards = rewards if isinstance(rewards, Iterable) else [rewards]
-                    self.data_logger.log_values_dict(f"{agent_name}/reward", {str(i): r for i, r in enumerate(rewards)}, step)
+                    self.data_logger.log_values_dict(
+                        f"{agent_name}/reward", {str(i): r for i, r in enumerate(rewards)}, step
+                    )
 
-                while(self._dones[agent_name]):
+                while self._dones[agent_name]:
                     step, dones = self._dones[agent_name].pop(0)
                     dones = dones if isinstance(dones, Iterable) else [dones]
-                    self.data_logger.log_values_dict(f"{agent_name}/done", {str(i): d for i, d in enumerate(dones)}, step)
+                    self.data_logger.log_values_dict(
+                        f"{agent_name}/done", {str(i): d for i, d in enumerate(dones)}, step
+                    )
 
     def save_state(self, state_name: str):
         """Saves the current state of the runner and the multi_agent.
@@ -619,17 +659,17 @@ class MultiAgentCycleEnvRunner:
         Agents are saved with their internal saving mechanism.
         """
         state = {
-            'tot_iterations': sum(self.all_iterations),
-            'episode': self.episode,
-            'epsilon': self.epsilon,
-            'score': self.all_scores[-1],
-            'average_score': sum(self.scores_window) / len(self.scores_window),
-            'loss': self.multi_agent.loss,
+            "tot_iterations": sum(self.all_iterations),
+            "episode": self.episode,
+            "epsilon": self.epsilon,
+            "score": self.all_scores[-1],
+            "average_score": sum(self.scores_window) / len(self.scores_window),
+            "loss": self.multi_agent.loss,
         }
 
         Path(self.state_dir).mkdir(parents=True, exist_ok=True)
-        self.multi_agent.save_state(f'{self.state_dir}/{state_name}_e{self.episode}.agent')
-        with open(f'{self.state_dir}/{state_name}_e{self.episode}.json', 'w') as f:
+        self.multi_agent.save_state(f"{self.state_dir}/{state_name}_e{self.episode}.agent")
+        with open(f"{self.state_dir}/{state_name}_e{self.episode}.json", "w") as f:
             json.dump(state, f)
 
     def load_state(self, file_prefix: str):
@@ -637,26 +677,28 @@ class MultiAgentCycleEnvRunner:
         Loads state with the highest episode value for given agent and environment.
         """
         try:
-            state_files = list(filter(lambda f: f.startswith(file_prefix) and f.endswith('json'), os.listdir(self.state_dir)))
-            e = max([int(f[f.index('_e')+2:f.index('.')]) for f in state_files])
+            state_files = list(
+                filter(lambda f: f.startswith(file_prefix) and f.endswith("json"), os.listdir(self.state_dir))
+            )
+            e = max([int(f[f.index("_e") + 2 : f.index(".")]) for f in state_files])
             state_name = [n for n in state_files if n.endswith(f"_e{e}.json")][0][:-5]
         except Exception:
             self.logger.warning("Couldn't load state. Forcing restart.")
             return
 
         self.logger.info("Loading saved state under: %s/%s.json", self.state_dir, state_name)
-        with open(f'{self.state_dir}/{state_name}.json', 'r') as f:
+        with open(f"{self.state_dir}/{state_name}.json", "r") as f:
             state = json.load(f)
-        self.episode = state.get('episode')
-        self.epsilon = state.get('epsilon')
+        self.episode = state.get("episode")
+        self.epsilon = state.get("epsilon")
 
-        self.all_scores.append(state.get('score'))
+        self.all_scores.append(state.get("score"))
         self.all_iterations = []
 
-        avg_score = state.get('average_score')
+        avg_score = state.get("average_score")
         for _ in range(min(self.window_len, self.episode)):
             self.scores_window.append(avg_score)
 
         self.logger.info("Loading saved agent state: %s/%s.agent", self.state_dir, state_name)
-        self.multi_agent.load_state(f'{self.state_dir}/{state_name}.agent')
-        self.multi_agent.loss = state.get('loss', 0)
+        self.multi_agent.load_state(f"{self.state_dir}/{state_name}.agent")
+        self.multi_agent.loss = state.get("loss", 0)

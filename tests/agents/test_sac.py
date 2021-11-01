@@ -7,14 +7,14 @@ from ai_traineree.agents.sac import SACAgent
 from ai_traineree.types import DataSpace
 from conftest import deterministic_interactions, feed_agent
 
-float_space = DataSpace(dtype='float', shape=(5,), low=-2, high=2)
-action_space = DataSpace(dtype='float', shape=(4,), low=-1, high=2)
+float_space = DataSpace(dtype="float", shape=(5,), low=-2, high=2)
+action_space = DataSpace(dtype="float", shape=(4,), low=-1, high=2)
 
 
 def test_sac_seed(float_1d_space):
     # Assign
-    agent_0 = SACAgent(float_1d_space, float_1d_space, device='cpu')  # Reference
-    agent_1 = SACAgent(float_1d_space, float_1d_space, device='cpu')
+    agent_0 = SACAgent(float_1d_space, float_1d_space, device="cpu")  # Reference
+    agent_1 = SACAgent(float_1d_space, float_1d_space, device="cpu")
     agent_2 = copy.deepcopy(agent_1)
 
     # Act
@@ -57,8 +57,15 @@ def test_sac_from_state():
     assert new_agent.hparams == agent.hparams
     assert all([torch.all(x == y) for (x, y) in zip(agent.actor.parameters(), new_agent.actor.parameters())])
     assert all([torch.all(x == y) for (x, y) in zip(agent.policy.parameters(), new_agent.policy.parameters())])
-    assert all([torch.all(x == y) for (x, y) in zip(agent.double_critic.parameters(), new_agent.double_critic.parameters())])
-    assert all([torch.all(x == y) for (x, y) in zip(agent.target_double_critic.parameters(), new_agent.target_double_critic.parameters())])
+    assert all(
+        [torch.all(x == y) for (x, y) in zip(agent.double_critic.parameters(), new_agent.double_critic.parameters())]
+    )
+    assert all(
+        [
+            torch.all(x == y)
+            for (x, y) in zip(agent.target_double_critic.parameters(), new_agent.target_double_critic.parameters())
+        ]
+    )
     assert new_agent.buffer == agent.buffer
 
 
@@ -95,14 +102,21 @@ def test_sac_from_state_buffer_state_none():
     assert new_agent.hparams == agent.hparams
     assert all([torch.all(x == y) for (x, y) in zip(agent.actor.parameters(), new_agent.actor.parameters())])
     assert all([torch.all(x == y) for (x, y) in zip(agent.policy.parameters(), new_agent.policy.parameters())])
-    assert all([torch.all(x == y) for (x, y) in zip(agent.double_critic.parameters(), new_agent.double_critic.parameters())])
-    assert all([torch.all(x == y) for (x, y) in zip(agent.target_double_critic.parameters(), new_agent.target_double_critic.parameters())])
+    assert all(
+        [torch.all(x == y) for (x, y) in zip(agent.double_critic.parameters(), new_agent.double_critic.parameters())]
+    )
+    assert all(
+        [
+            torch.all(x == y)
+            for (x, y) in zip(agent.target_double_critic.parameters(), new_agent.target_double_critic.parameters())
+        ]
+    )
 
 
 def test_sac_from_state_one_updated():
     # Assign
     agent = SACAgent(float_space, float_space)
-    feed_agent(agent, 2*agent.batch_size)  # Feed 1
+    feed_agent(agent, 2 * agent.batch_size)  # Feed 1
     agent_state = agent.get_state()
     feed_agent(agent, 100)  # Feed 2 - to make different
 
@@ -116,7 +130,13 @@ def test_sac_from_state_one_updated():
     assert new_agent.hparams == agent.hparams
     assert all([torch.all(x != y) for (x, y) in zip(agent.actor.parameters(), new_agent.actor.parameters())])
     assert all([torch.all(x != y) for (x, y) in zip(agent.policy.parameters(), new_agent.policy.parameters())])
-    assert all([torch.all(x != y) for (x, y) in zip(agent.double_critic.parameters(), new_agent.double_critic.parameters())])
-    assert all([torch.all(x != y) for (x, y) in zip(agent.target_double_critic.parameters(), new_agent.target_double_critic.parameters())])
+    assert all(
+        [torch.all(x != y) for (x, y) in zip(agent.double_critic.parameters(), new_agent.double_critic.parameters())]
+    )
+    assert all(
+        [
+            torch.all(x != y)
+            for (x, y) in zip(agent.target_double_critic.parameters(), new_agent.target_double_critic.parameters())
+        ]
+    )
     assert new_agent.buffer != agent.buffer
-

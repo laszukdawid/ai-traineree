@@ -18,8 +18,8 @@ def test_rainbownet_default():
     assert net.in_features == in_features
     assert net.out_features == out_features
     assert out_tensor.shape == (test_tensor.shape[0],) + out_features + (num_atoms,)
-    assert all(['Linear' in str(layer) for layer in net.value_net.layers])
-    assert all(['Linear' in str(layer) for layer in net.advantage_net.layers])
+    assert all(["Linear" in str(layer) for layer in net.value_net.layers])
+    assert all(["Linear" in str(layer) for layer in net.advantage_net.layers])
     assert net.pre_network is None
 
 
@@ -39,9 +39,9 @@ def test_rainbownet_prenetwork():
     assert net.in_features == in_features
     assert net.out_features == out_features
     assert out_tensor.shape == (test_tensor.shape[0],) + out_features + (num_atoms,)
-    assert all(['Linear' in str(layer) for layer in net.value_net.layers])
-    assert all(['Linear' in str(layer) for layer in net.advantage_net.layers])
-    assert all(['Linear' in str(layer) for layer in net.pre_network.layers])
+    assert all(["Linear" in str(layer) for layer in net.value_net.layers])
+    assert all(["Linear" in str(layer) for layer in net.advantage_net.layers])
+    assert all(["Linear" in str(layer) for layer in net.pre_network.layers])
     assert net.value_net.layers[0].in_features == pre_net_out_features[0]
     assert net.advantage_net.layers[0].in_features == pre_net_out_features[0]
 

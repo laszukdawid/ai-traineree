@@ -11,6 +11,7 @@ from ai_traineree.types import ActionType, DataSpace, MultiAgentTaskType, StateT
 
 try:
     import gym
+
     BaseEnv = gym.Env  # To satisfy parser on MultiAgentUnityTask import
 except ImportError:
     logging.warning("Coulnd't import `gym`. Please install `pip install -e .[gym]` if you intend to use it.")
@@ -27,9 +28,9 @@ GymStepResult = Tuple[np.ndarray, float, bool, Dict]
 
 
 class TerminationMode:
-    ALL = 'all'
-    ANY = 'any'
-    MAJORITY = 'majority'
+    ALL = "all"
+    ANY = "any"
+    MAJORITY = "majority"
 
 
 class GymTask(TaskType):
@@ -39,11 +40,11 @@ class GymTask(TaskType):
     def __init__(
         self,
         env: Union[str, gym.Env],
-        state_transform: Optional[Callable]=None,
-        reward_transform: Optional[Callable]=None,
+        state_transform: Optional[Callable] = None,
+        reward_transform: Optional[Callable] = None,
         can_render=True,
-        stack_frames: int= 1,
-        skip_start_frames: int= 0,
+        stack_frames: int = 1,
+        skip_start_frames: int = 0,
         **kwargs,
     ):
         """
@@ -94,7 +95,7 @@ class GymTask(TaskType):
         self.stacked_frames = deque(maxlen=stack_frames)
         self.skip_start_frames = skip_start_frames
 
-        self.seed(kwargs.get('seed'))
+        self.seed(kwargs.get("seed"))
 
     @staticmethod
     def __determine_action_size(action_space):
@@ -168,7 +169,6 @@ class GymTask(TaskType):
 
 
 class PettingZooTask(MultiAgentTaskType):
-
     def __init__(self, env) -> None:
         """Wrapper around PettingZoo's envs to make it more compatible with EnvRunners.
 
@@ -191,26 +191,26 @@ class PettingZooTask(MultiAgentTaskType):
     @cached_property
     def agents(self):
         return self.env.agents
-    
+
     @cached_property
     def observation_spaces(self) -> Dict[str, DataSpace]:
         spaces = {}
         for (unit, space) in self.env.observation_spaces.items():
             if type(space).__name__ == "Dict":
-                space = space['observation']
+                space = space["observation"]
             spaces[unit] = DataSpace.from_gym_space(space)
         return spaces
 
     @cached_property
     def action_spaces(self) -> Dict[str, DataSpace]:
         return {unit: DataSpace.from_gym_space(space) for (unit, space) in self.env.action_spaces.items()}
-   
+
     def action_mask_spaces(self) -> Optional[Dict[str, DataSpace]]:
         spaces = {}
         for (unit, space) in self.env.observation_spaces.items():
             if not type(space).__name__ == "Dict":
                 return None
-            spaces[unit] = DataSpace.from_gym_space(space['action_mask'])
+            spaces[unit] = DataSpace.from_gym_space(space["action_mask"])
         return spaces
 
     @property
@@ -313,7 +313,7 @@ class MultiAgentUnityTask(MultiAgentTaskType):
 
         agent_name = list(self._env.behavior_specs.keys())[0]
         self.name = list(self._env.behavior_specs.keys())[0]  # TODO: no need for self.name
-        self.agent_prefix = agent_name[:agent_name.index('=')+1]
+        self.agent_prefix = agent_name[: agent_name.index("=") + 1]
         self.group_spec = self._env.behavior_specs[agent_name]
 
         if self._get_n_vis_obs() == 0 and self._get_vec_obs_size() == 0:
@@ -326,10 +326,7 @@ class MultiAgentUnityTask(MultiAgentTaskType):
             )
         else:
             self.uint8_visual = uint8_visual
-        if (
-            self._get_n_vis_obs() + self._get_vec_obs_size() >= 2
-            and not self._allow_multiple_obs
-        ):
+        if self._get_n_vis_obs() + self._get_vec_obs_size() >= 2 and not self._allow_multiple_obs:
             self.logger.warning(
                 "The environment contains multiple observations. "
                 "You must define allow_multiple_obs=True to receive them all. "
@@ -358,10 +355,7 @@ class MultiAgentUnityTask(MultiAgentTaskType):
 
         else:
             if flatten_branched:
-                self.logger.warning(
-                    "The environment has a non-discrete action space. It will "
-                    "not be flattened."
-                )
+                self.logger.warning("The environment has a non-discrete action space. It will " "not be flattened.")
             high = np.ones(self.group_spec.action_shape)
             self._action_space = spaces.Box(-high, high, dtype=np.float32)
 
@@ -391,7 +385,7 @@ class MultiAgentUnityTask(MultiAgentTaskType):
         self._env.reset()
         states = []
         for agent_id in range(self.num_agents):
-            decision_step, _ = self._env.get_steps(self.agent_prefix+str(agent_id))
+            decision_step, _ = self._env.get_steps(self.agent_prefix + str(agent_id))
             self.game_over = False
 
             res: GymStepResult = self._single_step(decision_step)

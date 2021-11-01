@@ -54,45 +54,51 @@ class MADDPGAgent(MultiAgentType):
         self.num_agents: int = num_agents
         self.agent_names: List[str] = kwargs.get("agent_names", map(str, range(self.num_agents)))
 
-        hidden_layers = to_numbers_seq(self._register_param(kwargs, 'hidden_layers', (100, 100), update=True))
-        noise_scale = float(self._register_param(kwargs, 'noise_scale', 0.5))
-        noise_sigma = float(self._register_param(kwargs, 'noise_sigma', 1.0))
-        actor_lr = float(self._register_param(kwargs, 'actor_lr', 3e-4))
-        critic_lr = float(self._register_param(kwargs, 'critic_lr', 3e-4))
+        hidden_layers = to_numbers_seq(self._register_param(kwargs, "hidden_layers", (100, 100), update=True))
+        noise_scale = float(self._register_param(kwargs, "noise_scale", 0.5))
+        noise_sigma = float(self._register_param(kwargs, "noise_sigma", 1.0))
+        actor_lr = float(self._register_param(kwargs, "actor_lr", 3e-4))
+        critic_lr = float(self._register_param(kwargs, "critic_lr", 3e-4))
 
-        self.agents: Dict[str, DDPGAgent] = OrderedDict({
-            agent_name: DDPGAgent(
-                obs_space, action_space,
-                actor_lr=actor_lr, critic_lr=critic_lr,
-                noise_scale=noise_scale, noise_sigma=noise_sigma,
-                **kwargs,
-            ) for agent_name in self.agent_names
-        })
+        self.agents: Dict[str, DDPGAgent] = OrderedDict(
+            {
+                agent_name: DDPGAgent(
+                    obs_space,
+                    action_space,
+                    actor_lr=actor_lr,
+                    critic_lr=critic_lr,
+                    noise_scale=noise_scale,
+                    noise_sigma=noise_sigma,
+                    **kwargs,
+                )
+                for agent_name in self.agent_names
+            }
+        )
 
-        self.gamma = float(self._register_param(kwargs, 'gamma', 0.99))
-        self.tau = float(self._register_param(kwargs, 'tau', 0.02))
-        self.gradient_clip: Optional[float] = self._register_param(kwargs, 'gradient_clip')
+        self.gamma = float(self._register_param(kwargs, "gamma", 0.99))
+        self.tau = float(self._register_param(kwargs, "tau", 0.02))
+        self.gradient_clip: Optional[float] = self._register_param(kwargs, "gradient_clip")
 
-        self.batch_size = int(self._register_param(kwargs, 'batch_size', 64))
-        self.buffer_size = int(self._register_param(kwargs, 'buffer_size', int(1e6)))
+        self.batch_size = int(self._register_param(kwargs, "batch_size", 64))
+        self.buffer_size = int(self._register_param(kwargs, "buffer_size", int(1e6)))
         self.buffer = ReplayBuffer(self.batch_size, self.buffer_size)
 
-        self.warm_up = int(self._register_param(kwargs, 'warm_up', 0))
-        self.update_freq = int(self._register_param(kwargs, 'update_freq', 1))
-        self.number_updates = int(self._register_param(kwargs, 'number_updates', 1))
+        self.warm_up = int(self._register_param(kwargs, "warm_up", 0))
+        self.update_freq = int(self._register_param(kwargs, "update_freq", 1))
+        self.number_updates = int(self._register_param(kwargs, "number_updates", 1))
 
         assert len(obs_space.shape) == 1, "Only 1D obs spaces are supported now"
         assert len(action_space.shape) == 1, "Only 1D action spaces are supported now"
-        ma_obs_shape = (num_agents*obs_space.shape[0],)
-        ma_action_size = num_agents*action_space.shape[0]
+        ma_obs_shape = (num_agents * obs_space.shape[0],)
+        ma_action_size = num_agents * action_space.shape[0]
         self.critic = CriticBody(ma_obs_shape, ma_action_size, hidden_layers=hidden_layers).to(self.device)
         self.target_critic = CriticBody(ma_obs_shape, ma_action_size, hidden_layers=hidden_layers).to(self.device)
         self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=critic_lr)
         hard_update(self.target_critic, self.critic)
 
         self._step_data = {}
-        self._loss_critic: float = float('nan')
-        self._loss_actor: Dict[str, float] = {name: float('nan') for name in self.agent_names}
+        self._loss_critic: float = float("nan")
+        self._loss_actor: Dict[str, float] = {name: float("nan") for name in self.agent_names}
         self.reset()
 
     @property
@@ -117,18 +123,22 @@ class MADDPGAgent(MultiAgentType):
 
     def step(self, agent_name: str, state: StateType, action: ActionType, reward, next_state, done) -> None:
         self._step_data[agent_name] = dict(
-            state=state, action=action, reward=reward, next_state=next_state, done=done,
+            state=state,
+            action=action,
+            reward=reward,
+            next_state=next_state,
+            done=done,
         )
 
     def commit(self):
         step_data = defaultdict(list)
         for agent in self.agents:
             agent_data = self._step_data[agent]
-            step_data['state'].append(agent_data['state'])
-            step_data['action'].append(agent_data['action'])
-            step_data['reward'].append(agent_data['reward'])
-            step_data['next_state'].append(agent_data['next_state'])
-            step_data['done'].append(agent_data['done'])
+            step_data["state"].append(agent_data["state"])
+            step_data["action"].append(agent_data["action"])
+            step_data["reward"].append(agent_data["reward"])
+            step_data["next_state"].append(agent_data["next_state"])
+            step_data["done"].append(agent_data["done"])
 
         self.buffer.add(**step_data)
         self._step_data = {}
@@ -144,7 +154,7 @@ class MADDPGAgent(MultiAgentType):
             self.update_targets()
 
     @torch.no_grad()
-    def act(self, agent_name: str, obss: List[ObsType], noise: float=0.0) -> List[float]:
+    def act(self, agent_name: str, obss: List[ObsType], noise: float = 0.0) -> List[float]:
         """Get actions from all agents. Synchronized action.
 
         Parameters:
@@ -161,23 +171,31 @@ class MADDPGAgent(MultiAgentType):
         return action
 
     def __flatten_actions(self, actions):
-        return actions.view(-1, self.num_agents*self.action_space.shape[0])
+        return actions.view(-1, self.num_agents * self.action_space.shape[0])
 
     def learn(self, experiences, agent_name: str) -> None:
-        """update the critics and actors of all the agents """
+        """update the critics and actors of all the agents"""
         ma_obs_size = self.num_agents * self.obs_space.shape[0]
         ma_action_size = self.num_agents * self.action_space.shape[0]
 
         # TODO: Just look at this mess.
         agent_number = list(self.agents).index(agent_name)
-        agent_rewards = to_tensor(experiences['reward']).select(1, agent_number).unsqueeze(-1).float().to(self.device)
-        agent_dones = to_tensor(experiences['done'])\
-            .select(1, agent_number).unsqueeze(-1).type(torch.int).to(self.device)
-        states = to_tensor(experiences['state']).to(self.device)\
+        agent_rewards = to_tensor(experiences["reward"]).select(1, agent_number).unsqueeze(-1).float().to(self.device)
+        agent_dones = (
+            to_tensor(experiences["done"]).select(1, agent_number).unsqueeze(-1).type(torch.int).to(self.device)
+        )
+        states = (
+            to_tensor(experiences["state"])
+            .to(self.device)
             .view((self.batch_size, self.num_agents) + self.obs_space.shape)
-        actions = to_tensor(experiences['action']).to(self.device)
-        next_states = to_tensor(experiences['next_state'])\
-            .float().to(self.device).view((self.batch_size, self.num_agents) + self.obs_space.shape)
+        )
+        actions = to_tensor(experiences["action"]).to(self.device)
+        next_states = (
+            to_tensor(experiences["next_state"])
+            .float()
+            .to(self.device)
+            .view((self.batch_size, self.num_agents) + self.obs_space.shape)
+        )
 
         flat_states = states.view(-1, ma_obs_size)
         flat_next_states = next_states.view(-1, ma_obs_size)
@@ -224,15 +242,15 @@ class MADDPGAgent(MultiAgentType):
             soft_update(agent.target_actor, agent.actor, self.tau)
         soft_update(self.target_critic, self.critic, self.tau)
 
-    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
-        data_logger.log_value('loss/critic', self._loss_critic, step)
+    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool = False):
+        data_logger.log_value("loss/critic", self._loss_critic, step)
         for agent_name, agent in self.agents.items():
             data_logger.log_values_dict(f"{agent_name}/loss", agent.loss, step)
 
     def get_state(self) -> Dict[str, dict]:
         """Returns agents' internal states"""
         agents_state = {}
-        agents_state['config'] = self._config
+        agents_state["config"] = self._config
         for agent_name, agent in self.agents.items():
             agents_state[agent_name] = {"state": agent.state_dict(), "config": agent._config}
         return agents_state
@@ -249,7 +267,7 @@ class MADDPGAgent(MultiAgentType):
         agents_state = self.get_state()
         torch.save(agents_state, path)
 
-    def load_state(self, *, path: Optional[str]=None, agent_state: Optional[dict]=None) -> None:
+    def load_state(self, *, path: Optional[str] = None, agent_state: Optional[dict] = None) -> None:
         """Loads the state into the Multi Agent.
 
         The state can be provided either via path to a file that contains the state,
@@ -266,12 +284,12 @@ class MADDPGAgent(MultiAgentType):
             agent_state = torch.load(path)
         assert agent_state is not None, "Can't load state if neither agent state or valid path is provided"
 
-        self._config = agent_state.get('config', {})
+        self._config = agent_state.get("config", {})
         self.__dict__.update(**self._config)
         for agent_name, agent in self.agents.items():
             _agent_state = agent_state[agent_name]
             agent.load_state(agent_state=_agent_state["state"])
-            agent._config = _agent_state['config']
+            agent._config = _agent_state["config"]
             agent.__dict__.update(**agent._config)
 
     def seed(self, seed: int) -> None:

@@ -9,8 +9,8 @@ class Experience:
     Data type used to store experiences in experience buffers.
     """
 
-    common_keys = ['state', 'action', 'reward', 'next_state', 'done']
-    extra_keys = ['advantage', 'logprob', 'value', 'priority', 'index', 'weight', 'state_idx', 'next_state_idx']
+    common_keys = ["state", "action", "reward", "next_state", "done"]
+    extra_keys = ["advantage", "logprob", "value", "priority", "index", "weight", "state_idx", "next_state_idx"]
     whitelist = common_keys + extra_keys
 
     def __init__(self, **kwargs):

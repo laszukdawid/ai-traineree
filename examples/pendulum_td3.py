@@ -6,16 +6,16 @@ from ai_traineree.runners.env_runner import EnvRunner
 from ai_traineree.tasks import GymTask
 
 
-env_name = 'Pendulum-v0'
+env_name = "Pendulum-v0"
 task = GymTask(env_name)
 config = {
-    'warm_up': 100,
-    'batch_size': 50,
-    'hidden_layers': (50, 50),
-    'noise_scale': 1.,
-    'clip': (-2, 2),
-    'actor_lr': 1e-4,
-    'critic_lr': 2e-4,
+    "warm_up": 100,
+    "batch_size": 50,
+    "hidden_layers": (50, 50),
+    "noise_scale": 1.0,
+    "clip": (-2, 2),
+    "actor_lr": 1e-4,
+    "critic_lr": 2e-4,
 }
 agent = Agent(task.obs_space, task.action_space, **config)
 env_runner = EnvRunner(task, agent)
@@ -28,7 +28,7 @@ env_runner.interact_episode(0, render=True)
 fig = plt.figure()
 ax = fig.add_subplot(111)
 plt.plot(np.arange(len(scores)), scores)
-plt.ylabel('Score')
-plt.xlabel('Episode #')
-plt.savefig(f'{env_name}.png', dpi=120)
+plt.ylabel("Score")
+plt.xlabel("Episode #")
+plt.savefig(f"{env_name}.png", dpi=120)
 plt.show()

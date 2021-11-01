@@ -20,6 +20,7 @@ class AgentType(abc.ABC):
     def hparams(self):
         def make_strings_out_of_things_that_are_not_obvious_numbers(v):
             return str(v) if not isinstance(v, (int, float)) else v
+
         return {k: make_strings_out_of_things_that_are_not_obvious_numbers(v) for (k, v) in self._config.items()}
 
     def _register_param(self, source: Dict[str, Any], name: str, default_value=None, update=False, drop=False) -> Any:
@@ -39,7 +40,7 @@ class AgentType(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
+    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool = False):
         pass
 
     @abc.abstractmethod
@@ -73,6 +74,7 @@ class MultiAgentType(abc.ABC):
     def hparams(self):
         def make_strings_out_of_things_that_are_not_obvious_numbers(v):
             return str(v) if v is not isinstance(v, (int, float)) else v
+
         return {k: make_strings_out_of_things_that_are_not_obvious_numbers(v) for (k, v) in self._config.items()}
 
     def _register_param(self, source: Dict[str, Any], name: str, default_value=None, update=False, drop=False) -> Any:
@@ -90,13 +92,16 @@ class MultiAgentType(abc.ABC):
     def step(
         self,
         agent_name: str,
-        observations: List[ObsType], actions: List[ActionType], rewards: List[RewardType],
-        next_observations: List[ObsType], dones: List[DoneType]
+        observations: List[ObsType],
+        actions: List[ActionType],
+        rewards: List[RewardType],
+        next_observations: List[ObsType],
+        dones: List[DoneType],
     ):
         pass
 
     @abc.abstractmethod
-    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool=False):
+    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool = False):
         pass
 
     @abc.abstractmethod

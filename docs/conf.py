@@ -19,13 +19,13 @@
 import datetime
 import sys
 
-project = 'AI Traineree'
+project = "AI Traineree"
 year = datetime.date.today().year
 if year == 2020:
-    copyright = '2020, Dawid Laszuk'
+    copyright = "2020, Dawid Laszuk"
 else:
-    copyright = f'2020-{year}, Dawid Laszuk'
-author = 'Dawid Laszuk'
+    copyright = f"2020-{year}, Dawid Laszuk"
+author = "Dawid Laszuk"
 
 
 # -- General configuration ---------------------------------------------------
@@ -34,9 +34,9 @@ author = 'Dawid Laszuk'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.napoleon',
-    'sphinx.ext.intersphinx',
+    "sphinx.ext.autodoc",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.intersphinx",
 ]
 # napoleon_numpy_docstring = False
 napoleon_include_init_with_doc = True
@@ -44,18 +44,18 @@ napoleon_include_init_with_doc = True
 # ReadTheDocs expects `contents.rst` as default entry but we're using `index.rst`.
 # Weirdly, although it throws an expection it still manages to display everything.
 # Solution comes from https://github.com/readthedocs/readthedocs.org/issues/2569.
-master_doc = 'index'
+master_doc = "index"
 
 sys.path.insert(0, "../")
 
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 
 # -- Options for HTML output -------------------------------------------------

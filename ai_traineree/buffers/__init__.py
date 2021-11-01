@@ -21,10 +21,12 @@ class BufferBase(abc.ABC):
     buffer_size: int
 
     def __eq__(self, o: object) -> bool:
-        return isinstance(o, type(self)) \
-            and self.batch_size == o.batch_size \
-            and self.buffer_size == o.buffer_size \
+        return (
+            isinstance(o, type(self))
+            and self.batch_size == o.batch_size
+            and self.buffer_size == o.buffer_size
             and self.data == o.data
+        )
 
     def __len__(self):
         return len(self.data)
@@ -37,7 +39,7 @@ class BufferBase(abc.ABC):
         """Sample buffer for a set of experience."""
         raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
 
-    def dump_buffer(self, serialize: bool=False) -> List[Dict]:
+    def dump_buffer(self, serialize: bool = False) -> List[Dict]:
         """Return the whole buffer, e.g. for storing."""
         raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
 
@@ -45,7 +47,7 @@ class BufferBase(abc.ABC):
         """Loads provided data into the buffer."""
         raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
 
-    def get_state(self, include_data: bool=True) -> BufferState:
+    def get_state(self, include_data: bool = True) -> BufferState:
         state = BufferState(type=self.type, buffer_size=self.buffer_size, batch_size=self.batch_size)
         if len(self.data) and include_data:
             # state.data = [d.data for d in self.data]  # In case we want to serialize

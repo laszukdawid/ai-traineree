@@ -31,7 +31,7 @@ class RolloutBuffer(BufferBase):
         self.buffer_size = buffer_size
         self.data: Deque = deque()
 
-        self._states_mng = kwargs.get('compress_state', False)
+        self._states_mng = kwargs.get("compress_state", False)
         self._states = ReferenceBuffer(buffer_size + 20)
 
     def __len__(self) -> int:
@@ -45,9 +45,9 @@ class RolloutBuffer(BufferBase):
 
     def add(self, **kwargs):
         if self._states_mng:
-            kwargs['state_idx'] = self._states.add(kwargs.pop("state"))
+            kwargs["state_idx"] = self._states.add(kwargs.pop("state"))
             if "next_state" in kwargs:
-                kwargs['next_state_idx'] = self._states.add(kwargs.pop("next_state", "None"))
+                kwargs["next_state_idx"] = self._states.add(kwargs.pop("next_state", "None"))
         self.data.append(Experience(**kwargs))
 
         if len(self.data) > self.buffer_size:
@@ -56,7 +56,7 @@ class RolloutBuffer(BufferBase):
                 self._states.remove(drop_exp.state_idx)
                 self._states.remove(drop_exp.next_state_idx)
 
-    def sample(self, batch_size: Optional[int]=None) -> Iterator[Dict[str, list]]:
+    def sample(self, batch_size: Optional[int] = None) -> Iterator[Dict[str, list]]:
         """
         Samples the whole buffer. Iterates all gathered data.
         Note that sampling doesn't clear the buffer.
@@ -94,7 +94,7 @@ class RolloutBuffer(BufferBase):
             buffer.load_buffer(state.data)
         return buffer
 
-    def dump_buffer(self, serialize: bool=False) -> Iterator[Dict[str, List]]:
+    def dump_buffer(self, serialize: bool = False) -> Iterator[Dict[str, List]]:
         for data in self.data:
             yield data.get_dict(serialize=serialize)
 

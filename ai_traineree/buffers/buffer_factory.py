@@ -3,7 +3,6 @@ from ai_traineree.buffers import BufferBase, ReplayBuffer, PERBuffer, NStepBuffe
 
 
 class BufferFactory:
-
     @staticmethod
     def from_state(state: BufferState) -> BufferBase:
         if state.type == ReplayBuffer.type:

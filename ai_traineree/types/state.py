@@ -30,6 +30,7 @@ class NetworkState:
 @dataclass
 class AgentState:
     """Fully identifies an agent"""
+
     model: str
     obs_space: DataSpace
     action_space: DataSpace

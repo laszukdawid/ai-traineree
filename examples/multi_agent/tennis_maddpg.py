@@ -15,7 +15,7 @@ from ai_traineree.tasks import MultiAgentUnityTask
 from mlagents_envs.environment import UnityEnvironment
 
 
-build_path = '/home/kretyn/projects/ml-agents/Project/Builds/TennisSingle/tennis.x86_64'
+build_path = "/home/kretyn/projects/ml-agents/Project/Builds/TennisSingle/tennis.x86_64"
 unity_env = UnityEnvironment(build_path, no_graphics=True)
 
 ma_task = MultiAgentUnityTask(unity_env=unity_env, allow_multiple_obs=True)
@@ -25,10 +25,10 @@ obs_space = ma_task.observation_space[0].shape[0]
 action_size = ma_task.action_space.shape[0]
 num_agents = ma_task.num_agents
 config = {
-    'device': 'cpu',
-    'warm_up': 0,
-    'update_freq': 10,
-    'batch_size': 200,
+    "device": "cpu",
+    "warm_up": 0,
+    "update_freq": 10,
+    "batch_size": 200,
 }
 ma_agent = MADDPGAgent(obs_space, action_size, num_agents, **config)
 
@@ -40,7 +40,7 @@ scores = env_runner.run(reward_goal=5, max_episodes=50, force_new=True)
 fig = plt.figure()
 ax = fig.add_subplot(111)
 plt.plot(range(len(scores)), scores)
-plt.ylabel('Score')
-plt.xlabel('Episode #')
-plt.savefig('tennis.png', dpi=120)
+plt.ylabel("Score")
+plt.xlabel("Episode #")
+plt.savefig("tennis.png", dpi=120)
 plt.show()

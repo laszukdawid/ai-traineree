@@ -6,8 +6,16 @@ import pytest
 import torch
 
 from ai_traineree.types.dataspace import DataSpace
-from ai_traineree.utils import (condens_ndarray, serialize, str_to_list, str_to_number, str_to_seq, str_to_tuple, to_numbers_seq,
-                                to_tensor)
+from ai_traineree.utils import (
+    condens_ndarray,
+    serialize,
+    str_to_list,
+    str_to_number,
+    str_to_seq,
+    str_to_tuple,
+    to_numbers_seq,
+    to_tensor,
+)
 from conftest import deterministic_interactions
 
 
@@ -32,7 +40,7 @@ def test_to_tensor_list():
     # Assign
     int_l = [0, 1, 2, 3]
     float_l = [0.5, 1.1, 2.9, 3.0]
-    int_l_shape = [list(range(4*i, 4*(i+1))) for i in range(5)]
+    int_l_shape = [list(range(4 * i, 4 * (i + 1))) for i in range(5)]
 
     # Act
     int_t = to_tensor(int_l)
@@ -184,7 +192,7 @@ def test_serialize_buffer_state_list():
     # Assert
     des = json.loads(ser)
     assert set(des.keys()) == set(("type", "buffer_size", "batch_size", "data", "extra"))
-    assert len(des['data']) == buffer_size
+    assert len(des["data"]) == buffer_size
     assert des["type"] == "Type"
     assert des["extra"] is None
 
@@ -212,7 +220,7 @@ def test_serialize_buffer_state_numpy():
     # Assert
     des = json.loads(ser)
     assert set(des.keys()) == set(("type", "buffer_size", "batch_size", "data", "extra"))
-    assert len(des['data']) == buffer_size
+    assert len(des["data"]) == buffer_size
     assert des["type"] == "Type"
     assert des["extra"] is None
 
@@ -220,7 +228,7 @@ def test_serialize_buffer_state_numpy():
 def test_serialize_network_state_actual():
     from ai_traineree.agents.dqn import DQNAgent
 
-    agent = DQNAgent(DataSpace(dtype="float", shape=(4,)), DataSpace('int', (1,), low=0, high=2))
+    agent = DQNAgent(DataSpace(dtype="float", shape=(4,)), DataSpace("int", (1,), low=0, high=2))
     deterministic_interactions(agent, 30)
     network_state = agent.get_network_state()
 
@@ -229,13 +237,13 @@ def test_serialize_network_state_actual():
 
     # Assert
     des = json.loads(ser)
-    assert set(des['net'].keys()) == set(('target_net', 'net'))
+    assert set(des["net"].keys()) == set(("target_net", "net"))
 
 
 def test_serialize_agent_state_actual():
     from ai_traineree.agents.dqn import DQNAgent
 
-    agent = DQNAgent(DataSpace(dtype="float", shape=(4,)), DataSpace('int', (1,), low=0, high=2))
+    agent = DQNAgent(DataSpace(dtype="float", shape=(4,)), DataSpace("int", (1,), low=0, high=2))
     deterministic_interactions(agent, 30)
     state = agent.get_state()
 
@@ -244,9 +252,9 @@ def test_serialize_agent_state_actual():
 
     # Assert
     des = json.loads(ser)
-    assert des['model'] == DQNAgent.model
-    assert len(des['buffer']['data']) == 30
-    assert set(des['network']['net'].keys()) == set(('target_net', 'net'))
+    assert des["model"] == DQNAgent.model
+    assert len(des["buffer"]["data"]) == 30
+    assert set(des["network"]["net"].keys()) == set(("target_net", "net"))
 
 
 def test_to_numbers_seq_tuple_list():
@@ -289,7 +297,7 @@ def test_to_numbers_seq_num():
 
 
 def test_to_numbers_seq_unknown():
-    test_cases = ['asd', '[2,1', {'key': 'value'}]
+    test_cases = ["asd", "[2,1", {"key": "value"}]
 
     for test_case in test_cases:
         with pytest.raises(ValueError):

@@ -107,7 +107,7 @@ def test_compute_gae_no_terminal():
     gamma = 0.99
     tau = 0.9
     values = torch.tensor([[0], [-1.3], [-1.9], [-2.5]])  # Sape: (4, 1)
-    next_value = torch.tensor([-4.])  # Shape: (1,)
+    next_value = torch.tensor([-4.0])  # Shape: (1,)
 
     # Act
     advantages = compute_gae(rewards, dones, values, next_value, gamma, tau)
@@ -126,7 +126,7 @@ def test_compute_gae_terminals():
     gamma = 0.99
     tau = 0.9
     values = torch.tensor([0, -1.3, 3, -1.9, -2.5]).reshape(5, 1)  # Shape: (5, 1)
-    next_value = torch.tensor([-4.])  # Shape: (1,)
+    next_value = torch.tensor([-4.0])  # Shape: (1,)
 
     # Act
     advantages = compute_gae(rewards, dones, values, next_value, gamma, tau)
@@ -138,15 +138,14 @@ def test_compute_gae_terminals():
 
 
 def test_compute_gae_two_dimensional_input():
-    """First dim is the same as in `test_compute_gae_no_terminals`. Second dim is all zeros.
-    """
+    """First dim is the same as in `test_compute_gae_no_terminals`. Second dim is all zeros."""
     # Assign
     rewards = torch.tensor([[0, -1, -1, 1], [0, 0, 0, 0]]).T  # Shape: (4, 2)
     dones = torch.tensor([[0, 0, 0, 0], [0, 0, 0, 0]]).T  # Shape: (4, 2)
     gamma = 0.99
     tau = 0.9
     values = torch.tensor([[0, -1.3, -1.9, -2.5], [0, 0, 0, 0]]).T  # Sape: (4, 2)
-    next_value = torch.tensor([-4., 0])  # Shape: (2,)
+    next_value = torch.tensor([-4.0, 0])  # Shape: (2,)
     expected = torch.tensor([[-4.27, -3.35, -1.98, -0.46], [0, 0, 0, 0]]).T  # Shape: (4, 2)
 
     # Act

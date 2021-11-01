@@ -5,12 +5,11 @@ import torch.nn as nn
 
 
 class NetworkType(nn.Module):
-
     def reset_parameters(self):
         pass
 
     def reset_noise(self):
-        if hasattr(self.net, 'reset_noise'):
+        if hasattr(self.net, "reset_noise"):
             self.net.reset_noise()
 
     @torch.no_grad()
@@ -21,4 +20,4 @@ class NetworkType(nn.Module):
         return x
 
 
-NetworkTypeClass = TypeVar('NetworkTypeClass', bound=NetworkType)
+NetworkTypeClass = TypeVar("NetworkTypeClass", bound=NetworkType)
