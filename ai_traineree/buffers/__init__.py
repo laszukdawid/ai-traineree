@@ -5,9 +5,8 @@ from typing import Dict, List, Optional, Sequence, Union
 import numpy as np
 import torch
 
+from ai_traineree.experience import Experience
 from ai_traineree.types import BufferState
-
-from .experience import Experience
 
 # *Note*: Below classes are additional imports to keep things backward compatible and easier to import.
 

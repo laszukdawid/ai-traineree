@@ -10,7 +10,7 @@ All buffers internally store data in as Experience but on sampling these are con
 .. autoclass:: ai_traineree.buffers.BufferBase
     :members:
 
-.. autoclass:: ai_traineree.buffers.Experience
+.. autoclass:: ai_traineree.Experience
     :members:
 
 Replay Buffer

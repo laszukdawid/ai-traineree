@@ -13,6 +13,7 @@ from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import compute_gae, normalize, revert_norm_returns
 from ai_traineree.buffers import RolloutBuffer
 from ai_traineree.buffers.buffer_factory import BufferFactory
+from ai_traineree.experience import Experience
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody
 from ai_traineree.policies import MultivariateGaussianPolicy, MultivariateGaussianPolicySimple
@@ -103,8 +104,6 @@ class PPOAgent(AgentBase):
         self.entropy_weight = float(self._register_param(kwargs, "entropy_weight", 0.5))
         self.value_loss_weight = float(self._register_param(kwargs, "value_loss_weight", 1.0))
 
-        self.local_memory_buffer = {}
-
         self.max_grad_norm_actor = float(self._register_param(kwargs, "max_grad_norm_actor", 100.0))
         self.max_grad_norm_critic = float(self._register_param(kwargs, "max_grad_norm_critic", 100.0))
 
@@ -159,7 +158,7 @@ class PPOAgent(AgentBase):
         self.buffer.clear()
 
     @torch.no_grad()
-    def act(self, obs: ObsType, epsilon: float = 0.0):
+    def act(self, experience: Experience, noise: float = 0.0) -> Experience:
         """Acting on the observations. Returns action.
 
         Parameters:
@@ -173,7 +172,7 @@ class PPOAgent(AgentBase):
         actions: List[ActionType] = []
         logprobs = []
         values = []
-        t_obs = to_tensor(obs).view((self.num_workers,) + self.obs_space.shape).float().to(self.device)
+        t_obs = to_tensor(experience.obs).view((self.num_workers,) + self.obs_space.shape).float().to(self.device)
         for worker in range(self.num_workers):
             actor_est = self.actor.act(t_obs[worker].unsqueeze(0))
             assert not torch.any(torch.isnan(actor_est))
@@ -191,21 +190,25 @@ class PPOAgent(AgentBase):
                 action = action.cpu().numpy().flatten().tolist()
             actions.append(action)
 
-        self.local_memory_buffer["value"] = torch.cat(values)
-        self.local_memory_buffer["logprob"] = torch.stack(logprobs)
         assert len(actions) == self.num_workers
-        return actions if self.num_workers > 1 else actions[0]
+        value = torch.cat(values)
+        logprob = torch.stack(logprobs)
+        action = actions if self.num_workers > 1 else actions[0]
+        experience.update(action=action, value=torch.cat(values), logprob=torch.stack(logprobs))
+        return experience
 
-    def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType, **kwargs):
+    def step(self, experience: Experience):
         self.iteration += 1
+        logprob = experience.get("logprob")
+        value = experience.get("value")
 
         self.buffer.add(
-            state=torch.tensor(obs).reshape((self.num_workers,) + self.obs_space.shape).float(),
-            action=torch.tensor(action).reshape((self.num_workers,) + self.action_space.shape).float(),
-            reward=torch.tensor(reward).reshape(self.num_workers, 1),
-            done=torch.tensor(done).reshape(self.num_workers, 1),
-            logprob=self.local_memory_buffer["logprob"].reshape(self.num_workers, 1),
-            value=self.local_memory_buffer["value"].reshape(self.num_workers, 1),
+            obs=torch.tensor(experience.obs).reshape((self.num_workers,) + self.obs_space.shape).float(),
+            action=torch.tensor(experience.action).reshape((self.num_workers,) + self.action_space.shape).float(),
+            reward=torch.tensor(experience.reward).reshape(self.num_workers, 1),
+            done=torch.tensor(experience.done).reshape(self.num_workers, 1),
+            logprob=logprob.reshape(self.num_workers, 1),
+            value=value.reshape(self.num_workers, 1),
         )
 
         if self.iteration % self.rollout_length == 0:
@@ -219,21 +222,21 @@ class PPOAgent(AgentBase):
         experiences = self.buffer.all_samples()
         rewards = to_tensor(experiences["reward"]).to(self.device)
         dones = to_tensor(experiences["done"]).type(torch.int).to(self.device)
-        states = to_tensor(experiences["state"]).to(self.device)
+        obss = to_tensor(experiences["obs"]).to(self.device)
         actions = to_tensor(experiences["action"]).to(self.device)
         values = to_tensor(experiences["value"]).to(self.device)
         logprobs = to_tensor(experiences["logprob"]).to(self.device)
         assert rewards.shape == dones.shape == values.shape == logprobs.shape
         assert (
-            states.shape == (self.rollout_length, self.num_workers) + self.obs_space.shape
-        ), f"Wrong states shape: {states.shape}"
+            obss.shape == (self.rollout_length, self.num_workers) + self.obs_space.shape
+        ), f"Wrong obss shape: {obss.shape}"
         assert (
             actions.shape == (self.rollout_length, self.num_workers) + self.action_space.shape
         ), f"Wrong action shape: {actions.shape}"
 
         with torch.no_grad():
             if self.using_gae:
-                next_value = self.critic.act(states[-1])
+                next_value = self.critic.act(obss[-1])
                 advantages = compute_gae(rewards, dones, values, next_value, self.gamma, self.gae_lambda)
                 advantages = normalize(advantages)
                 returns = advantages + values
@@ -249,7 +252,7 @@ class PPOAgent(AgentBase):
             idx = 0
             self.kl_div = 0
             while idx < self.rollout_length:
-                _states = states[idx : idx + self.batch_size].view((-1,) + self.obs_space.shape).detach()
+                _states = obss[idx : idx + self.batch_size].view((-1,) + self.obs_space.shape).detach()
                 _actions = actions[idx : idx + self.batch_size].view((-1,) + self.action_space.shape).detach()
                 _logprobs = logprobs[idx : idx + self.batch_size].view(-1, 1).detach()
                 _returns = returns[idx : idx + self.batch_size].view(-1, 1).detach()
@@ -273,9 +276,9 @@ class PPOAgent(AgentBase):
             self._metrics["policy/kl_beta"] = self.kl_beta
 
     def compute_policy_loss(self, samples):
-        states, actions, old_log_probs, _, advantages = samples
+        obss, actions, old_log_probs, _, advantages = samples
 
-        actor_est = self.actor(states)
+        actor_est = self.actor(obss)
         dist = self.policy(actor_est)
 
         entropy = dist.entropy()
@@ -304,8 +307,8 @@ class PPOAgent(AgentBase):
         return loss, approx_kl_div
 
     def compute_value_loss(self, samples):
-        states, _, _, returns, _ = samples
-        values = self.critic(states)
+        obss, _, _, returns, _ = samples
+        values = self.critic(obss)
         self._metrics["value/value_mean"] = values.mean()
         self._metrics["value/value_std"] = values.std()
         return F.mse_loss(values, returns)

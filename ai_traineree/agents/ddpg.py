@@ -1,7 +1,7 @@
 import copy
 import operator
 from functools import cached_property, reduce
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import torch
 import torch.nn as nn
@@ -14,10 +14,11 @@ from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import hard_update, soft_update
 from ai_traineree.buffers import ReplayBuffer
 from ai_traineree.buffers.buffer_factory import BufferFactory
+from ai_traineree.experience import Experience
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.noise import GaussianNoise
-from ai_traineree.types import ActionType, AgentState, BufferState, DoneType, NetworkState, ObsType, RewardType
+from ai_traineree.types import AgentState, BufferState, NetworkState
 from ai_traineree.types.dataspace import DataSpace
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
@@ -154,7 +155,7 @@ class DDPGAgent(AgentBase):
         return to_tensor(self.action_space.high)
 
     @torch.no_grad()
-    def act(self, obs: ObsType, noise: float = 0.0) -> List[float]:
+    def act(self, experience: Experience, noise: float = 0.0) -> Experience:
         """Acting on the observations. Returns action.
 
         Parameters:
@@ -164,15 +165,22 @@ class DDPGAgent(AgentBase):
         Returns:
             action: (list float) Action values.
         """
-        t_obs = to_tensor(obs).float().to(self.device)
+        t_obs = to_tensor(experience.obs).float().to(self.device)
         action = self.actor(t_obs)
         action += noise * self.noise.sample()
         action = torch.clamp(action, self.action_min, self.action_max)
-        return action.cpu().numpy().tolist()
+        action = action.cpu().numpy().tolist()
+        return experience.update(action=action)
 
-    def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType) -> None:
+    def step(self, experience: Experience) -> None:
         self.iteration += 1
-        self.buffer.add(state=obs, action=action, reward=reward, next_state=next_obs, done=done)
+        self.buffer.add(
+            obs=experience.obs,
+            action=experience.action,
+            reward=experience.reward,
+            next_obs=experience.next_obs,
+            done=experience.done,
+        )
 
         if self.iteration < self.warm_up:
             return
@@ -203,18 +211,16 @@ class DDPGAgent(AgentBase):
         """Update critics and actors"""
         rewards = to_tensor(experiences["reward"]).float().to(self.device).unsqueeze(1)
         dones = to_tensor(experiences["done"]).type(torch.int).to(self.device).unsqueeze(1)
-        states = to_tensor(experiences["state"]).float().to(self.device)
+        obss = to_tensor(experiences["obs"]).float().to(self.device)
         actions = to_tensor(experiences["action"]).float().to(self.device).view((-1,) + self.action_space.shape)
-        next_states = to_tensor(experiences["next_state"]).float().to(self.device)
+        next_obss = to_tensor(experiences["next_obs"]).float().to(self.device)
 
         assert rewards.shape == dones.shape == (self.batch_size, 1), f"R.shape={rewards.shape}, D.shap={dones.shape}"
-        assert (
-            states.shape == next_states.shape == (self.batch_size,) + self.obs_space.shape
-        ), f"states.shape: {states.shape}"
+        assert obss.shape == next_obss.shape == (self.batch_size,) + self.obs_space.shape, f"states.shape: {obss.shape}"
         assert actions.shape == (self.batch_size,) + self.action_space.shape, f"actions.shape: {actions.shape}"  # type: ignore
 
         # Value (critic) optimization
-        loss_critic = self.compute_value_loss(states, actions, next_states, rewards, dones)
+        loss_critic = self.compute_value_loss(obss, actions, next_obss, rewards, dones)
         self.critic_optimizer.zero_grad()
         loss_critic.backward()
         nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm_critic)
@@ -222,7 +228,7 @@ class DDPGAgent(AgentBase):
         self._loss_critic = float(loss_critic.item())
 
         # Policy (actor) optimization
-        loss_actor = self.compute_policy_loss(states)
+        loss_actor = self.compute_policy_loss(obss)
         self.actor_optimizer.zero_grad()
         loss_actor.backward()
         nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm_actor)

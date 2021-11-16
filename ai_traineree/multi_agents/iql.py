@@ -4,8 +4,9 @@ import torch
 
 from ai_traineree import DEVICE
 from ai_traineree.agents.dqn import DQNAgent
+from ai_traineree.experience import Experience
 from ai_traineree.loggers import DataLogger
-from ai_traineree.types import ActionType, DoneType, MultiAgentType, ObsType, RewardType, DataSpace
+from ai_traineree.types import DataSpace, MultiAgentType
 from ai_traineree.utils import to_numbers_seq
 
 
@@ -88,14 +89,12 @@ class IQLAgents(MultiAgentType):
         for agent in self.agents.values():
             agent.reset()
 
-    def step(
-        self, agent_name: str, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType
-    ) -> None:
-        return self.agents[agent_name].step(obs, action, reward, next_obs, done)
+    def step(self, agent_name: str, experience: Experience) -> None:
+        return self.agents[agent_name].step(experience)
 
     @torch.no_grad()
-    def act(self, agent_name: str, obs: ObsType, noise: float = 0.0) -> int:
-        return self.agents[agent_name].act(obs, noise)
+    def act(self, agent_name: str, experience: Experience, noise: float = 0.0) -> Experience:
+        return self.agents[agent_name].act(experience, noise)
 
     def commit(self) -> None:
         """This method does nothing.

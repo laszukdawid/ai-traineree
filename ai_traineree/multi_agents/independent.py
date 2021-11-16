@@ -2,8 +2,8 @@ from typing import Dict, List, Optional
 
 import torch
 
+from ai_traineree.experience import Experience
 from ai_traineree.loggers import DataLogger
-from ai_traineree.types import ActionType, DoneType, ObsType, RewardType
 from ai_traineree.types.agent import AgentType, MultiAgentType
 
 
@@ -55,14 +55,12 @@ class IndependentAgents(MultiAgentType):
         for agent in self.agents.values():
             agent.reset()
 
-    def step(
-        self, agent_name: str, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType
-    ) -> None:
-        return self.agents[agent_name].step(obs, action, reward, next_obs, done)
+    def step(self, agent_name: str, experience: Experience) -> None:
+        return self.agents[agent_name].step(experience)
 
     @torch.no_grad()
-    def act(self, agent_name: str, obs: ObsType, noise: float = 0.0) -> ActionType:
-        return self.agents[agent_name].act(obs, noise)
+    def act(self, agent_name: str, experience: Experience, noise: float = 0.0) -> Experience:
+        return self.agents[agent_name].act(experience, noise)
 
     def commit(self) -> None:
         """This method does nothing.

@@ -1,14 +1,15 @@
 import copy
-import torch
+from unittest.mock import MagicMock
 
 import mock
 import pytest
+import torch
 
-from ai_traineree.networks.heads import RainbowNet
 from ai_traineree.agents.rainbow import RainbowAgent
+from ai_traineree.experience import Experience
+from ai_traineree.networks.heads import RainbowNet
 from ai_traineree.types import AgentState, BufferState, DataSpace, NetworkState
 from conftest import deterministic_interactions, fake_step, feed_agent
-from unittest.mock import MagicMock
 
 t_obs_space = DataSpace(dtype="float", shape=(10,), low=-1, high=1)
 t_action_space = DataSpace(dtype="int", shape=(4,), low=0, high=4)
@@ -89,13 +90,13 @@ def test_rainbow_warm_up(mock_soft_update):
 
     # Act & assert
     for _ in range(warm_up - 1):
-        state, reward, done = fake_step((1,))
-        agent.step(state, 1, reward, state, done)
+        obs, reward, done = fake_step((1,))
+        agent.step(Experience(obs=obs, reward=reward, done=done, next_obs=obs, action=1))
         agent.learn.assert_not_called()
         assert not mock_soft_update.called
 
-    state, reward, done = fake_step((1,))
-    agent.step(state, 1, reward, state, done)
+    obs, reward, done = fake_step((1,))
+    agent.step(Experience(obs=obs, reward=reward, done=done, next_obs=obs, action=1))
     agent.learn.assert_called()
     assert mock_soft_update.called
 
@@ -147,7 +148,8 @@ def test_rainbow_log_metrics_full_log_dist_prob(mock_data_logger):
     agent.loss = 1
 
     # Act
-    agent.act([0])
+    experience = Experience(obs=[0])
+    agent.act(experience)
     agent.log_metrics(mock_data_logger, step, full_log=True)
 
     # Assert

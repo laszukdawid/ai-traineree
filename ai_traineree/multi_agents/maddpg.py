@@ -1,4 +1,3 @@
-from ai_traineree.types.dataspace import DataSpace
 from collections import OrderedDict, defaultdict
 from typing import Any, Dict, List, Optional
 
@@ -11,9 +10,11 @@ from ai_traineree import DEVICE
 from ai_traineree.agents.agent_utils import hard_update, soft_update
 from ai_traineree.agents.ddpg import DDPGAgent
 from ai_traineree.buffers import ReplayBuffer
+from ai_traineree.experience import Experience
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import CriticBody
-from ai_traineree.types import ActionType, MultiAgentType, ObsType, StateType
+from ai_traineree.types import MultiAgentType
+from ai_traineree.types.dataspace import DataSpace
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 
@@ -121,24 +122,18 @@ class MADDPGAgent(MultiAgentType):
         self.critic.reset_parameters()
         self.target_critic.reset_parameters()
 
-    def step(self, agent_name: str, state: StateType, action: ActionType, reward, next_state, done) -> None:
-        self._step_data[agent_name] = dict(
-            state=state,
-            action=action,
-            reward=reward,
-            next_state=next_state,
-            done=done,
-        )
+    def step(self, agent_name: str, experience: Experience) -> None:
+        self._step_data[agent_name] = experience
 
     def commit(self):
         step_data = defaultdict(list)
         for agent in self.agents:
-            agent_data = self._step_data[agent]
-            step_data["state"].append(agent_data["state"])
-            step_data["action"].append(agent_data["action"])
-            step_data["reward"].append(agent_data["reward"])
-            step_data["next_state"].append(agent_data["next_state"])
-            step_data["done"].append(agent_data["done"])
+            agent_experience: Experience = self._step_data[agent]
+            step_data["obs"].append(agent_experience.obs)
+            step_data["action"].append(agent_experience.action)
+            step_data["reward"].append(agent_experience.reward)
+            step_data["next_obs"].append(agent_experience.next_obs)
+            step_data["done"].append(agent_experience.done)
 
         self.buffer.add(**step_data)
         self._step_data = {}
@@ -154,7 +149,7 @@ class MADDPGAgent(MultiAgentType):
             self.update_targets()
 
     @torch.no_grad()
-    def act(self, agent_name: str, obss: List[ObsType], noise: float = 0.0) -> List[float]:
+    def act(self, agent_name: str, experience: Experience, noise: float = 0.0) -> Experience:
         """Get actions from all agents. Synchronized action.
 
         Parameters:
@@ -165,10 +160,10 @@ class MADDPGAgent(MultiAgentType):
             actions: List of actions that each agent wants to perform
 
         """
-        t_obss = torch.tensor(obss).reshape(-1)
+        experience.update(obs=experience.obs)
         agent = self.agents[agent_name]
-        action = agent.act(t_obss, noise)
-        return action
+        experience = agent.act(experience, noise)
+        return experience
 
     def __flatten_actions(self, actions):
         return actions.view(-1, self.num_agents * self.action_space.shape[0])
@@ -184,37 +179,38 @@ class MADDPGAgent(MultiAgentType):
         agent_dones = (
             to_tensor(experiences["done"]).select(1, agent_number).unsqueeze(-1).type(torch.int).to(self.device)
         )
-        states = (
-            to_tensor(experiences["state"])
+
+        obss = (
+            to_tensor(experiences["obs"])
             .to(self.device)
             .view((self.batch_size, self.num_agents) + self.obs_space.shape)
         )
         actions = to_tensor(experiences["action"]).to(self.device)
-        next_states = (
-            to_tensor(experiences["next_state"])
+        next_obss = (
+            to_tensor(experiences["next_obs"])
             .float()
             .to(self.device)
             .view((self.batch_size, self.num_agents) + self.obs_space.shape)
         )
 
-        flat_states = states.view(-1, ma_obs_size)
-        flat_next_states = next_states.view(-1, ma_obs_size)
+        flat_obss = obss.view(-1, ma_obs_size)
+        flat_next_obss = next_obss.view(-1, ma_obs_size)
         flat_actions = actions.view(-1, ma_action_size)
         assert agent_rewards.shape == agent_dones.shape == (self.batch_size, 1)
-        assert states.shape == next_states.shape == (self.batch_size, self.num_agents) + self.obs_space.shape
+        assert obss.shape == next_obss.shape == (self.batch_size, self.num_agents) + self.obs_space.shape
         assert actions.shape == (self.batch_size, self.num_agents) + self.action_space.shape
         assert flat_actions.shape == (self.batch_size, ma_action_size)
 
         agent = self.agents[agent_name]
 
         next_actions = actions.detach().clone()
-        next_actions.data[:, agent_number] = agent.target_actor(next_states[:, agent_number, :])
+        next_actions.data[:, agent_number] = agent.target_actor(next_obss[:, agent_number, :])
         assert next_actions.shape == (self.batch_size, self.num_agents) + self.action_space.shape
 
         # critic loss
-        Q_target_next = self.target_critic(flat_next_states, self.__flatten_actions(next_actions))
+        Q_target_next = self.target_critic(flat_next_obss, self.__flatten_actions(next_actions))
         Q_target = agent_rewards + (self.gamma * Q_target_next * (1 - agent_dones))
-        Q_expected = self.critic(flat_states, flat_actions)
+        Q_expected = self.critic(flat_obss, flat_actions)
         loss_critic = F.mse_loss(Q_expected, Q_target)
 
         # Minimize the loss
@@ -227,10 +223,10 @@ class MADDPGAgent(MultiAgentType):
 
         # Compute actor loss
         pred_actions = actions.detach().clone()
-        # pred_actions.data[:, agent_number] = agent.actor(flat_states)
-        pred_actions.data[:, agent_number] = agent.actor(states[:, agent_number, :])
+        # pred_actions.data[:, agent_number] = agent.actor(flat_obss)
+        pred_actions.data[:, agent_number] = agent.actor(obss[:, agent_number, :])
 
-        loss_actor = -self.critic(flat_states, self.__flatten_actions(pred_actions)).mean()
+        loss_actor = -self.critic(flat_obss, self.__flatten_actions(pred_actions)).mean()
         agent.actor_optimizer.zero_grad()
         loss_actor.backward()
         agent.actor_optimizer.step()
