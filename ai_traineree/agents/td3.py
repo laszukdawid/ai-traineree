@@ -1,5 +1,5 @@
 from functools import cached_property
-from typing import Dict, List
+from typing import Dict
 
 import numpy as np
 import torch
@@ -11,11 +11,11 @@ from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import hard_update, soft_update
 from ai_traineree.buffers import ReplayBuffer
+from ai_traineree.experience import Experience
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import DoubleCritic
 from ai_traineree.noise import OUProcess
-from ai_traineree.types import ActionType, DoneType, ObsType, RewardType
 from ai_traineree.types.dataspace import DataSpace
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
@@ -145,7 +145,7 @@ class TD3Agent(AgentBase):
         return to_tensor(self.action_space.high)
 
     @torch.no_grad()
-    def act(self, obs: ObsType, epsilon: float = 0.0, training_mode: bool = True) -> List[float]:
+    def act(self, experience: Experience, epsilon: float = 0.0, training_mode: bool = True) -> Experience:
         """
         Agent acting on observations.
 
@@ -155,23 +155,32 @@ class TD3Agent(AgentBase):
         if self._rng.random() < epsilon:
             rnd = torch.rand(self.action_space.shape)
             rnd_actions = rnd * (self.action_max - self.action_min) - self.action_min
-            return rnd_actions.tolist()
+            action = rnd_actions.tolist()
+            return experience.update(action=action)
 
-        t_obs = to_tensor(obs).float().to(self.device)
+        t_obs = to_tensor(experience.obs).float().to(self.device)
         action = self.actor(t_obs)
         if training_mode:
             action += self.noise.sample()
-        return torch.clamp(action, self.action_min, self.action_max).tolist()
+        action = torch.clamp(action, self.action_min, self.action_max).tolist()
+        return experience.update(action=action)
 
     @torch.no_grad()
-    def target_act(self, obs: ObsType, noise: float = 0.0):
-        t_obs = to_tensor(obs).float().to(self.device)
+    def target_act(self, experience: Experience, noise: float = 0.0) -> Experience:
+        t_obs = to_tensor(experience.obs).float().to(self.device)
         action = self.target_actor(t_obs) + noise * self.noise.sample()
-        return torch.clamp(action, self.action_min, self.action_max).cpu().numpy().astype(np.float32)
+        action = torch.clamp(action, self.action_min, self.action_max).cpu().numpy().astype(np.float32)
+        return experience.update(action=action)
 
-    def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType):
+    def step(self, experience: Experience) -> None:
         self.iteration += 1
-        self.buffer.add(state=obs, action=action, reward=reward, next_state=next_obs, done=done)
+        self.buffer.add(
+            obs=experience.obs,
+            action=experience.action,
+            reward=experience.reward,
+            next_obs=experience.next_obs,
+            done=experience.done,
+        )
 
         if (self.iteration % self.noise_reset_freq) == 0:
             self.noise.reset_states()
@@ -192,15 +201,15 @@ class TD3Agent(AgentBase):
         """Update critics and actors"""
         rewards = to_tensor(experiences["reward"]).float().to(self.device).unsqueeze(1)
         dones = to_tensor(experiences["done"]).type(torch.int).to(self.device).unsqueeze(1)
-        states = to_tensor(experiences["state"]).float().to(self.device)
+        obss = to_tensor(experiences["obs"]).float().to(self.device)
         actions = to_tensor(experiences["action"]).to(self.device)
-        next_states = to_tensor(experiences["next_state"]).float().to(self.device)
+        next_obss = to_tensor(experiences["next_obs"]).float().to(self.device)
 
         if (self.iteration % self.update_freq) == 0:
-            self._update_value_function(states, actions, rewards, next_states, dones)
+            self._update_value_function(obss, actions, rewards, next_obss, dones)
 
         if (self.iteration % self.update_policy_freq) == 0:
-            self._update_policy(states)
+            self._update_policy(obss)
 
             soft_update(self.target_actor, self.actor, self.tau)
             soft_update(self.target_critic, self.critic, self.tau)

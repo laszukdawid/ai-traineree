@@ -7,6 +7,7 @@ from collections import defaultdict, deque
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
+from ai_traineree.experience import Experience
 from ai_traineree.loggers import DataLogger
 from ai_traineree.tasks import PettingZooTask
 from ai_traineree.types import ActionType, DoneType, MultiAgentTaskType, MultiAgentType, RewardType, StateType
@@ -120,16 +121,22 @@ class MultiAgentEnvRunner:
             next_states: List[StateType] = []
             rewards: List[RewardType] = []
             dones: List[DoneType] = []
+            actions: List[ActionType] = []
             for agent_id in range(self.multi_agent.num_agents):
-                actions: List[ActionType] = self.multi_agent.act(str(agent_id), states[agent_id], eps)
+                experience = Experience(obs=states[agent_id])
+                experience = self.multi_agent.act(str(agent_id), experience, eps)
+                actions.append(experience.action)
 
-                next_state, reward, done, _ = self.task.step(actions[agent_id], agent_id=agent_id)
+                next_state, reward, done, _ = self.task.step(experience.action, agent_id=agent_id)
+                experience.update(next_obs=next_state, reward=reward, done=done)
                 next_states.append(next_state)
                 rewards.append(reward)
                 dones.append(done)
                 score[agent_id] += float(reward)  # Score is
                 # if done:
                 #     break
+                self.multi_agent.step(str(agent_id), experience)
+
             if render_gif:
                 # OpenAI gym still renders the image to the screen even though it shouldn't. Eh.
                 img = self.task.render(mode="rgb_array")
@@ -140,7 +147,6 @@ class MultiAgentEnvRunner:
                 self._dones.append((self.iteration, dones))
                 self._rewards.append((self.iteration, rewards))
 
-            self.multi_agent.step(states, actions, rewards, next_states, dones)
             if log_interaction_freq is not None and (iterations % log_interaction_freq) == 0:
                 self.log_data_interaction()
             states = next_states
@@ -461,10 +467,13 @@ class MultiAgentCycleEnvRunner:
             # TODO: Iterate over distinc agents in a single cycle. This `for` doesn't guarantee that.
             for agent_name in self.task.agent_iter(max_iter=self.multi_agent.num_agents):
                 state, reward, done, info = self.task.last(agent_name)
-                action = self.multi_agent.act(agent_name, state, eps)
-                next_state, reward, done, _ = self.task.step(action)
+                experience = Experience(obs=state)
+                experience = self.multi_agent.act(agent_name, experience, eps)
+                assert experience.action is not None, "Need to have action after acting"
+                next_obs, reward, done, _ = self.task.step(experience.action)
 
-                self.multi_agent.step(agent_name, state, action, reward, next_state, done)
+                experience.update(next_obs=next_obs, reward=reward, done=done)
+                self.multi_agent.step(agent_name, experience)
 
                 # next_states[agent_name] = next_state
                 # rewards[agent_name] = reward
@@ -472,9 +481,9 @@ class MultiAgentCycleEnvRunner:
                 score[agent_name] += float(reward)
 
                 if self._debug_log:
-                    self._actions[agent_name].append((self.iteration, action))
-                    self._dones[agent_name].append((self.iteration, done))
-                    self._rewards[agent_name].append((self.iteration, reward))
+                    self._actions[agent_name].append((self.iteration, experience.action))
+                    self._dones[agent_name].append((self.iteration, experience.done))
+                    self._rewards[agent_name].append((self.iteration, experience.reward))
 
             # Commit last transitions and learn if it's the time
             self.multi_agent.commit()

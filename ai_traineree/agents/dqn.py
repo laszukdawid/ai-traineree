@@ -11,19 +11,11 @@ from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import soft_update
 from ai_traineree.buffers import NStepBuffer, PERBuffer
 from ai_traineree.buffers.buffer_factory import BufferFactory
+from ai_traineree.experience import Experience
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks import NetworkType, NetworkTypeClass
 from ai_traineree.networks.heads import DuelingNet
-from ai_traineree.types import (
-    ActionType,
-    AgentState,
-    BufferState,
-    DataSpace,
-    DoneType,
-    NetworkState,
-    ObsType,
-    RewardType,
-)
+from ai_traineree.types import AgentState, BufferState, DataSpace, NetworkState
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 
@@ -144,7 +136,7 @@ class DQNAgent(AgentBase):
         self.target_net.reset_parameters()
         self.optimizer = optim.Adam(self.net.parameters(), lr=self.lr)
 
-    def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType) -> None:
+    def step(self, exp: Experience) -> None:
         """Letting the agent to take a step.
 
         On some steps the agent will initiate learning step. This is dependent on
@@ -158,15 +150,19 @@ class DQNAgent(AgentBase):
             done: (bool) Whether in terminal (end of episode) state.
 
         """
-        assert isinstance(action, int), "DQN expects discrete actions (int)"
+        assert isinstance(exp.action, int), "DQN expects discrete actions (int)"
         self.iteration += 1
-        t_obs = to_tensor(self.state_transform(obs)).float().to("cpu")
-        t_next_obs = to_tensor(self.state_transform(next_obs)).float().to("cpu")
-        reward = self.reward_transform(reward)
+        t_obs = to_tensor(self.state_transform(exp.obs)).float().to("cpu")
+        t_next_obs = to_tensor(self.state_transform(exp.next_obs)).float().to("cpu")
+        reward = self.reward_transform(exp.reward)
 
         # Delay adding to buffer to account for n_steps (particularly the reward)
         self.n_buffer.add(
-            state=t_obs.numpy(), action=[int(action)], reward=[reward], done=[done], next_state=t_next_obs.numpy()
+            obs=t_obs.numpy(),
+            action=[int(exp.action)],
+            reward=[reward],
+            done=[exp.done],
+            next_obs=t_next_obs.numpy(),
         )
         if not self.n_buffer.available:
             return
@@ -183,11 +179,11 @@ class DQNAgent(AgentBase):
             # Update networks only once - sync local & target
             soft_update(self.target_net, self.net, self.tau)
 
-    def act(self, obs: ObsType, eps: float = 0.0) -> int:
-        """Returns actions for given state as per current policy.
+    def act(self, experience: Experience, eps: float = 0.0) -> Experience:
+        """Returns actions for given obs as per current policy.
 
         Parameters:
-            obs (array_like): current state
+            obs (array_like): current observation
             eps (optional float): epsilon, for epsilon-greedy action selection. Default 0.
 
         Returns:
@@ -196,12 +192,14 @@ class DQNAgent(AgentBase):
         """
         # Epsilon-greedy action selection
         if self._rng.random() < eps:
-            return self._rng.randint(self.action_space.low, self.action_space.high)
+            action = self._rng.randint(self.action_space.low, self.action_space.high)
+            return experience.update(action=action)
 
-        t_obs = to_tensor(self.state_transform(obs)).float()
+        t_obs = to_tensor(self.state_transform(experience.obs)).float()
         t_obs = t_obs.unsqueeze(0).to(self.device)
         action_values = self.net.act(t_obs)
-        return int(torch.argmax(action_values.cpu()))
+        action = int(torch.argmax(action_values.cpu()))
+        return experience.update(action=action)
 
     def learn(self, experiences: Dict[str, list]) -> None:
         """Updates agent's networks based on provided experience.
@@ -212,8 +210,8 @@ class DQNAgent(AgentBase):
         """
         rewards = to_tensor(experiences["reward"]).type(torch.float32).to(self.device)
         dones = to_tensor(experiences["done"]).type(torch.int).to(self.device)
-        obss = to_tensor(experiences["state"]).type(torch.float32).to(self.device)
-        next_obss = to_tensor(experiences["next_state"]).type(torch.float32).to(self.device)
+        obss = to_tensor(experiences["obs"]).type(torch.float32).to(self.device)
+        next_obss = to_tensor(experiences["next_obs"]).type(torch.float32).to(self.device)
         actions = to_tensor(experiences["action"]).type(torch.long).to(self.device)
 
         with torch.no_grad():

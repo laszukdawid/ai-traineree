@@ -2,8 +2,10 @@ import random
 from typing import List
 
 import mock
+import pytest
 
 from ai_traineree.agents.ppo import PPOAgent
+from ai_traineree.experience import Experience
 from ai_traineree.runners.env_runner import EnvRunner, MultiSyncEnvRunner
 from ai_traineree.tasks import GymTask
 from ai_traineree.types import TaskType
@@ -125,7 +127,7 @@ def test_env_runner_log_data_interaction_no_data_logger(mock_task, mock_agent):
 def test_env_runner_log_data_interaction_debug_log(mock_data_logger, mock_task, mock_agent):
     # Assign
     mock_task.step.return_value = ([1, 0.1], -1, False, {})
-    mock_agent.act.return_value = 1
+    mock_agent.act.return_value = Experience(action=1, obs=[1, 0, 1])
     env_runner = EnvRunner(mock_task, mock_agent, data_logger=mock_data_logger, debug_log=True)
 
     # Act
@@ -145,7 +147,7 @@ def test_env_runner_log_data_interaction_debug_log(mock_data_logger, mock_task, 
 def test_env_runner_save_state(mock_task, mock_agent, mock_json, mock_path):
     # Assign
     mock_task.step.return_value = ([1, 0.1], -1, False, {})
-    mock_agent.act.return_value = 1
+    mock_agent.act.return_value = Experience(action=1, obs=[1, 0, 1])
     env_runner = EnvRunner(mock_task, mock_agent, max_iterations=10)
 
     # Act

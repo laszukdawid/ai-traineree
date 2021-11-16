@@ -1,6 +1,6 @@
 import copy
 import itertools
-from typing import Dict, List, Tuple, Union
+from typing import Dict, Tuple, Union
 
 import numpy as np
 import torch
@@ -12,12 +12,12 @@ from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import hard_update, soft_update
 from ai_traineree.buffers import PERBuffer
 from ai_traineree.buffers.buffer_factory import BufferFactory
+from ai_traineree.experience import Experience
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import DoubleCritic
 from ai_traineree.policies import GaussianPolicy, MultivariateGaussianPolicySimple
 from ai_traineree.types.dataspace import DataSpace
-from ai_traineree.types.primitive import ActionType, DoneType, ObsType, RewardType
 from ai_traineree.types.state import AgentState, BufferState, NetworkState
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
@@ -188,7 +188,7 @@ class SACAgent(AgentBase):
         }
 
     @torch.no_grad()
-    def act(self, obs: ObsType, epsilon: float = 0.0, deterministic: bool = False) -> List[float]:
+    def act(self, experience: Experience, epsilon: float = 0.0, deterministic: bool = False) -> Experience:
         """Acting on the observations. Returns action.
 
         Parameters:
@@ -203,22 +203,23 @@ class SACAgent(AgentBase):
         if self.iteration < self.warm_up or self._rng.random() < epsilon:
             rnd = torch.rand(self.action_space.shape)
             rnd_action = (self.action_max + self.action_min) * rnd + self.action_min
-            return rnd_action.cpu().tolist()
+            action = rnd_action.cpu().tolist()
+            return experience.update(action=action)
 
-        t_obs = to_tensor(obs).view((1,) + self.obs_space.shape).float().to(self.device)
+        t_obs = to_tensor(experience.obs).view((1,) + self.obs_space.shape).float().to(self.device)
         proto_action = self.actor(t_obs)
         action = self.policy(proto_action, deterministic)
+        action = action.flatten().tolist()
+        return experience.update(action=action)
 
-        return action.flatten().tolist()
-
-    def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType):
+    def step(self, experience: Experience):
         self.iteration += 1
         self.buffer.add(
-            state=obs,
-            action=action,
-            reward=reward,
-            next_state=next_obs,
-            done=done,
+            obs=experience.obs,
+            action=experience.action,
+            reward=experience.reward,
+            next_obs=experience.next_obs,
+            done=experience.done,
         )
 
         if self.iteration < self.warm_up:
@@ -296,13 +297,13 @@ class SACAgent(AgentBase):
 
         rewards = to_tensor(samples["reward"]).float().to(self.device).view(self.batch_size, 1)
         dones = to_tensor(samples["done"]).int().to(self.device).view(self.batch_size, 1)
-        states = to_tensor(samples["state"]).float().to(self.device).view(batch_obs_shape)
-        next_states = to_tensor(samples["next_state"]).float().to(self.device).view(batch_obs_shape)
+        obss = to_tensor(samples["obs"]).float().to(self.device).view(batch_obs_shape)
+        next_obss = to_tensor(samples["next_obs"]).float().to(self.device).view(batch_obs_shape)
         actions = to_tensor(samples["action"]).to(self.device).view(batch_action_shape)
 
         # Critic (value) update
         for _ in range(self.critic_number_updates):
-            value_loss, error = self.compute_value_loss(states, actions, rewards, next_states, dones)
+            value_loss, error = self.compute_value_loss(obss, actions, rewards, next_obss, dones)
             self.critic_optimizer.zero_grad()
             value_loss.backward()
             nn.utils.clip_grad_norm_(self.critic_params, self.max_grad_norm_critic)
@@ -311,7 +312,7 @@ class SACAgent(AgentBase):
 
         # Actor (policy) update
         for _ in range(self.actor_number_updates):
-            policy_loss = self.compute_policy_loss(states)
+            policy_loss = self.compute_policy_loss(obss)
             self.actor_optimizer.zero_grad()
             policy_loss.backward()
             nn.utils.clip_grad_norm_(self.actor_params, self.max_grad_norm_actor)

@@ -10,9 +10,10 @@ from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import soft_update
 from ai_traineree.buffers import NStepBuffer, PERBuffer
 from ai_traineree.buffers.buffer_factory import BufferFactory
+from ai_traineree.experience import Experience
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.heads import RainbowNet
-from ai_traineree.types import ActionType, AgentState, BufferState, DoneType, NetworkState, ObsType, RewardType
+from ai_traineree.types import AgentState, BufferState, NetworkState
 from ai_traineree.types.dataspace import DataSpace
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
@@ -135,7 +136,7 @@ class RainbowAgent(AgentBase):
             value = value["loss"]
         self._loss = value
 
-    def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType) -> None:
+    def step(self, experience: Experience) -> None:
         """Letting the agent to take a step.
 
         On some steps the agent will initiate learning step. This is dependent on
@@ -149,15 +150,19 @@ class RainbowAgent(AgentBase):
             done: (bool) Whether in terminal (end of episode) state.
 
         """
-        assert isinstance(action, int), "Rainbow expects discrete action (int)"
+        assert isinstance(experience.action, int), "Rainbow expects discrete action (int)"
         self.iteration += 1
-        t_obs = to_tensor(self.state_transform(obs)).float().to("cpu")
-        t_next_obs = to_tensor(self.state_transform(next_obs)).float().to("cpu")
-        reward = self.reward_transform(reward)
+        t_obs = to_tensor(self.state_transform(experience.obs)).float().to("cpu")
+        t_next_obs = to_tensor(self.state_transform(experience.next_obs)).float().to("cpu")
+        reward = self.reward_transform(experience.reward)
 
         # Delay adding to buffer to account for n_steps (particularly the reward)
         self.n_buffer.add(
-            state=t_obs.numpy(), action=[int(action)], reward=[reward], done=[done], next_state=t_next_obs.numpy()
+            obs=t_obs.numpy(),
+            action=[int(experience.action)],
+            reward=[reward],
+            done=[experience.done],
+            next_obs=t_next_obs.numpy(),
         )
         if not self.n_buffer.available:
             return
@@ -174,7 +179,7 @@ class RainbowAgent(AgentBase):
             # Update networks only once - sync local & target
             soft_update(self.target_net, self.net, self.tau)
 
-    def act(self, obs: ObsType, eps: float = 0.0) -> int:
+    def act(self, experience: Experience, eps: float = 0.0) -> Experience:
         """
         Returns actions for given state as per current policy.
 
@@ -187,12 +192,14 @@ class RainbowAgent(AgentBase):
         if self._rng.random() < eps:
             # TODO: Update with action_space.sample() once implemented
             assert len(self.action_space.shape) == 1, "Only 1D is supported right now"
-            return self._rng.randint(self.action_space.low, self.action_space.high)
+            action = self._rng.randint(self.action_space.low, self.action_space.high)
+            return experience.update(action=action)
 
-        t_obs = to_tensor(self.state_transform(obs)).float().unsqueeze(0).to(self.device)
+        t_obs = to_tensor(self.state_transform(experience.obs)).float().unsqueeze(0).to(self.device)
         self.dist_probs = self.net.act(t_obs)
         q_values = (self.dist_probs * self.z_atoms).sum(-1)
-        return int(q_values.argmax(-1))  # Action maximizes state-action value Q(s, a)
+        action = int(q_values.argmax(-1))  # Action maximizes state-action value Q(s, a)
+        return experience.update(action=action)
 
     def learn(self, experiences: Dict[str, List]) -> None:
         """
@@ -204,18 +211,18 @@ class RainbowAgent(AgentBase):
         """
         rewards = to_tensor(experiences["reward"]).float().to(self.device)
         dones = to_tensor(experiences["done"]).type(torch.int).to(self.device)
-        states = to_tensor(experiences["state"]).float().to(self.device)
-        next_states = to_tensor(experiences["next_state"]).float().to(self.device)
+        obss = to_tensor(experiences["obs"]).float().to(self.device)
+        next_obss = to_tensor(experiences["next_obs"]).float().to(self.device)
         actions = to_tensor(experiences["action"]).type(torch.long).to(self.device)
         assert rewards.shape == dones.shape == (self.batch_size, 1)
-        assert states.shape == next_states.shape == (self.batch_size,) + self.obs_space.shape
+        assert obss.shape == next_obss.shape == (self.batch_size,) + self.obs_space.shape
         assert actions.shape == (self.batch_size, 1)  # Discrete domain
 
         with torch.no_grad():
-            prob_next = self.target_net.act(next_states)
+            prob_next = self.target_net.act(next_obss)
             q_next = (prob_next * self.z_atoms).sum(-1) * self.z_delta
             if self.using_double_q:
-                duel_prob_next = self.net.act(next_states)
+                duel_prob_next = self.net.act(next_obss)
                 a_next = torch.argmax((duel_prob_next * self.z_atoms).sum(-1), dim=-1)
             else:
                 a_next = torch.argmax(q_next, dim=-1)
@@ -225,7 +232,7 @@ class RainbowAgent(AgentBase):
         m = self.net.dist_projection(rewards, 1 - dones, self.gamma ** self.n_steps, prob_next)
         assert m.shape == (self.batch_size, self.num_atoms)
 
-        log_prob = self.net(states, log_prob=True)
+        log_prob = self.net(obss, log_prob=True)
         assert log_prob.shape == (self.batch_size,) + self.action_size + (self.num_atoms,)
         log_prob = log_prob[self.__batch_indices, actions.squeeze(), :]
         assert log_prob.shape == m.shape == (self.batch_size, self.num_atoms)

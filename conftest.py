@@ -1,4 +1,5 @@
 import copy
+from math import exp
 import random
 from typing import Any, List, Sequence, Tuple
 
@@ -7,6 +8,7 @@ import numpy as np
 import pytest
 
 from ai_traineree.agents import AgentBase
+from ai_traineree.experience import Experience
 from ai_traineree.types.agent import AgentType
 from ai_traineree.types.dataspace import DataSpace
 
@@ -48,19 +50,21 @@ def fix_env():
 
 def deterministic_interactions(agent: AgentType, num_iters=50):
     obs_size = agent.obs_space.shape[0]
-    state = np.zeros(agent.obs_space.shape).tolist()
-    next_state = copy.copy(state)
+    obs = np.zeros(agent.obs_space.shape).tolist()
+    next_obs = copy.copy(obs)
     actions = []
     for i in range(num_iters):
-        action = agent.act(state)
-        actions.append(action)
+        experience = Experience(obs=obs)
+        experience = agent.act(experience)
+        actions.append(experience.action)
 
-        next_state[i % obs_size] = (next_state[i % obs_size] + 1) % 2
+        next_obs[i % obs_size] = (next_obs[i % obs_size] + 1) % 2
         reward = (i % 4 - 2) / 2.0
         done = (i + 1) % 100 == 0
+        experience.update(done=done, reward=reward, next_obs=next_obs)
 
-        agent.step(state, action, reward, next_state, done)
-        state = copy.copy(next_state)
+        agent.step(experience)
+        obs = copy.copy(next_obs)
     return actions
 
 
@@ -84,9 +88,11 @@ def feed_agent(agent: AgentBase, num_samples: int, as_list=False):
             a = np.random.random(action_space.shape)
 
         if as_list:
-            agent.step(obs=s, action=[a], reward=[r], next_obs=s, done=[d])
+            experience = Experience(obs=s, action=[s], reward=[r], next_obs=s, done=[d])
+            agent.step(experience)
         else:
-            agent.step(obs=s, action=a, reward=r, next_obs=s, done=d)
+            experience = Experience(obs=s, action=a, reward=r, next_obs=s, done=d)
+            agent.step(experience)
     return agent
 
 

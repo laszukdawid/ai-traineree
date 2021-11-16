@@ -11,6 +11,7 @@ import numpy as np
 import torch.multiprocessing as mp
 
 from ai_traineree.agents import AgentBase
+from ai_traineree.experience import Experience
 from ai_traineree.loggers import DataLogger
 from ai_traineree.types import RewardType, TaskType
 from ai_traineree.utils import save_gif
@@ -96,7 +97,7 @@ class EnvRunner:
         full_log_interaction_freq: Optional[int] = 1000,
     ) -> Tuple[RewardType, int]:
         score = 0
-        state = self.task.reset()
+        obs = self.task.reset()
         iterations = 0
         max_iterations = max_iterations if max_iterations is not None else self.max_iterations
         done = False
@@ -112,14 +113,17 @@ class EnvRunner:
                 self.task.render("human")
                 time.sleep(1.0 / FRAMES_PER_SEC)
 
-            action = self.agent.act(state, eps)
+            experience = Experience(obs=obs)
+            experience = self.agent.act(experience, eps)
+            assert experience.get("action") is not None, "Act method should update action on experience"
+            action = experience.action
 
-            next_state, reward, done, _ = self.task.step(action)
+            next_obs, reward, done, _ = self.task.step(action)
             self._rewards.append((self.iteration, reward))
 
             if self._debug_log:
                 self._actions.append((self.iteration, action))
-                self._states.append((self.iteration, state))
+                self._states.append((self.iteration, obs))
                 self._dones.append((self.iteration, done))
 
             score += float(reward)
@@ -128,7 +132,8 @@ class EnvRunner:
                 img = self.task.render(mode="rgb_array")
                 self.__images.append(img)
 
-            self.agent.step(state, action, reward, next_state, done)
+            experience.update(action=action, reward=reward, next_obs=next_obs, done=done)
+            self.agent.step(experience)
 
             # Plot interactions every `log_interaction_freq` iterations.
             # Plot full log (including weights) every `full_log_interaction_freq` iterations.
@@ -139,7 +144,7 @@ class EnvRunner:
                 self.log_data_interaction(full_log=full_log)
 
             # n -> n+1  => S(n) <- S(n+1)
-            state = next_state
+            obs = next_obs
 
         return score, iterations
 
@@ -550,8 +555,8 @@ class MultiSyncEnvRunner:
         scores = np.zeros(self.task_num)
         iterations = np.zeros(self.task_num)
 
-        states = np.empty((self.num_processes, self.tasks[0].obs_size), dtype=np.float32)
-        next_states = states.copy()
+        observations = np.empty((self.num_processes, self.tasks[0].obs_size), dtype=np.float32)
+        next_states = observations.copy()
         actions = np.empty((len(self.tasks), self.tasks[0].action_size), dtype=np.float32)
         dones = np.empty(len(self.tasks))
         rewards = np.empty(len(self.tasks))
@@ -563,7 +568,7 @@ class MultiSyncEnvRunner:
         for idx, conn in enumerate(self.parent_conns):
             conn.send("RESET")
             reset_state = conn.recv()
-            states[idx] = reset_state
+            observations[idx] = reset_state
 
         mean_scores = []
         epsilons = []
@@ -573,18 +578,21 @@ class MultiSyncEnvRunner:
             self.iteration += self.task_num
             iterations += 1
 
-            actions = self.agent.act(states, self.epsilon)
-            actions = actions if self.task_num != 1 else [actions]
+            experience = Experience(obs=observations)
+            experience = self.agent.act(experience, self.epsilon)
+            actions = experience.action if self.task_num != 1 else [experience.action]
+            assert isinstance(actions, list), "For many agents needs to be list"
+            experience.update(action=actions)
 
             for t_idx in range(self.task_num):
-                self.parent_conns[t_idx].send((t_idx, states[t_idx], actions[t_idx]))
+                self.parent_conns[t_idx].send((t_idx, observations[t_idx], actions[t_idx]))
 
             for t_idx in range(self.task_num):
                 obj = self.parent_conns[t_idx].recv()
 
                 idx = obj["idx"]
                 rewards[idx] = obj["reward"]
-                states[idx] = obj["state"]
+                observations[idx] = obj["state"]
                 actions[idx] = obj["action"]
                 next_states[idx] = obj["next_state"]
                 dones[idx] = obj["done"]
@@ -593,7 +601,8 @@ class MultiSyncEnvRunner:
                 scores[idx] += obj["reward"]
 
             # All recently evaluated SARS are passed at the same time
-            self.agent.step(states, actions, rewards, next_states, dones)
+            experience.update(reward=rewards, obs=observations, action=actions, next_obs=next_states, done=dones)
+            self.agent.step(experience)
 
             for idx in range(self.task_num):
                 if not (dones[idx] or iterations[idx] >= max_iterations):
@@ -628,7 +637,7 @@ class MultiSyncEnvRunner:
                 if self.episode % checkpoint_every == 0:
                     self.save_state(self.model_path)
 
-            states = next_states
+            observations = next_states
 
             self.epsilon = max(eps_end, eps_decay * self.epsilon)
 

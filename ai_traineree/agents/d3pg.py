@@ -1,6 +1,6 @@
 import itertools
 from functools import cached_property
-from typing import Dict, List
+from typing import Dict
 
 import torch
 import torch.nn as nn
@@ -11,12 +11,12 @@ from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import hard_update, soft_update
 from ai_traineree.buffers import NStepBuffer, PERBuffer
+from ai_traineree.experience import Experience
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import CategoricalNet
 from ai_traineree.policies import MultivariateGaussianPolicy, MultivariateGaussianPolicySimple
 from ai_traineree.types.dataspace import DataSpace
-from ai_traineree.types.primitive import ActionType, DoneType, ObsType, RewardType
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 
@@ -190,7 +190,7 @@ class D3PGAgent(AgentBase):
         return to_tensor(self.action_space.high)
 
     @torch.no_grad()
-    def act(self, obs: ObsType, epsilon: float = 0.0) -> List[float]:
+    def act(self, experience: Experience, epsilon: float = 0.0) -> Experience:
         """
         Returns actions for given observation as per current policy.
 
@@ -199,7 +199,7 @@ class D3PGAgent(AgentBase):
             epislon: Epsilon value in the epislon-greedy policy.
 
         """
-        t_obs = to_tensor(obs).float().to(self.device)
+        t_obs = to_tensor(experience.obs).float().to(self.device)
         if self._rng.random() < epsilon:
             r = torch.rand(self.action_space.shape) - 0.5
             action = (self.action_max - self.action_min) * r - self.action_min
@@ -214,13 +214,20 @@ class D3PGAgent(AgentBase):
         self._display_dist = self.target_critic.act(t_obs, action.to(self.device)).squeeze().cpu()
         self._display_dist = F.softmax(self._display_dist, dim=0)
 
-        return torch.clamp(action, self.action_min, self.action_max).cpu().tolist()
+        action = torch.clamp(action, self.action_min, self.action_max).cpu().tolist()
+        return experience.update(action=action)
 
-    def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType) -> None:
+    def step(self, experience: Experience) -> None:
         self.iteration += 1
 
         # Delay adding to buffer to account for n_steps (particularly the reward)
-        self.n_buffer.add(state=obs, action=action, reward=[reward], done=[done], next_state=next_obs)
+        self.n_buffer.add(
+            obs=experience.obs,
+            action=experience.action,
+            reward=[experience.reward],
+            done=[experience.done],
+            next_obs=experience.next_obs,
+        )
         if not self.n_buffer.available:
             return
 
@@ -284,17 +291,17 @@ class D3PGAgent(AgentBase):
         """Update critics and actors"""
         rewards = to_tensor(experiences["reward"]).float().to(self.device)
         dones = to_tensor(experiences["done"]).type(torch.int).to(self.device)
-        states = to_tensor(experiences["state"]).float().to(self.device)
+        obss = to_tensor(experiences["obs"]).float().to(self.device)
         actions = to_tensor(experiences["action"]).to(self.device)
-        next_states = to_tensor(experiences["next_state"]).float().to(self.device)
+        next_obss = to_tensor(experiences["next_obs"]).float().to(self.device)
         assert rewards.shape == dones.shape == (self.batch_size, 1)
-        assert states.shape == next_states.shape == (self.batch_size,) + self.obs_space.shape
+        assert obss.shape == next_obss.shape == (self.batch_size,) + self.obs_space.shape
         assert actions.shape == (self.batch_size,) + self.action_space.shape
 
         indices = None
         if hasattr(self.buffer, "priority_update"):  # When using PER buffer
             indices = experiences["index"]
-        loss_critic = self.compute_value_loss(states, actions, next_states, rewards, dones, indices)
+        loss_critic = self.compute_value_loss(obss, actions, next_obss, rewards, dones, indices)
 
         # Value (critic) optimization
         self.critic_optimizer.zero_grad()
@@ -304,7 +311,7 @@ class D3PGAgent(AgentBase):
         self._loss_critic = float(loss_critic.item())
 
         # Policy (actor) optimization
-        loss_actor = self.compute_policy_loss(states)
+        loss_actor = self.compute_policy_loss(obss)
         self.actor_optimizer.zero_grad()
         loss_actor.backward()
         nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm_actor)

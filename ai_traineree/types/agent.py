@@ -1,5 +1,6 @@
 import abc
 from typing import Any, Dict, List
+from ai_traineree.experience import Experience
 
 from ai_traineree.loggers import DataLogger
 
@@ -32,11 +33,11 @@ class AgentType(abc.ABC):
         return value
 
     @abc.abstractmethod
-    def act(self, obs: ObsType, noise: Any) -> ActionType:
+    def act(self, experience: Experience, noise: Any = None) -> Experience:
         pass
 
     @abc.abstractmethod
-    def step(self, obs: ObsType, action: ActionType, reward: RewardType, next_obs: ObsType, done: DoneType):
+    def step(self, experience: Experience):
         pass
 
     @abc.abstractmethod
@@ -85,19 +86,11 @@ class MultiAgentType(abc.ABC):
             source[name] = value
         return value
 
-    def act(self, agent_name: str, observations: List[ObsType], noise: Any) -> List[ActionType]:
+    def act(self, agent_name: str, Experience, noise: Any) -> Experience:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def step(
-        self,
-        agent_name: str,
-        observations: List[ObsType],
-        actions: List[ActionType],
-        rewards: List[RewardType],
-        next_observations: List[ObsType],
-        dones: List[DoneType],
-    ):
+    def step(self, agent_name: str, experience: Experience):
         pass
 
     @abc.abstractmethod

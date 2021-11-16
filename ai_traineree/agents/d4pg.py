@@ -5,7 +5,7 @@
 
 import itertools
 from functools import cached_property
-from typing import Dict, List
+from typing import Dict
 
 import torch
 import torch.nn as nn
@@ -16,12 +16,12 @@ from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import hard_update, soft_update
 from ai_traineree.buffers import NStepBuffer, PERBuffer
+from ai_traineree.experience import Experience
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import CategoricalNet
 from ai_traineree.policies import MultivariateGaussianPolicy, MultivariateGaussianPolicySimple
 from ai_traineree.types.dataspace import DataSpace
-from ai_traineree.types.primitive import ActionType, DoneType, ObsType, RewardType
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 
@@ -195,7 +195,7 @@ class D4PGAgent(AgentBase):
             self._loss_critic = value
 
     @torch.no_grad()
-    def act(self, obs: ObsType, epsilon: float = 0.0) -> List[float]:
+    def act(self, experience: Experience, epsilon: float = 0.0) -> Experience:
         """
         Returns actions for given observation as per current policy.
 
@@ -207,7 +207,7 @@ class D4PGAgent(AgentBase):
         actions = []
 
         obs_shape = (self.num_workers,) + self.obs_space.shape
-        t_obs = to_tensor(obs).view(obs_shape).float().to(self.device)
+        t_obs = to_tensor(experience.obs).view(obs_shape).float().to(self.device)
         for worker in range(self.num_workers):
             if self._rng.random() < epsilon:
                 r = torch.rand(self.action_space.shape) - 0.5
@@ -220,25 +220,19 @@ class D4PGAgent(AgentBase):
             actions.append(action.tolist())
 
         assert len(actions) == self.num_workers
-        return actions
+        experience.update(action=actions)
+        return experience
 
-    def step(
-        self,
-        obss: List[ObsType],
-        actions: List[ActionType],
-        rewards: List[RewardType],
-        next_obss: List[ObsType],
-        dones: List[DoneType],
-    ):
+    def step(self, experience: Experience):
         self.iteration += 1
 
         # Delay adding to buffer to account for n_steps (particularly the reward)
         self.n_buffer.add(
-            state=torch.tensor(obss).reshape((self.num_workers,) + self.obs_space.shape).float(),
-            next_state=torch.tensor(next_obss).reshape((self.num_workers,) + self.obs_space.shape).float(),
-            action=torch.tensor(actions).reshape((self.num_workers,) + self.action_space.shape).float(),
-            reward=torch.tensor(rewards).reshape(self.num_workers, 1),
-            done=torch.tensor(dones).reshape(self.num_workers, 1),
+            obs=torch.tensor(experience.obs).reshape((self.num_workers,) + self.obs_space.shape).float(),
+            next_obs=torch.tensor(experience.next_obs).reshape((self.num_workers,) + self.obs_space.shape).float(),
+            action=torch.tensor(experience.action).reshape((self.num_workers,) + self.action_space.shape).float(),
+            reward=torch.tensor(experience.reward).reshape(self.num_workers, 1),
+            done=torch.tensor(experience.done).reshape(self.num_workers, 1),
         )
         if not self.n_buffer.available:
             return
@@ -246,8 +240,8 @@ class D4PGAgent(AgentBase):
         samples = self.n_buffer.get().get_dict()
         for worker_idx in range(self.num_workers):
             self.buffer.add(
-                state=samples["state"][worker_idx],
-                next_state=samples["next_state"][worker_idx],
+                obs=samples["obs"][worker_idx],
+                next_obs=samples["next_obs"][worker_idx],
                 action=samples["action"][worker_idx],
                 done=samples["done"][worker_idx],
                 reward=samples["reward"][worker_idx],
