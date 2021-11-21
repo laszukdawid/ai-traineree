@@ -6,9 +6,9 @@ import pytest
 import torch
 
 from ai_traineree.agents.rainbow import RainbowAgent
-from ai_traineree.experience import Experience
 from ai_traineree.networks.heads import RainbowNet
 from ai_traineree.types import AgentState, BufferState, DataSpace, NetworkState
+from ai_traineree.types.experience import Experience
 from conftest import deterministic_interactions, fake_step, feed_agent
 
 t_obs_space = DataSpace(dtype="float", shape=(10,), low=-1, high=1)

@@ -12,14 +12,14 @@ from torch.optim import Adam
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import hard_update, soft_update
-from ai_traineree.buffers import ReplayBuffer
 from ai_traineree.buffers.buffer_factory import BufferFactory
-from ai_traineree.experience import Experience
+from ai_traineree.buffers.replay import ReplayBuffer
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.noise import GaussianNoise
 from ai_traineree.types import AgentState, BufferState, NetworkState
 from ai_traineree.types.dataspace import DataSpace
+from ai_traineree.types.experience import Experience
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 

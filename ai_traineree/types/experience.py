@@ -1,8 +1,9 @@
+from typing import Any, Dict, Optional
+
 import jsons
 
-from typing import Any, Dict, Optional
 from ai_traineree import to_list
-from ai_traineree.types.primitive import ActionType, DoneType, ObsType, RewardType
+from .primitive import ActionType, DoneType, ObsType, RewardType
 
 
 class Experience:

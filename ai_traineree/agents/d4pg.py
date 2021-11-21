@@ -15,13 +15,14 @@ from torch.optim import Adam
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import hard_update, soft_update
-from ai_traineree.buffers import NStepBuffer, PERBuffer
-from ai_traineree.experience import Experience
+from ai_traineree.buffers.nstep import NStepBuffer
+from ai_traineree.buffers.per import PERBuffer
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import CategoricalNet
 from ai_traineree.policies import MultivariateGaussianPolicy, MultivariateGaussianPolicySimple
 from ai_traineree.types.dataspace import DataSpace
+from ai_traineree.types.experience import Experience
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 

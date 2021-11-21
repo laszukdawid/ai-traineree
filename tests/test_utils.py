@@ -144,7 +144,7 @@ def test_str_to_seq():
 
 
 def test_serialize_experience_individual():
-    from ai_traineree.experience import Experience
+    from ai_traineree.types.experience import Experience
 
     for key in Experience.whitelist:
         value = generate_value()
@@ -157,7 +157,7 @@ def test_serialize_experience_individual():
 def test_serialize_experience_all_keys():
     import json
 
-    from ai_traineree.experience import Experience
+    from ai_traineree.types.experience import Experience
 
     state = {key: generate_value() for key in Experience.whitelist}
     e = Experience(**state)
@@ -171,7 +171,7 @@ def test_serialize_experience_all_keys():
 
 def test_serialize_buffer_state_list():
     from ai_traineree.buffers import BufferState
-    from ai_traineree.experience import Experience
+    from ai_traineree.types.experience import Experience
 
     def generate_exp() -> Experience:
         return Experience(
@@ -200,7 +200,7 @@ def test_serialize_buffer_state_list():
 
 def test_serialize_buffer_state_numpy():
     from ai_traineree.buffers import BufferState
-    from ai_traineree.experience import Experience
+    from ai_traineree.types.experience import Experience
 
     def generate_exp() -> Experience:
         return Experience(

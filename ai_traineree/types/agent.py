@@ -1,11 +1,10 @@
 import abc
 from typing import Any, Dict, List
-from ai_traineree.experience import Experience
 
 from ai_traineree.loggers import DataLogger
+from ai_traineree.types.experience import Experience
 
 from .dataspace import DataSpace
-from .primitive import ActionType, DoneType, ObsType, RewardType
 from .state import AgentState
 
 

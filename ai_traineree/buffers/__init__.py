@@ -5,8 +5,8 @@ from typing import Dict, List, Optional, Sequence, Union
 import numpy as np
 import torch
 
-from ai_traineree.experience import Experience
 from ai_traineree.types import BufferState
+from ai_traineree.types.experience import Experience
 
 # *Note*: Below classes are additional imports to keep things backward compatible and easier to import.
 
@@ -93,7 +93,7 @@ class ReferenceBuffer(object):
 
 
 # Imports to keep things easier accessible and in tact with previous version
-from .nstep import NStepBuffer
-from .per import PERBuffer
-from .replay import ReplayBuffer
-from .rollout import RolloutBuffer
+from .nstep import NStepBuffer  # noqa
+from .per import PERBuffer  # noqa
+from .replay import ReplayBuffer  # noqa
+from .rollout import RolloutBuffer  # noqa

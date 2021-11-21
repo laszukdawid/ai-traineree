@@ -2,9 +2,9 @@ from typing import Dict, List, Optional
 
 import torch
 
-from ai_traineree.experience import Experience
 from ai_traineree.loggers import DataLogger
 from ai_traineree.types.agent import AgentType, MultiAgentType
+from ai_traineree.types.experience import Experience
 
 
 class IndependentAgents(MultiAgentType):

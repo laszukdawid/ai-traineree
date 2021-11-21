@@ -1,8 +1,10 @@
 import copy
+
 import numpy
 import pytest
 
-from ai_traineree.buffers import Experience, ReplayBuffer
+from ai_traineree.buffers.replay import ReplayBuffer
+from ai_traineree.types.experience import Experience
 from ai_traineree.types.state import BufferState
 
 

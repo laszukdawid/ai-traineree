@@ -1,8 +1,10 @@
 import copy
+
 import numpy as np
 import pytest
 
-from ai_traineree.buffers import Experience, PERBuffer
+from ai_traineree.buffers.per import PERBuffer
+from ai_traineree.types.experience import Experience
 
 
 def generate_sample_SARS(iterations, obs_size: int = 4, action_size: int = 2, dict_type=False):

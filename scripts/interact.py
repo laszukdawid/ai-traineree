@@ -1,10 +1,11 @@
-import json
-import gym
 import gzip
+import json
 import time
 
-from gym.utils.play import play, PlayPlot
-from ai_traineree.buffers import ReplayBuffer
+import gym
+from gym.utils.play import PlayPlot, play
+
+from ai_traineree.buffers.replay import ReplayBuffer
 
 
 def buffer_callback(buffer):

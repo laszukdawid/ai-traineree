@@ -9,13 +9,14 @@ import torch.optim as optim
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import soft_update
-from ai_traineree.buffers import NStepBuffer, PERBuffer
 from ai_traineree.buffers.buffer_factory import BufferFactory
-from ai_traineree.experience import Experience
+from ai_traineree.buffers.nstep import NStepBuffer
+from ai_traineree.buffers.per import PERBuffer
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks import NetworkType, NetworkTypeClass
 from ai_traineree.networks.heads import DuelingNet
 from ai_traineree.types import AgentState, BufferState, DataSpace, NetworkState
+from ai_traineree.types.experience import Experience
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 

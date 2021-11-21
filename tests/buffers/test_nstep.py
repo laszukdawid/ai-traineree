@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
 
-from ai_traineree.buffers import Experience, NStepBuffer
+from ai_traineree.buffers.nstep import NStepBuffer
+from ai_traineree.types.experience import Experience
 
 
 def generate_sample_SARS(iterations, obs_space: int = 4, action_size: int = 2, dict_type=False):

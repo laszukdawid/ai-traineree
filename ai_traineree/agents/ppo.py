@@ -11,14 +11,14 @@ import torch.optim as optim
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import compute_gae, normalize, revert_norm_returns
-from ai_traineree.buffers import RolloutBuffer
 from ai_traineree.buffers.buffer_factory import BufferFactory
-from ai_traineree.experience import Experience
+from ai_traineree.buffers.rollout import RolloutBuffer
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody
 from ai_traineree.policies import MultivariateGaussianPolicy, MultivariateGaussianPolicySimple
-from ai_traineree.types import ActionType, AgentState, BufferState, DoneType, NetworkState, ObsType, RewardType
+from ai_traineree.types import ActionType, AgentState, BufferState, NetworkState
 from ai_traineree.types.dataspace import DataSpace
+from ai_traineree.types.experience import Experience
 from ai_traineree.utils import to_numbers_seq, to_tensor
 
 

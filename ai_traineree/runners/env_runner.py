@@ -11,9 +11,9 @@ import numpy as np
 import torch.multiprocessing as mp
 
 from ai_traineree.agents import AgentBase
-from ai_traineree.experience import Experience
 from ai_traineree.loggers import DataLogger
 from ai_traineree.types import RewardType, TaskType
+from ai_traineree.types.experience import Experience
 from ai_traineree.utils import save_gif
 
 FRAMES_PER_SEC = 45

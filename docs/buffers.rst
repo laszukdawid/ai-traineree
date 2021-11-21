@@ -7,10 +7,10 @@ This class is the abstraction for all buffers. In short, each buffer should supp
 Additional classes are required for saving or resuming the whole state.
 All buffers internally store data in as Experience but on sampling these are converted into torch Tensors or numpy arrays.
 
-.. autoclass:: ai_traineree.buffers.BufferBase
+.. autoclass:: ai_traineree.types.experience.Experience
     :members:
 
-.. autoclass:: ai_traineree.Experience
+.. autoclass:: ai_traineree.buffers.replay.BufferBase
     :members:
 
 Replay Buffer
@@ -18,21 +18,21 @@ Replay Buffer
 
 The most basic buffer. Supports uniform sampling.
 
-.. autoclass:: ai_traineree.buffers.ReplayBuffer
+.. autoclass:: ai_traineree.buffers.replay.ReplayBuffer
     :members:
     :special-members:
 
 Replay Experience Buffer (PER)
 ------------------------------
 
-.. autoclass:: ai_traineree.buffers.PERBuffer
+.. autoclass:: ai_traineree.buffers.per.PERBuffer
     :members:
     :special-members:
     
 Rollout Buffer
 ------------------------------
 
-.. autoclass:: ai_traineree.buffers.RolloutBuffer
+.. autoclass:: ai_traineree.buffers.rollout.RolloutBuffer
     :members:
     :special-members:
     

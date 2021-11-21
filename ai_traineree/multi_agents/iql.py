@@ -4,9 +4,9 @@ import torch
 
 from ai_traineree import DEVICE
 from ai_traineree.agents.dqn import DQNAgent
-from ai_traineree.experience import Experience
 from ai_traineree.loggers import DataLogger
 from ai_traineree.types import DataSpace, MultiAgentType
+from ai_traineree.types.experience import Experience
 from ai_traineree.utils import to_numbers_seq
 
 

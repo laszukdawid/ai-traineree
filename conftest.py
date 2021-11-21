@@ -1,6 +1,6 @@
 import copy
-from math import exp
 import random
+from math import exp
 from typing import Any, List, Sequence, Tuple
 
 import mock
@@ -8,9 +8,9 @@ import numpy as np
 import pytest
 
 from ai_traineree.agents import AgentBase
-from ai_traineree.experience import Experience
 from ai_traineree.types.agent import AgentType
 from ai_traineree.types.dataspace import DataSpace
+from ai_traineree.types.experience import Experience
 
 
 class MockContinuousSpace:
