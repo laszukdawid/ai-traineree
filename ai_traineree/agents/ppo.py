@@ -42,7 +42,7 @@ class PPOAgent(AgentBase):
             obs_space (DataSpace): Dataspace describing the input.
             action_space (DataSpace): Dataspace describing the output.
 
-        Keyword parameters:
+        Keyword arguments:
             hidden_layers (tuple of ints): Shape of the hidden layers in fully connected network. Default: (128, 128).
             is_discrete (bool): Whether return discrete action. Default: False.
             kl_div (bool): Whether to use KL divergence in loss. Default: False.

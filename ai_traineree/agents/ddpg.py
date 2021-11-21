@@ -49,7 +49,7 @@ class DDPGAgent(AgentBase):
             noise_scale (float): Added noise amplitude. Default: 0.2.
             noise_sigma (float): Added noise variance. Default: 0.1.
 
-        Keyword parameters:
+        Keyword arguments:
             hidden_layers (tuple of ints): Shape of the hidden layers in fully connected network. Default: (64, 64).
             gamma (float): Discount value. Default: 0.99.
             tau (float): Soft-copy factor. Default: 0.002.

@@ -45,7 +45,7 @@ class TD3Agent(AgentBase):
             noise_scale (float): Added noise amplitude. Default: 0.2.
             noise_sigma (float): Added noise variance. Default: 0.1.
 
-        Keyword parameters:
+        Keyword arguments:
             hidden_layers (tuple of ints): Shape of the hidden layers in fully connected network. Default: (128, 128).
             actor_lr (float): Learning rate for the actor (policy). Default: 0.003.
             critic_lr (float): Learning rate for the critic (value function). Default: 0.003.

@@ -54,7 +54,7 @@ class DQNAgent(AgentBase):
             state_transform (optional func): Function to transform (encode) state before used by the network.
             reward_transform (optional func): Function to transform reward before use.
 
-        Keyword parameters:
+        Keyword arguments:
             hidden_layers (tuple of ints): Shape of the hidden layers in fully connected network. Default: (64, 64).
             lr (float): Learning rate value. Default: 3e-4.
             gamma (float): Discount factor. Default: 0.99.
@@ -66,7 +66,7 @@ class DQNAgent(AgentBase):
             number_updates (int): How many times to use learning step in the learning phase. Default: 1.
             max_grad_norm (float): Maximum norm of the gradient used in learning. Default: 10.
             using_double_q (bool): Whether to use Double Q Learning network. Default: True.
-            n_steps (int): Number of lookahead steps when estimating reward. See :ref:`NStepBuffer`. Default: 3.
+            n_steps (int): Number of lookahead steps when estimating reward. See :class:`NStepBuffer`. Default: 3.
 
         """
         super().__init__(**kwargs)

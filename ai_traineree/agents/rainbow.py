@@ -35,7 +35,8 @@ class RainbowAgent(AgentBase):
     Consider this class as a particular version of the DQN agent.
 
     [1] "Rainbow: Combining Improvements in Deep Reinforcement Learning" by Hessel et al. (DeepMind team)
-    https://arxiv.org/abs/1710.02298
+        https://arxiv.org/abs/1710.02298
+
     """
 
     model = "Rainbow"
@@ -60,7 +61,7 @@ class RainbowAgent(AgentBase):
             state_transform (optional func):
             reward_transform (optional func):
 
-        Keyword parameters:
+        Keyword arguments:
             pre_network_fn (function that takes input_shape and returns network):
                 Used to preprocess state before it is used in the value- and advantage-function in the dueling nets.
             hidden_layers (tuple of ints): Shape of the hidden layers in fully connected network. Default: (100, 100).
@@ -74,7 +75,7 @@ class RainbowAgent(AgentBase):
             number_updates (int): How many times to use learning step in the learning phase. Default: 1.
             max_grad_norm (float): Maximum norm of the gradient used in learning. Default: 10.
             using_double_q (bool): Whether to use Double Q Learning network. Default: True.
-            n_steps (int): Number of lookahead steps when estimating reward. See :ref:`NStepBuffer`. Default: 3.
+            n_steps (int): Number of lookahead steps when estimating reward. See :class:`NStepBuffer`. Default: 3.
             v_min (float): Lower bound for distributional value V. Default: -10.
             v_max (float): Upper bound for distributional value V. Default: 10.
             num_atoms (int): Number of atoms (discrete states) in the value V distribution. Default: 21.

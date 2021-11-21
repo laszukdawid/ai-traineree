@@ -31,6 +31,7 @@ class SACAgent(AgentBase):
     Based on
     "Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor"
     by Haarnoja et al. (2018) (http://arxiv.org/abs/1801.01290).
+
     """
 
     model = "SAC"
@@ -41,7 +42,7 @@ class SACAgent(AgentBase):
             obs_space (DataSpace): Dataspace describing the input.
             action_space (DataSpace): Dataspace describing the output.
 
-        Keyword parameters:
+        Keyword arguments:
             hidden_layers (tuple of ints): Shape of the hidden layers in fully connected network. Default: (128, 128).
             gamma (float):  Discount value. Default: 0.99.
             tau (float): Soft copy fraction. Default: 0.02.

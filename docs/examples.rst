@@ -19,7 +19,7 @@ If you don't have the `Gym` then you can install it either through ``pip install
     from ai_traineree.tasks import GymTask
 
     task = GymTask('CartPole-v1')
-    agent = DQNAgent(task.obs_size, task.action_size, n_steps=5)
+    agent = DQNAgent(task.obs_space, task.action_space, n_steps=5)
     env_runner = EnvRunner(task, agent)
 
     # Learning
@@ -56,7 +56,7 @@ touch walls. To install the environment execute ``pip install pettingzoo[butterf
         'batch_size': 200,
         'agent_names': env.agents,
     }
-    agents = IQLAgents(task.obs_size, task.action_size.n, task.num_agents, **config)
+    agents = IQLAgents(task.obs_space, task.action_space, task.num_agents, **config)
 
     env_runner = MultiAgentCycleEnvRunner(task, agents, max_iterations=9000, data_logger=data_logger)
     scores = env_runner.run(reward_goal=20, max_episodes=50, eps_decay=0.95, log_episode_freq=1, force_new=True)
