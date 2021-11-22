@@ -21,10 +21,7 @@ import sys
 
 project = "AI Traineree"
 year = datetime.date.today().year
-if year == 2020:
-    copyright = "2020, Dawid Laszuk"
-else:
-    copyright = f"2020-{year}, Dawid Laszuk"
+copyright = f"2020-{year}, Dawid Laszuk"
 author = "Dawid Laszuk"
 
 
