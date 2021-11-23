@@ -1,17 +1,13 @@
-import torch
+
 import copy
 import numpy as np
-from ai_traineree import DEVICE
+
 from ai_traineree.agents import AgentBase
 from ai_traineree.types import AgentState, BufferState, DataSpace, NetworkState
 from typing import Callable, Dict, Optional, Type
 from ai_traineree.loggers import DataLogger
-from ai_traineree.agents.agent_utils import soft_update
 from ai_traineree.experience import Experience
-from ai_traineree.networks import NetworkType, NetworkTypeClass
-from ai_traineree.networks.heads import DuelingNet
-from ai_traineree.buffers import NStepBuffer, PERBuffer
-from ai_traineree.utils import to_numbers_seq, to_tensor
+
 import warnings
 
 class DummyAgent(AgentBase):
