@@ -184,19 +184,3 @@ class DummyAgent(AgentBase):
         """
         raise Exception("Dummy Agent has no network available. This agent is just for debugging."\
             " Please refer to the ai-traineree documentation to explore other agents types.")
-
-
-
-from ai_traineree.runners.env_runner import EnvRunner
-from ai_traineree.tasks import GymTask
-
-task = GymTask('CartPole-v1')
-agent = DummyAgent(task.obs_space, task.action_space, n_steps=5)
-
-env_runner = EnvRunner(task, agent)
-
-# Learning
-scores = env_runner.run(reward_goal=100, max_episodes=100, force_new=True)
-
-# Check what we have learned by rendering
-env_runner.interact_episode(render=True)
