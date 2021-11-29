@@ -1,12 +1,12 @@
+from pprint import pprint
+from typing import Any, Dict
+
 import torch
 
 from ai_traineree.agents.dqn import DQNAgent as Agent
-from ai_traineree.runners.env_runner import EnvRunner
 from ai_traineree.loggers import TensorboardLogger
+from ai_traineree.runners.env_runner import EnvRunner
 from ai_traineree.tasks import GymTask
-from typing import Any, Dict
-from pprint import pprint
-
 
 config_default = {"hidden_layers": (50, 50)}
 config_updates = [{"n_steps": n} for n in range(1, 11)]

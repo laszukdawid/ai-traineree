@@ -4,18 +4,18 @@
 #   so the suspicion is that there is a bug in MultiEnvRunner or PPO processing multi agents.
 
 
-import pylab as plt
 import os
+from typing import List
+
+import pylab as plt
 
 from ai_traineree.agents.ppo import PPOAgent as Agent
-from ai_traineree.runners.env_runner import MultiSyncEnvRunner
 
 # from ai_traineree.loggers import NeptuneLogger
 from ai_traineree.loggers import TensorboardLogger
+from ai_traineree.runners.env_runner import MultiSyncEnvRunner
 from ai_traineree.tasks import GymTask
 from ai_traineree.types import TaskType
-from typing import List
-
 
 neptune_api_key = os.getenv("NEPTUNE_API_TOKEN")
 

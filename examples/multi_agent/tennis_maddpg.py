@@ -8,12 +8,11 @@ Feel free to ping me but hopefully there are better examples before anyone sees 
 [1] https://github.com/Unity-Technologies/ml-agents/blob/master/docs/Learning-Environment-Examples.md
 """
 import pylab as plt
-
-from ai_traineree.runners.multiagent_env_runner import MultiAgentEnvRunner
-from ai_traineree.multi_agent.maddpg import MADDPGAgent
-from ai_traineree.tasks import MultiAgentUnityTask
 from mlagents_envs.environment import UnityEnvironment
 
+from ai_traineree.multi_agent.maddpg import MADDPGAgent
+from ai_traineree.runners.multiagent_env_runner import MultiAgentEnvRunner
+from ai_traineree.tasks import MultiAgentUnityTask
 
 build_path = "/home/kretyn/projects/ml-agents/Project/Builds/TennisSingle/tennis.x86_64"
 unity_env = UnityEnvironment(build_path, no_graphics=True)

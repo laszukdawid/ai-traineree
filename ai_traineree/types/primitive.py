@@ -1,6 +1,5 @@
 from typing import Dict, List, Sequence, Union
 
-
 Numeric = Union[int, float]
 ObsType = ObservationType = Union[List[int], List[float]]
 StateType = Union[int, List[float]]

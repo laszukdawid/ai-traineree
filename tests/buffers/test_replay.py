@@ -142,6 +142,7 @@ def test_replay_buffer_dump():
 
 def test_replay_buffer_dump_serializable():
     import json
+
     import torch
 
     # Assign

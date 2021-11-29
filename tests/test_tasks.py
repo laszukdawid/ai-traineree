@@ -1,7 +1,8 @@
-from ai_traineree.tasks import GymTask
+import numbers
 
 import mock
-import numbers
+
+from ai_traineree.tasks import GymTask
 
 
 def test_gym_task_actual_openai_discrete():

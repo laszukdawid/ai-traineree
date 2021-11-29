@@ -1,15 +1,21 @@
 import abc
+import logging
 from typing import Dict
 
+import_warn = []
 try:
     from torch.utils.tensorboard import SummaryWriter
 except ImportError:
-    pass
+    import_warn.append("Tensorboard")
 
 try:
     import neptune
 except ImportError:
-    pass
+    import_warn.append("Neptune")
+
+if import_warn:
+    pkgs = " and ".join(import_warn)
+    logging.warning("%s not installed", pkgs)
 
 
 class DataLogger(abc.ABC):

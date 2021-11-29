@@ -1,5 +1,5 @@
-import string
 import random
+import string
 from typing import Any, Dict, List
 
 from ai_traineree.types.experience import Experience

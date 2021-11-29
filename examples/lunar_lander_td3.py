@@ -1,10 +1,9 @@
+import pylab as plt
+
 from ai_traineree.agents.td3 import TD3Agent as Agent
 from ai_traineree.runners.env_runner import EnvRunner
 from ai_traineree.tasks import GymTask
 from ai_traineree.types import TaskType
-
-import pylab as plt
-
 
 env_name = "LunarLanderContinuous-v2"
 task: TaskType = GymTask(env_name)
