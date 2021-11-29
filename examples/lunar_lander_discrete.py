@@ -1,11 +1,10 @@
 import numpy as np
 import pylab as plt
 
-from ai_traineree.runners.env_runner import EnvRunner
 from ai_traineree.agents.dqn import DQNAgent
+from ai_traineree.runners.env_runner import EnvRunner
 from ai_traineree.tasks import GymTask
 from ai_traineree.types import TaskType
-
 
 env_name = "LunarLander-v2"
 task: TaskType = GymTask(env_name)

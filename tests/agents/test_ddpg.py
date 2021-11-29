@@ -1,6 +1,7 @@
 import copy
-import torch
+
 import pytest
+import torch
 
 from ai_traineree.agents.ddpg import DDPGAgent
 from ai_traineree.types import AgentState, BufferState, DataSpace, NetworkState

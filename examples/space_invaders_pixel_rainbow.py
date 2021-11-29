@@ -1,4 +1,5 @@
 import datetime
+
 import pylab as plt
 import torch.nn as nn
 
@@ -50,14 +51,11 @@ config = {
     "hidden_layers": None,
     "state_transform": agent_state_tranform,
 }
-obs_size = task.actual_obs_size
-agent = RainbowAgent(obs_size, task.action_size, **config)
-data_logger = TensorboardLogger(f'runs/{env_name}_{agent.name}_{datetime.datetime.now().strftime("%b%d_%H-%m-%s")}')
+agent = RainbowAgent(task.obs_space, task.action_space, **config)
+data_logger = TensorboardLogger(f'runs/{env_name}_{agent.model}_{datetime.datetime.now().strftime("%b%d_%H-%m-%s")}')
 env_runner = EnvRunner(task, agent, max_iterations=10000, data_logger=data_logger)
 
-scores = env_runner.run(
-    reward_goal=1000, max_episodes=1000, log_every=1, eps_start=0.99, gif_every_episodes=100, force_new=True
-)
+scores = env_runner.run(reward_goal=1000, max_episodes=1000, eps_start=0.99, gif_every_episodes=100, force_new=True)
 env_runner.interact_episode(render=True)
 
 # plot the scores

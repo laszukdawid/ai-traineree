@@ -26,9 +26,12 @@ class MockDiscreteSpace:
         return self.n
 
 
+def rnd_state():
+    return random.choices(range(10), k=5)
+
+
 @pytest.fixture
 def fix_env_discrete():
-    rnd_state = lambda: random.choices(range(10), k=5)  # noqa
     mock_env = mock.Mock()
     mock_env.reset.return_value = rnd_state()
     mock_env.step.return_value = (rnd_state(), 0, False, "")
@@ -39,7 +42,6 @@ def fix_env_discrete():
 
 @pytest.fixture
 def fix_env():
-    rnd_state = lambda: random.choices(range(10), k=5)  # noqa
     mock_env = mock.Mock()
     mock_env.reset.return_value = rnd_state()
     mock_env.step.return_value = (rnd_state(), 0, False, "")

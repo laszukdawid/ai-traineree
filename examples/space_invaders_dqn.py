@@ -1,15 +1,16 @@
-import torch
-import numpy as np
-import pylab as plt
 from collections import deque
 
-from ai_traineree.agents.dqn import DQNAgent
-from ai_traineree.runners.env_runner import EnvRunner
-from ai_traineree.loggers import TensorboardLogger
-from ai_traineree.networks.heads import NetChainer
-from ai_traineree.networks.bodies import ConvNet, FlattenNet, FcNet, ScaleNet
-from ai_traineree.tasks import GymTask
+import numpy as np
+import pylab as plt
+import torch
+import torch.nn as nn
 
+from ai_traineree.agents.dqn import DQNAgent
+from ai_traineree.loggers import TensorboardLogger
+from ai_traineree.networks.bodies import ConvNet, FcNet, ScaleNet
+from ai_traineree.networks.heads import NetChainer
+from ai_traineree.runners.env_runner import EnvRunner
+from ai_traineree.tasks import GymTask
 
 # TODO: This needs internal handling. It's a common way to handle pixels as input, i.e. stack frames.
 #       In the form right here this is a nasty and ugly hack.
@@ -30,7 +31,7 @@ def network_fn(state_dim, output_dim, device):
         net_classes=[
             ScaleNet(scale=1.0 / 255),
             conv_net,
-            FlattenNet(),
+            nn.Flatten(),
             FcNet(conv_net.output_size, output_dim, hidden_layers=(100, 100, 50), device=device),
         ]
     )
@@ -53,14 +54,13 @@ config = {
 for _ in range(prev_states):
     task.reset()
 
-agent = DQNAgent(task.obs_size, task.action_size, **config)
+agent = DQNAgent(task.obs_space, task.action_space, **config)
 env_runner = EnvRunner(task, agent, data_logger=data_logger)
 
 # env_runner.interact_episode(0, render=True)
 scores = env_runner.run(
     reward_goal=1000,
     max_episodes=20000,
-    log_every=1,
     eps_start=0.9,
     gif_every_episodes=200,
     force_new=True,

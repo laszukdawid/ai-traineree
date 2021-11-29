@@ -1,6 +1,6 @@
 import torch
 
-import ai_traineree.networks.heads as h
+import ai_traineree.networks.heads as head
 from ai_traineree.networks.bodies import FcNet
 
 
@@ -8,7 +8,7 @@ def test_rainbownet_default():
     # Assign
     in_features, out_features = (10,), (2,)
     num_atoms = 11
-    net = h.RainbowNet(in_features, out_features, num_atoms=11)
+    net = head.RainbowNet(in_features, out_features, num_atoms=11)
     test_tensor = torch.randn((1,) + in_features)
 
     # Act
@@ -28,8 +28,11 @@ def test_rainbownet_prenetwork():
     in_features, out_features = (10,), (2,)
     num_atoms = 21
     pre_net_out_features = (4,)
-    pre_network_fn = lambda in_features: FcNet(in_features, pre_net_out_features)
-    net = h.RainbowNet(in_features, out_features, num_atoms=num_atoms, pre_network_fn=pre_network_fn)
+
+    def pre_network_fn(in_features):
+        return FcNet(in_features, pre_net_out_features)
+
+    net = head.RainbowNet(in_features, out_features, num_atoms=num_atoms, pre_network_fn=pre_network_fn)
     test_tensor = torch.randn((1,) + in_features)
 
     # Act
@@ -51,7 +54,7 @@ def test_rainbownet_input_state_tuple():
     in_features = (4,)
     out_features = (2,)
     num_atoms = 21
-    net = h.RainbowNet(in_features, out_features, num_atoms=num_atoms)
+    net = head.RainbowNet(in_features, out_features, num_atoms=num_atoms)
     test_tensor = torch.randn((1, in_features[0]))
 
     # Act

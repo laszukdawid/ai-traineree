@@ -1,11 +1,11 @@
-from ai_traineree.agents.dqn import DQNAgent
-from ai_traineree.runners.env_runner import EnvRunner
-from ai_traineree.tasks import GymTask
-from ai_traineree.loggers import TensorboardLogger
-
 import numpy as np
 import pylab as plt
 import torch
+
+from ai_traineree.agents.dqn import DQNAgent
+from ai_traineree.loggers import TensorboardLogger
+from ai_traineree.runners.env_runner import EnvRunner
+from ai_traineree.tasks import GymTask
 
 seed = 32167
 # torch.set_deterministic(True)

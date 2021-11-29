@@ -1,6 +1,6 @@
 import torch
-from ai_traineree.policies import MultivariateGaussianPolicy
-from ai_traineree.policies import MultivariateGaussianPolicySimple
+
+from ai_traineree.policies import MultivariateGaussianPolicy, MultivariateGaussianPolicySimple
 
 
 def test_multi_gauss_simple_defaults():
