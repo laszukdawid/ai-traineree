@@ -19,6 +19,6 @@ jobs:
       - name: Run ISort check
         run: python -m isort --check .
       - name: Run Black check
-       run: python -m black --check .
+        run: python -m black --check .
       - name: Run PyCodeStyle check
-       run: python -m pycodestyle .
+        run: python -m pycodestyle .
