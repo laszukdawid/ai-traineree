@@ -1,30 +1,8 @@
-import numpy as np
 import pytest
 
 from ai_traineree.buffers.nstep import NStepBuffer
 from ai_traineree.types.experience import Experience
-
-
-def generate_sample_SARS(iterations, obs_space: int = 4, action_size: int = 2, dict_type=False):
-    state_fn = lambda: np.random.random(obs_space)
-    action_fn = lambda: np.random.random(action_size)
-    reward_fn = lambda: float(np.random.random() - 0.5)
-    done_fn = lambda: np.random.random() > 0.5
-    state = state_fn()
-
-    for _ in range(iterations):
-        next_state = state_fn()
-        if dict_type:
-            yield dict(
-                state=list(state),
-                action=list(action_fn()),
-                reward=[reward_fn()],
-                next_state=list(next_state),
-                done=[bool(done_fn())],
-            )
-        else:
-            yield (list(state), list(action_fn()), reward_fn(), list(next_state), bool(done_fn()))
-        state = next_state
+from tests.buffers.test_buffer_factory import generate_sample_SARS
 
 
 def populate_buffer(buffer, num_samples):

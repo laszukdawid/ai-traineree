@@ -267,7 +267,8 @@ class MultiAgentUnityTask(MultiAgentTaskType):
     has been blown away, we might consider doing a Pull Request to `ml-agents`.
 
     .. _permalink: https://github.com/Unity-Technologies/ml-agents/blob/3e48be4e1304d8cbbb43d8ffc335f8037cfe6f1d/gym-unity/gym_unity/envs/__init__.py#L27
-    """
+
+    """  # noqa
 
     logger = logging.getLogger(__name__)
 

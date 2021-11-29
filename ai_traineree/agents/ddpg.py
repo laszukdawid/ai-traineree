@@ -217,7 +217,7 @@ class DDPGAgent(AgentBase):
 
         assert rewards.shape == dones.shape == (self.batch_size, 1), f"R.shape={rewards.shape}, D.shap={dones.shape}"
         assert obss.shape == next_obss.shape == (self.batch_size,) + self.obs_space.shape, f"states.shape: {obss.shape}"
-        assert actions.shape == (self.batch_size,) + self.action_space.shape, f"actions.shape: {actions.shape}"  # type: ignore
+        assert actions.shape == (self.batch_size,) + self.action_space.shape, f"actions.shape: {actions.shape}"
 
         # Value (critic) optimization
         loss_critic = self.compute_value_loss(obss, actions, next_obss, rewards, dones)
