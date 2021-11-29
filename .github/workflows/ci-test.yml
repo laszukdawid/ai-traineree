@@ -1,10 +1,8 @@
 name: Test
+
 on:
   push:
-    branches: [$default-branch]
-  pull_request:
-    paths:
-      - "PyEMD/**.py"
+    branches: [$default-branch, "ci-github"]
 
 jobs:
   build-n-test:
