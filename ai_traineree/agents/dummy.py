@@ -40,14 +40,8 @@ class DummyAgent(AgentBase):
         self._loss: float = float("nan")
 
     @property
-    def loss(self) -> Dict[str, float]:
+    def loss(self):
         return {"loss": self._loss}
-
-    @loss.setter
-    def loss(self, value):
-        if isinstance(value, dict):
-            value = value["loss"]
-        self._loss = value
 
 
     def reset(self):
@@ -55,7 +49,7 @@ class DummyAgent(AgentBase):
         return
 
 
-    def step(self, exp: Experience) -> None:
+    def step(self, exp: None):
         """Letting the agent to take a step. In this case, since the actions are totally random we don't need to save any observation
 
         Parameters:
@@ -71,7 +65,7 @@ class DummyAgent(AgentBase):
             
 
 
-    def act(self, experience: Experience, eps: float = 0.0) -> Experience:
+    def act(self, experience: None, eps: None):
         """Returns random action.
 
         Parameters:
@@ -87,7 +81,7 @@ class DummyAgent(AgentBase):
         action = np.random.randint(low = self.action_space.low, high = self.action_space.high+1, size = s).reshape(self.action_space.shape)
         return experience.update(action=action)
 
-    def learn(self, experiences: Dict[str, list]) -> None:
+    def learn(self, experiences: None):
         """No learning.
 
         Parameters:
@@ -98,7 +92,7 @@ class DummyAgent(AgentBase):
 
 
 
-    def state_dict(self) -> Dict[str, dict]:
+    def state_dict(self):
         """Describes agent's networks.
 
         Returns:
@@ -110,7 +104,7 @@ class DummyAgent(AgentBase):
             "target_net": "No learning process",
         }
 
-    def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool = False):
+    def log_metrics(self, data_logger: None, step: int, full_log: bool = False):
         """Uses provided DataLogger to provide agent's metrics.
 
         Parameters:
@@ -120,25 +114,25 @@ class DummyAgent(AgentBase):
         """
         data_logger.log_value("loss/agent", self._loss, step)
 
-    def get_state(self) -> AgentState:
+    def get_state(self):
         """Provides agent's internal state."""
         raise Exception("Dummy Agent has no network available. This agent is just for debugging."\
             " Please refer to the ai-traineree documentation to explore other agents types.")
 
-    def get_network_state(self) -> NetworkState:
+    def get_network_state(self):
         raise Exception("Dummy Agent has no network available. This agent is just for debugging."\
             " Please refer to the ai-traineree documentation to explore other agents types.")
 
     @staticmethod
-    def from_state(state: AgentState) -> AgentBase:
+    def from_state(state: None):
         raise Exception("Dummy Agent has no network available. This agent is just for debugging."\
             " Please refer to the ai-traineree documentation to explore other agents types.")
 
-    def set_buffer(self, buffer_state: BufferState) -> None:
+    def set_buffer(self, buffer_state: None):
         raise Exception("Dummy Agent has no network available. This agent is just for debugging."\
             " Please refer to the ai-traineree documentation to explore other agents types.")
 
-    def set_network(self, network_state: NetworkState) -> None:
+    def set_network(self, network_state: None):
         raise Exception("Dummy Agent has no network available. This agent is just for debugging."\
             " Please refer to the ai-traineree documentation to explore other agents types.")
 
@@ -152,7 +146,7 @@ class DummyAgent(AgentBase):
         raise Exception("Dummy Agent has no network available. This agent is just for debugging."\
             " Please refer to the ai-traineree documentation to explore other agents types.")
 
-    def load_state(self, *, path: Optional[str] = None, state: Optional[AgentState] = None) -> None:
+    def load_state(self, *, path: Optional[str] = None, state: Optional[AgentState] = None):
         """Loads state from a file under provided path.
 
         Parameters:
@@ -163,7 +157,7 @@ class DummyAgent(AgentBase):
             " Please refer to the ai-traineree documentation to explore other agents types.")
 
 
-    def save_buffer(self, path: str) -> None:
+    def save_buffer(self, path: str):
         """Saves data from the buffer into a file under provided path.
 
         Parameters:
@@ -173,7 +167,7 @@ class DummyAgent(AgentBase):
         raise Exception("Dummy Agent has no network available. This agent is just for debugging."\
             " Please refer to the ai-traineree documentation to explore other agents types.")
 
-    def load_buffer(self, path: str) -> None:
+    def load_buffer(self, path: str):
         """Loads data into the buffer from provided file path.
 
         Parameters:
