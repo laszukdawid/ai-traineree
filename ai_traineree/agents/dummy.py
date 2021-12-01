@@ -1,7 +1,5 @@
-
 import copy
 import numpy as np
-
 from ai_traineree.agents import AgentBase
 from ai_traineree.types import AgentState, BufferState, DataSpace, NetworkState
 from typing import Callable, Dict, Optional, Type
