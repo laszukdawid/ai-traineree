@@ -43,6 +43,7 @@ class EnvRunner:
         Keyword Arguments:
             window_len (int): Length of the score averaging window.
             data_logger: An instance of Data Logger, e.g. TensorboardLogger.
+            logger_level: Logging level. Default: logging.INFO.
 
         """
         self.task = task
@@ -59,9 +60,10 @@ class EnvRunner:
         self.scores_window = deque(maxlen=self.window_len)
         self.__images = []
 
+        self.logger.setLevel(kwargs.get("logger_level", logging.INFO))
         self.data_logger: Optional[DataLogger] = kwargs.get("data_logger")
-        self.logger.info("DataLogger: %s", str(self.data_logger))
         if self.data_logger:
+            self.logger.info("DataLogger: %s", str(self.data_logger))
             self.data_logger.set_hparams(self.agent.hparams, {})
 
         self._debug_log: bool = bool(kwargs.get("debug_log", False))
@@ -264,20 +266,36 @@ class EnvRunner:
 
     def log_logger(self, **kwargs):
         """Writes out env logs via logger (either stdout or a file)."""
-        episode = kwargs.get("episodes")[-1]
-        score = kwargs.get("scores")[-1]
-        iteration = kwargs.get("iterations")[-1]
-        mean_score = kwargs.get("mean_scores")[-1]
-        epsilon = kwargs.get("epsilons")[-1]
+        if kwargs is None:
+            return
+
+        line_chunks = []
+        episodes = kwargs.get("episodes")
+        if episodes is not None:
+            line_chunks += [f"Episode {episodes[-1]}"]
+
+        scores = kwargs.get("scores")
+        if scores is not None:
+            line_chunks += [f"Current Score: {scores[-1]:.2f}"]
+
+        iterations = kwargs.get("iterations")
+        if iterations is not None:
+            line_chunks += [f"Iter: {iterations[-1]}"]
+
+        mean_scores = kwargs.get("mean_scores")
+        if mean_scores is not None:
+            line_chunks += [f"Average Score: {mean_scores[-1]:.2f}"]
+
+        epsilons = kwargs.get("epsilons")
+        if epsilons is not None:
+            line_chunks += [f"Epsilon: {epsilons[-1]:5.3f}"]
+
         loss = kwargs.get("loss", {})
-        line_chunks = [f"Episode {episode};"]
-        line_chunks += [f"Iter: {iteration};"]
-        line_chunks += [f"Current Score: {score:.2f};"]
-        line_chunks += [f"Average Score: {mean_score:.2f};"]
-        line_chunks += [f"{loss_name.capitalize()}: {loss_value:10.4f}" for (loss_name, loss_value) in loss.items()]
-        line_chunks += [f"Epsilon: {epsilon:5.3f};"]
-        line = "\t".join(line_chunks)
-        self.logger.info(line.format(**kwargs))
+        if loss is not None:
+            line_chunks += [f"{loss_name.capitalize()}: {loss_value:10.4f}" for (loss_name, loss_value) in loss.items()]
+
+        line = ";\t".join(line_chunks)
+        self.logger.info(line)
 
     def log_episode_metrics(self, **kwargs):
         """Uses DataLogger, e.g. TensorboardLogger, to store env metrics."""
@@ -423,7 +441,7 @@ class MultiSyncEnvRunner:
         try:
             self.close_all()
         except Exception:
-            pass
+            self.logger.exception("Exception while clossing all connections")
 
     def reset(self):
         """Resets the EnvRunner. The task env and the agent are preserved."""
