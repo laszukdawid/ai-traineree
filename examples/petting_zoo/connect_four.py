@@ -10,7 +10,7 @@ task.reset()  # Needs to be reset to access env.agents()
 
 
 agents = []
-for actor_name in env.agents():
+for actor_name in env.agent_iter():
     obs_space = task.observation_spaces[actor_name]
     action_space = task.action_spaces[actor_name]
 
