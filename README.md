@@ -111,16 +111,24 @@ Supports using Tensorboard (via PyTorch's [SummaryWriter](https://pytorch.org/do
 
 ### Development
 
-| Name | Progress |
-|------|----------|
-| CD | Not started |
-| More multi agent methods | Research |
-| Test coverage > 80% | Tested ~40%, Covered 85% |
+We are open to any contributions. If you want to contribute but don't know what then feel free to reach out (see Contact below).
+The best way to start is through updating documentation and adding tutorials.
+In addition there are many other things that we know of which need improvement but also plenty that we don't know of.
 
-There are other potential things on the roadmap but haven't dedicated to them yet. 
+Setting up development environment requires installing `dev` and `test` extra packages.
+The `dev` extras are for mainly for linting and formatting, and the `test` is for running tests.
+We recommend using `pip` so to install everything requires for development run
 
-Should I focus on something specificallly? Let me know by leaving opening a feature request issue or contacting through [ai-traineree@dawid.lasz.uk](mailto:ai-traineree@dawid.lasz.uk).
+```bash
+$ pip install -e .[dev,test]
+```
 
+Once installed, please configure your IDE to use `black` as formatter, `pycodestyle` as linter,
+and `isort` for sorting imports. All these are included in the `dev` extra packages.
+
+### Contact
+
+Should we focus on something specificallly? Let us know by opening a feature request [GitHub issue](https://github.com/laszukdawid/ai-traineree/issues) or contacting through [ai-traineree@dawid.lasz.uk](mailto:ai-traineree@dawid.lasz.uk).
 
 ## Citing project
 
