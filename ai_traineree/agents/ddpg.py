@@ -15,7 +15,7 @@ from ai_traineree.agents.agent_utils import hard_update, soft_update
 from ai_traineree.buffers.buffer_factory import BufferFactory
 from ai_traineree.buffers.replay import ReplayBuffer
 from ai_traineree.loggers import DataLogger
-from ai_traineree.networks.bodies import ActorBody, CriticBody
+from ai_traineree.networks.bodies import CriticBody, FcNet
 from ai_traineree.noise import GaussianNoise
 from ai_traineree.types import AgentState, BufferState, NetworkState
 from ai_traineree.types.dataspace import DataSpace
@@ -39,7 +39,7 @@ class DDPGAgent(AgentBase):
         obs_space: DataSpace,
         action_space: DataSpace,
         noise_scale: float = 0.2,
-        noise_sigma: float = 0.1,
+        noise_sigma: float = 1.0,
         **kwargs,
     ):
         """
@@ -47,7 +47,7 @@ class DDPGAgent(AgentBase):
             obs_space (DataSpace): Dataspace describing the input.
             action_space (DataSpace): Dataspace describing the output.
             noise_scale (float): Added noise amplitude. Default: 0.2.
-            noise_sigma (float): Added noise variance. Default: 0.1.
+            noise_sigma (float): Added noise variance. Default: 1.0.
 
         Keyword arguments:
             hidden_layers (tuple of ints): Shape of the hidden layers in fully connected network. Default: (64, 64).
@@ -76,23 +76,23 @@ class DDPGAgent(AgentBase):
 
         # Reason sequence initiation.
         hidden_layers = to_numbers_seq(self._register_param(kwargs, "hidden_layers", (64, 64)))
-        self.actor = ActorBody(obs_space.shape, action_shape, hidden_layers=hidden_layers, gate_out=torch.tanh).to(
+        self.actor = FcNet(obs_space.shape, action_shape, hidden_layers=hidden_layers, gate_out=torch.tanh).to(
             self.device
         )
-        self.critic = CriticBody(obs_space.shape, action_size, hidden_layers=hidden_layers).to(self.device)
-        self.target_actor = ActorBody(
-            obs_space.shape, action_shape, hidden_layers=hidden_layers, gate_out=torch.tanh
-        ).to(self.device)
-        self.target_critic = CriticBody(obs_space.shape, action_size, hidden_layers=hidden_layers).to(self.device)
+        self.critic = CriticBody(obs_space.shape, action_size, hidden_layers=hidden_layers, gate=nn.ReLU()).to(
+            self.device
+        )
+        self.target_actor = FcNet(obs_space.shape, action_shape, hidden_layers=hidden_layers, gate_out=torch.tanh).to(
+            self.device
+        )
+        self.target_critic = CriticBody(obs_space.shape, action_size, hidden_layers=hidden_layers, gate=nn.ReLU()).to(
+            self.device
+        )
 
         # Noise sequence initiation
         self.noise = GaussianNoise(
             shape=action_shape, mu=1e-8, sigma=noise_sigma, scale=noise_scale, device=self.device
         )
-
-        # Target sequence initiation
-        hard_update(self.target_actor, self.actor)
-        hard_update(self.target_critic, self.critic)
 
         # Optimization sequence initiation.
         self.actor_lr = float(self._register_param(kwargs, "actor_lr", 3e-4))
@@ -121,8 +121,8 @@ class DDPGAgent(AgentBase):
     def reset_agent(self) -> None:
         self.actor.reset_parameters()
         self.critic.reset_parameters()
-        self.target_actor.reset_parameters()
-        self.target_critic.reset_parameters()
+        hard_update(self.target_actor, self.actor)
+        hard_update(self.target_critic, self.critic)
 
     @property
     def loss(self) -> Dict[str, float]:
@@ -167,12 +167,18 @@ class DDPGAgent(AgentBase):
         """
         t_obs = to_tensor(experience.obs).float().to(self.device)
         action = self.actor(t_obs)
-        action += noise * self.noise.sample()
+        if self.train:
+            added_noise = noise * self.noise.sample()
+            action += added_noise
+            experience.update(noise=added_noise)
         action = torch.clamp(action, self.action_min, self.action_max)
         action = action.cpu().numpy().tolist()
         return experience.update(action=action)
 
     def step(self, experience: Experience) -> None:
+        if not self.train:
+            return
+
         self.iteration += 1
         self.buffer.add(
             obs=experience.obs,
@@ -189,12 +195,21 @@ class DDPGAgent(AgentBase):
             for _ in range(self.number_updates):
                 self.learn(self.buffer.sample())
 
+            # Soft update target weights
+            with torch.no_grad():
+                soft_update(self.target_actor, self.actor, self.tau)
+                soft_update(self.target_critic, self.critic, self.tau)
+
     def compute_value_loss(self, states, actions, next_states, rewards, dones):
-        next_actions = self.target_actor.act(next_states)
-        assert next_actions.shape == actions.shape, f"{next_actions.shape} != {actions.shape}"
-        Q_target_next = self.target_critic.act(next_states, next_actions)
-        Q_target = rewards + self.gamma * Q_target_next * (1 - dones)
+
         Q_expected = self.critic(states, actions)
+
+        with torch.no_grad():
+            next_actions = self.target_actor.act(next_states)
+            Q_target_next = self.target_critic.act(next_states, next_actions)
+            Q_target = rewards + self.gamma * Q_target_next * (1 - dones)
+            assert next_actions.shape == actions.shape, f"{next_actions.shape} != {actions.shape}"
+
         assert Q_expected.shape == Q_target.shape == Q_target_next.shape
         return mse_loss(Q_expected, Q_target)
 
@@ -215,29 +230,31 @@ class DDPGAgent(AgentBase):
         actions = to_tensor(experiences["action"]).float().to(self.device).view((-1,) + self.action_space.shape)
         next_obss = to_tensor(experiences["next_obs"]).float().to(self.device)
 
-        assert rewards.shape == dones.shape == (self.batch_size, 1), f"R.shape={rewards.shape}, D.shap={dones.shape}"
+        assert rewards.shape == dones.shape == (self.batch_size, 1), f"R.shape={rewards.shape}, D.shape={dones.shape}"
         assert obss.shape == next_obss.shape == (self.batch_size,) + self.obs_space.shape, f"states.shape: {obss.shape}"
         assert actions.shape == (self.batch_size,) + self.action_space.shape, f"actions.shape: {actions.shape}"
 
         # Value (critic) optimization
-        loss_critic = self.compute_value_loss(obss, actions, next_obss, rewards, dones)
         self.critic_optimizer.zero_grad()
+        loss_critic = self.compute_value_loss(obss, actions, next_obss, rewards, dones)
         loss_critic.backward()
         nn.utils.clip_grad_norm_(self.critic.parameters(), self.max_grad_norm_critic)
         self.critic_optimizer.step()
         self._loss_critic = float(loss_critic.item())
 
         # Policy (actor) optimization
-        loss_actor = self.compute_policy_loss(obss)
+        for param in self.critic.parameters():
+            param.requires_grad = False
+
         self.actor_optimizer.zero_grad()
+        loss_actor = self.compute_policy_loss(obss)
         loss_actor.backward()
         nn.utils.clip_grad_norm_(self.actor.parameters(), self.max_grad_norm_actor)
         self.actor_optimizer.step()
         self._loss_actor = loss_actor.item()
 
-        # Soft update target weights
-        soft_update(self.target_actor, self.actor, self.tau)
-        soft_update(self.target_critic, self.critic, self.tau)
+        for param in self.critic.parameters():
+            param.requires_grad = True
 
     def state_dict(self) -> Dict[str, dict]:
         """Describes agent's networks.
