@@ -71,6 +71,7 @@ class EnvRunner:
         self._states: List[Any] = []
         self._rewards: List[Any] = []
         self._dones: List[Any] = []
+        self._noises: List[Any] = []
 
         self.seed(kwargs.get("seed"))
 
@@ -127,6 +128,9 @@ class EnvRunner:
                 self._actions.append((self.iteration, action))
                 self._states.append((self.iteration, obs))
                 self._dones.append((self.iteration, done))
+                noise = experience.get("noise")
+                if noise is not None:
+                    self._noises.append((self.iteration, noise))
 
             score += float(reward)
             if render_gif:
@@ -331,6 +335,11 @@ class EnvRunner:
             step, actions = self._actions.pop(0)
             actions = actions if isinstance(actions, Iterable) else [actions]
             self.data_logger.log_values_dict("env/action", {str(i): a for i, a in enumerate(actions)}, step)
+
+        while self._debug_log and self._noises:
+            step, noises = self._noises.pop(0)
+            noises = noises if isinstance(noises, Iterable) else [noises]
+            self.data_logger.log_values_dict("env/noise", {str(i): a for i, a in enumerate(noises)}, step)
 
         while self._debug_log and self._rewards:
             step, rewards = self._rewards.pop(0)

@@ -26,6 +26,7 @@ class Experience:
         "advantage",
         "logprob",
         "value",
+        "noise",
         "priority",
         "index",
         "weight",
