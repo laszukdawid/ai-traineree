@@ -11,10 +11,10 @@ from .state import AgentState
 class AgentType(abc.ABC):
 
     model: str
-    train: bool
     obs_space: DataSpace
     action_space: DataSpace
     loss: Dict[str, float]
+    train: bool = False
     _config: Dict = {}
 
     @property
