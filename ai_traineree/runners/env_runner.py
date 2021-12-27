@@ -92,6 +92,7 @@ class EnvRunner:
 
     def interact_episode(
         self,
+        train: bool = False,
         eps: float = 0,
         max_iterations: Optional[int] = None,
         render: bool = False,
@@ -108,6 +109,8 @@ class EnvRunner:
         # Only gifs require keeping (S, A, R) list
         if render_gif:
             self.__images = []
+
+        self.agent.train = train
 
         while iterations < max_iterations and not done:
             iterations += 1
@@ -158,13 +161,14 @@ class EnvRunner:
         self,
         reward_goal: float = 100.0,
         max_episodes: int = 2000,
+        test_every: int = 10,
         eps_start: float = 1.0,
         eps_end: float = 0.01,
         eps_decay: float = 0.995,
         log_episode_freq: int = 1,
         log_interaction_freq: int = 10,
         gif_every_episodes: Optional[int] = None,
-        checkpoint_every=200,
+        checkpoint_every: Optional[int] = 200,
         force_new: bool = False,
     ) -> List[float]:
         """
@@ -182,6 +186,7 @@ class EnvRunner:
         Parameters:
             reward_goal: Goal to achieve on the average reward.
             max_episode: After how many episodes to stop regardless of the score.
+            test_every: Number of episodes between agent test run (without learning). Default: 10.
             eps_start: Epsilon-greedy starting value.
             eps_end: Epislon-greeedy lowest value.
             eps_decay: Epislon-greedy decay value, eps[i+1] = eps[i] * eps_decay.
@@ -204,17 +209,32 @@ class EnvRunner:
         epsilons = []
 
         while self.episode < max_episodes:
-            self.episode += 1
+            test_agent = (self.episode % test_every) == 0
             render_gif = gif_every_episodes is not None and (self.episode % gif_every_episodes) == 0
+            self.episode += 1
+
+            if test_agent:
+                score, iterations = self.interact_episode(
+                    train=False, eps=0, render_gif=render_gif, log_interaction_freq=log_interaction_freq
+                )
+                self.scores_window.append(score)
+                mean_scores.append(sum(self.scores_window) / len(self.scores_window))
+                self.info(
+                    episodes=[self.episode],
+                    mean_scores=mean_scores[-1:],
+                    iterations=[iterations],
+                    scores=[score],
+                    loss=self.agent.loss,
+                )
+
+            render_gif = render_gif and not test_agent
             score, iterations = self.interact_episode(
-                self.epsilon, render_gif=render_gif, log_interaction_freq=log_interaction_freq
+                train=True, eps=self.epsilon, render_gif=render_gif, log_interaction_freq=log_interaction_freq
             )
 
-            self.scores_window.append(score)
             self.all_iterations.append(iterations)
             self.all_scores.append(score)
 
-            mean_scores.append(sum(self.scores_window) / len(self.scores_window))
             epsilons.append(self.epsilon)
 
             self.epsilon = max(eps_end, eps_decay * self.epsilon)
@@ -241,8 +261,9 @@ class EnvRunner:
                 self.agent.save_state(f"{self.model_path}_agent.net")
                 break
 
-            if self.episode % checkpoint_every == 0:
+            if checkpoint_every is not None and self.episode % checkpoint_every == 0:
                 self.save_state(self.model_path)
+        # END training
 
         # Store hyper parameters and experiment metrics in logger so that it's easier to compare runs
         if self.data_logger:
@@ -510,7 +531,7 @@ class MultiSyncEnvRunner:
         eps_end: float = 0.01,
         eps_decay: float = 0.995,
         log_episode_freq: int = 1,
-        checkpoint_every=200,
+        checkpoint_every: Optional[int] = 200,
         force_new=False,
     ):
         """
@@ -571,7 +592,7 @@ class MultiSyncEnvRunner:
         eps_end: float = 0.01,
         eps_decay: float = 0.995,
         log_episode_freq: int = 1,
-        checkpoint_every=200,
+        checkpoint_every: Optional[int] = 200,
         force_new=False,
     ):
         self.epsilon = eps_start
@@ -661,7 +682,7 @@ class MultiSyncEnvRunner:
                         loss=self.agent.loss,
                     )
 
-                if self.episode % checkpoint_every == 0:
+                if checkpoint_every is not None and self.episode % checkpoint_every == 0:
                     self.save_state(self.model_path)
 
             observations = next_states
