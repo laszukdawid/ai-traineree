@@ -176,3 +176,4 @@ class DummyAgent(AgentBase):
         """
         raise Exception("Dummy Agent has no network available. This agent is just for debugging."\
             " Please refer to the ai-traineree documentation to explore other agents types.")
+
