@@ -1,10 +1,11 @@
+from ai_traineree.agents import AgentBase
+from ai_traineree.experience import Experience
+from ai_traineree.loggers import DataLogger
+from ai_traineree.types import AgentState, BufferState, DataSpace, NetworkState
 import copy
 import numpy as np
-from ai_traineree.agents import AgentBase
-from ai_traineree.types import AgentState, BufferState, DataSpace, NetworkState
 from typing import Callable, Dict, Optional, Type
-from ai_traineree.loggers import DataLogger
-from ai_traineree.experience import Experience
+
 
 import warnings
 
