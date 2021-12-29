@@ -11,9 +11,7 @@ import warnings
 class DummyAgent(AgentBase):
     """Deep Q-Learning Network (DQN).
      
-     Agent that returns random values regardless of the input
-     Print mean of the taken actions, observables and reward
-     
+     Agent that returns random values in specified shapes.
      """
     model = "Dummy"
     def __init__(        self,
