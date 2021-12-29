@@ -9,10 +9,10 @@ from ai_traineree.experience import Experience
 import warnings
 
 class DummyAgent(AgentBase):
-    """Deep Q-Learning Network (DQN).
-     
-     Agent that returns random values in specified shapes.
-     """
+    """Dummy Agent.
+
+    Agent that returns random values in specified shapes.
+    """
     model = "Dummy"
     def __init__(        self,
         obs_space: DataSpace,
@@ -47,7 +47,7 @@ class DummyAgent(AgentBase):
         return
 
 
-    def step(self, exp: None):
+    def step(self, exp: Experience) -> None:
         """Letting the agent to take a step. In this case, since the actions are totally random we don't need to save any observation
 
         Parameters:
@@ -63,7 +63,7 @@ class DummyAgent(AgentBase):
             
 
 
-    def act(self, experience: None, eps: None):
+    def act(self, experience: Experience, eps: float = 0.0) -> Experience:
         """Returns random action.
 
         Parameters:
@@ -74,12 +74,13 @@ class DummyAgent(AgentBase):
             Random action taken from the agent.
 
         """
-        s = 1
-        for i in self.action_space.shape: s*=i
-        action = np.random.randint(low = self.action_space.low, high = self.action_space.high+1, size = s).reshape(self.action_space.shape)
+        action_size = 1
+        for i in self.action_space.shape:
+            action_size *= i
+        action = np.random.randint(low = self.action_space.low, high = self.action_space.high+1, size = action_size).reshape(self.action_space.shape)
         return experience.update(action=action)
 
-    def learn(self, experiences: None):
+    def learn(self, experiences: Dict[str, list]) -> None:
         """No learning.
 
         Parameters:
@@ -90,7 +91,7 @@ class DummyAgent(AgentBase):
 
 
 
-    def state_dict(self):
+    def state_dict(self) -> Dict[str, dict]:
         """Describes agent's networks.
 
         Returns:
@@ -122,15 +123,15 @@ class DummyAgent(AgentBase):
             " Please refer to the ai-traineree documentation to explore other agents types.")
 
     @staticmethod
-    def from_state(state: None):
+    def from_state(state: AgentState) -> AgentBase:
         raise Exception("Dummy Agent has no network available. This agent is just for debugging."\
             " Please refer to the ai-traineree documentation to explore other agents types.")
 
-    def set_buffer(self, buffer_state: None):
+    def set_buffer(self, buffer_state: BufferState) -> None:
         raise Exception("Dummy Agent has no network available. This agent is just for debugging."\
             " Please refer to the ai-traineree documentation to explore other agents types.")
 
-    def set_network(self, network_state: None):
+    def set_network(self, network_state: NetworkState) -> None:
         raise Exception("Dummy Agent has no network available. This agent is just for debugging."\
             " Please refer to the ai-traineree documentation to explore other agents types.")
 
@@ -144,7 +145,7 @@ class DummyAgent(AgentBase):
         raise Exception("Dummy Agent has no network available. This agent is just for debugging."\
             " Please refer to the ai-traineree documentation to explore other agents types.")
 
-    def load_state(self, *, path: Optional[str] = None, state: Optional[AgentState] = None):
+    def load_state(self, *, path: Optional[str] = None, state: Optional[AgentState] = None) -> None:
         """Loads state from a file under provided path.
 
         Parameters:
@@ -155,7 +156,7 @@ class DummyAgent(AgentBase):
             " Please refer to the ai-traineree documentation to explore other agents types.")
 
 
-    def save_buffer(self, path: str):
+    def save_buffer(self, path: str) -> None:
         """Saves data from the buffer into a file under provided path.
 
         Parameters:
@@ -165,7 +166,7 @@ class DummyAgent(AgentBase):
         raise Exception("Dummy Agent has no network available. This agent is just for debugging."\
             " Please refer to the ai-traineree documentation to explore other agents types.")
 
-    def load_buffer(self, path: str):
+    def load_buffer(self, path: str) -> None:
         """Loads data into the buffer from provided file path.
 
         Parameters:
@@ -174,4 +175,3 @@ class DummyAgent(AgentBase):
         """
         raise Exception("Dummy Agent has no network available. This agent is just for debugging."\
             " Please refer to the ai-traineree documentation to explore other agents types.")
-
