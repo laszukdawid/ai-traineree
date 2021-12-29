@@ -1,13 +1,13 @@
+import copy
+import warnings
+from typing import Callable, Dict, Optional, Type
+
+import numpy as np
 from ai_traineree.agents import AgentBase
 from ai_traineree.experience import Experience
 from ai_traineree.loggers import DataLogger
 from ai_traineree.types import AgentState, BufferState, DataSpace, NetworkState
-import copy
-import numpy as np
-from typing import Callable, Dict, Optional, Type
 
-
-import warnings
 
 class DummyAgent(AgentBase):
     """Dummy Agent.
