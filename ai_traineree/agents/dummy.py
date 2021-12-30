@@ -51,7 +51,8 @@ class DummyAgent(AgentBase):
         return
 
     def step(self, exp: Experience) -> None:
-        """Letting the agent to take a step. In this case, since the actions are totally random we don't need to save any observation
+        """Letting the agent to take a step.
+        In this case, since the actions are totally random we don't need to save any observation
 
         Parameters:
             obs (ObservationType): Observation.
