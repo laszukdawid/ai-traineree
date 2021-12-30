@@ -243,8 +243,7 @@ class DDPGAgent(AgentBase):
         self._loss_critic = float(loss_critic.item())
 
         # Policy (actor) optimization
-        for param in self.critic.parameters():
-            param.requires_grad = False
+        self.critic.requires_grad_ = False
 
         self.actor_optimizer.zero_grad()
         loss_actor = self.compute_policy_loss(obss)
@@ -253,8 +252,7 @@ class DDPGAgent(AgentBase):
         self.actor_optimizer.step()
         self._loss_actor = loss_actor.item()
 
-        for param in self.critic.parameters():
-            param.requires_grad = True
+        self.critic.requires_grad_ = True
 
     def state_dict(self) -> Dict[str, dict]:
         """Describes agent's networks.
