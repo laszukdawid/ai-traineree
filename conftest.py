@@ -79,9 +79,10 @@ def fake_step(step_shape: Sequence[int]) -> Tuple[List[Any], float, bool]:
 
 def feed_agent(agent: AgentBase, num_samples: int, as_list=False):
     action_space = agent.action_space
+    s, _, _ = fake_step(agent.obs_space.shape)
 
     for _ in range(num_samples):
-        s, r, d = fake_step(agent.obs_space.shape)
+        sn, r, d = fake_step(agent.obs_space.shape)
         if action_space.dtype == "int":
             # a = random.randint(0, agent.action_size-1)
             a = int(np.random.randint(0, action_space.shape)[0])  # Only one action allowed
@@ -90,11 +91,12 @@ def feed_agent(agent: AgentBase, num_samples: int, as_list=False):
             a = np.random.random(action_space.shape)
 
         if as_list:
-            experience = Experience(obs=s, action=[s], reward=[r], next_obs=s, done=[d])
+            experience = Experience(obs=s, action=[a], reward=[r], next_obs=sn, done=[d])
             agent.step(experience)
         else:
-            experience = Experience(obs=s, action=a, reward=r, next_obs=s, done=d)
+            experience = Experience(obs=s, action=a, reward=r, next_obs=sn, done=d)
             agent.step(experience)
+        s = sn
     return agent
 
 

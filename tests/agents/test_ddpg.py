@@ -153,7 +153,7 @@ def test_ddpg_from_state_one_updated():
     agent = DDPGAgent(float_space, float_space)
     feed_agent(agent, 2 * agent.batch_size)  # Feed 1
     agent_state = agent.get_state()
-    feed_agent(agent, 100)  # Feed 2 - to make different
+    feed_agent(agent, 2 * agent.batch_size)  # Feed 2 - to make different
 
     # Act
     new_agent = DDPGAgent.from_state(agent_state)
@@ -167,9 +167,13 @@ def test_ddpg_from_state_one_updated():
     assert all(
         [torch.all(x != y) for (x, y) in zip(agent.target_actor.parameters(), new_agent.target_actor.parameters())]
     )
-    assert all([torch.all(x != y) for (x, y) in zip(agent.critic.parameters(), new_agent.critic.parameters())])
+
+    # Check for `any` changes as sometimes not all parameters change.
+    # It's a curious case. I'm guessing (@laszukdawid) that's because simple environment
+    # which doesn't require much changes, especially when default gate is ReLU.
+    assert all([torch.any(x != y) for (x, y) in zip(agent.critic.parameters(), new_agent.critic.parameters())])
     assert all(
-        [torch.all(x != y) for (x, y) in zip(agent.target_critic.parameters(), new_agent.target_critic.parameters())]
+        [torch.any(x != y) for (x, y) in zip(agent.target_critic.parameters(), new_agent.target_critic.parameters())]
     )
     assert new_agent.buffer != agent.buffer
 

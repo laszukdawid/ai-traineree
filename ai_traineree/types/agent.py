@@ -14,7 +14,7 @@ class AgentType(abc.ABC):
     obs_space: DataSpace
     action_space: DataSpace
     loss: Dict[str, float]
-    train: bool = False
+    train: bool = True
     _config: Dict = {}
 
     @property
