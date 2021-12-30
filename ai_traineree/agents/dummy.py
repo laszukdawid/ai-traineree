@@ -1,16 +1,15 @@
-import copy
 import warnings
-from typing import Callable, Dict, Optional, Type
+from typing import Callable, Optional, Type
 
 import numpy as np
 
 from ai_traineree.agents import AgentBase
 from ai_traineree.experience import Experience
-from ai_traineree.loggers import DataLogger
 from ai_traineree.types import AgentState, BufferState, DataSpace, NetworkState
 
 
 class DummyAgent(AgentBase):
+
     """Dummy Agent.
 
     Agent that returns random values in specified shapes.
@@ -26,6 +25,7 @@ class DummyAgent(AgentBase):
         reward_transform: Optional[Callable] = None,
         **kwargs
     ):
+
         """Initiates Dummy agent.
 
         Parameters:
@@ -51,6 +51,7 @@ class DummyAgent(AgentBase):
         return
 
     def step(self, exp: Experience) -> None:
+
         """Letting the agent to take a step.
         In this case, since the actions are totally random we don't need to save any observation
 
@@ -65,6 +66,7 @@ class DummyAgent(AgentBase):
         return
 
     def act(self, experience: Experience, eps: float = 0.0) -> Experience:
+
         """Returns random action.
 
         Parameters:
@@ -84,6 +86,7 @@ class DummyAgent(AgentBase):
         return experience.update(action=action)
 
     def learn(self, experiences: Dict[str, list]) -> None:
+
         """No learning.
 
         Parameters:
@@ -93,6 +96,7 @@ class DummyAgent(AgentBase):
         return
 
     def state_dict(self) -> Dict[str, dict]:
+
         """Describes agent's networks.
 
         Returns:
@@ -105,6 +109,7 @@ class DummyAgent(AgentBase):
         }
 
     def log_metrics(self, data_logger: None, step: int, full_log: bool = False):
+
         """Uses provided DataLogger to provide agent's metrics.
 
         Parameters:
@@ -114,13 +119,16 @@ class DummyAgent(AgentBase):
         """
         data_logger.log_value("loss/agent", self._loss, step)
 
+    @staticmethod
     def get_state(self):
+
         """Provides agent's internal state."""
         raise Exception(
             "Dummy Agent has no network available. This agent is just for debugging."
             " Please refer to the ai-traineree documentation to explore other agents types."
         )
 
+    @staticmethod
     def get_network_state(self):
         raise Exception(
             "Dummy Agent has no network available. This agent is just for debugging."
@@ -134,19 +142,23 @@ class DummyAgent(AgentBase):
             " Please refer to the ai-traineree documentation to explore other agents types."
         )
 
+    @staticmethod
     def set_buffer(self, buffer_state: BufferState) -> None:
         raise Exception(
             "Dummy Agent has no network available. This agent is just for debugging."
             " Please refer to the ai-traineree documentation to explore other agents types."
         )
 
+    @staticmethod
     def set_network(self, network_state: NetworkState) -> None:
         raise Exception(
             "Dummy Agent has no network available. This agent is just for debugging."
             " Please refer to the ai-traineree documentation to explore other agents types."
         )
 
+    @staticmethod
     def save_state(self, path: str):
+
         """Saves agent's state into a file.
 
         Parameters:
@@ -158,7 +170,9 @@ class DummyAgent(AgentBase):
             " Please refer to the ai-traineree documentation to explore other agents types."
         )
 
+    @staticmethod
     def load_state(self, *, path: Optional[str] = None, state: Optional[AgentState] = None) -> None:
+
         """Loads state from a file under provided path.
 
         Parameters:
@@ -170,7 +184,9 @@ class DummyAgent(AgentBase):
             " Please refer to the ai-traineree documentation to explore other agents types."
         )
 
+    @staticmethod
     def save_buffer(self, path: str) -> None:
+
         """Saves data from the buffer into a file under provided path.
 
         Parameters:
@@ -182,7 +198,9 @@ class DummyAgent(AgentBase):
             " Please refer to the ai-traineree documentation to explore other agents types."
         )
 
+    @staticmethod
     def load_buffer(self, path: str) -> None:
+
         """Loads data into the buffer from provided file path.
 
         Parameters:
