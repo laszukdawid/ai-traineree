@@ -212,10 +212,10 @@ class PPOAgent(AgentBase):
         )
 
         if self.iteration % self.rollout_length == 0:
-            self.train()
+            self.train_agent()
             self.__clear_memory()
 
-    def train(self):
+    def train_agent(self):
         """
         Main loop that initiates the training.
         """
