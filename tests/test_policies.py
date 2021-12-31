@@ -6,20 +6,19 @@ from ai_traineree.policies import MultivariateGaussianPolicy, MultivariateGaussi
 def test_multi_gauss_simple_defaults():
     # Assign
     size = 5
+    std_init = 0.5
     test_loc = torch.zeros((1, size))  # Shape: (1, 5)
-    test_cov_mat = torch.eye(size).unsqueeze(0)  # Shape: (1, 5, 5)
-    policy = MultivariateGaussianPolicySimple(size, 1)
+    policy = MultivariateGaussianPolicySimple(size, std_init=std_init)
 
     # Act
-    dist = policy(test_loc)
+    samples = policy(test_loc)
 
     # Assert
-    assert policy.std_min == 0.1
-    assert policy.std_max == 3.0
+    assert policy.std_min == 0.0001
+    assert policy.std_max == 2.0
     assert policy.param_dim == 1
-    assert all(policy.std == torch.ones(size))  # 1D
-    assert torch.all(dist.loc == test_loc)  # 2D
-    assert torch.all(dist.covariance_matrix == test_cov_mat)  # 3D
+    assert all(policy.std == torch.ones(size) * std_init)  # 1D
+    assert samples.shape == (1, size)
 
 
 def test_multi_gauss_simple_std_updates():
@@ -32,14 +31,13 @@ def test_multi_gauss_simple_std_updates():
     policy = MultivariateGaussianPolicySimple(size, std_init=std_init, std_min=std_min, std_max=std_max)
 
     # Act
-    dist = policy(test_loc)
+    samples = policy(test_loc)
 
     # Assert
     assert policy.std_min == std_min
     assert policy.std_max == std_max
     assert all(policy.std == test_std)  # 1D
-    assert torch.all(dist.loc == test_loc)  # 2D
-    assert torch.all(dist.covariance_matrix == test_cov_mat)  # 3D
+    assert samples.shape == (1, size)
 
 
 def test_multi_gauss_simple_statistic():
@@ -54,13 +52,10 @@ def test_multi_gauss_simple_statistic():
     test_loc = expected_loc.repeat((batch_size, 1))  # Shape: (3000, 3)
 
     # Act
-    dist = policy(test_loc)
-    samples = dist.sample()
+    samples = policy(test_loc)
 
     # Assert
     assert samples.shape == (batch_size, size)
-    assert dist.loc.shape == (batch_size, size)
-    assert dist.covariance_matrix.shape == (batch_size, size, size)
     assert torch.all(torch.isclose(samples.std(dim=0), expected_std, atol=0.1))  # +/- 0.1
     assert torch.all(torch.abs(samples.mean(dim=0) - expected_loc) < 0.2 * expected_std)
 

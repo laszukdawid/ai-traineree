@@ -128,14 +128,14 @@ def test_sac_from_state_one_updated():
     # assert new_agent == agent
     assert isinstance(new_agent, SACAgent)
     assert new_agent.hparams == agent.hparams
-    assert all([torch.all(x != y) for (x, y) in zip(agent.actor.parameters(), new_agent.actor.parameters())])
+    assert all([torch.any(x != y) for (x, y) in zip(agent.actor.parameters(), new_agent.actor.parameters())])
     assert all([torch.all(x != y) for (x, y) in zip(agent.policy.parameters(), new_agent.policy.parameters())])
     assert all(
-        [torch.all(x != y) for (x, y) in zip(agent.double_critic.parameters(), new_agent.double_critic.parameters())]
+        [torch.any(x != y) for (x, y) in zip(agent.double_critic.parameters(), new_agent.double_critic.parameters())]
     )
     assert all(
         [
-            torch.all(x != y)
+            torch.any(x != y)
             for (x, y) in zip(agent.target_double_critic.parameters(), new_agent.target_double_critic.parameters())
         ]
     )

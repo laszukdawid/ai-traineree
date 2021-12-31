@@ -67,7 +67,10 @@ class MultivariateGaussianPolicySimple(PolicyType):
         """
         if deterministic:
             return x.view(-1, 1)
+
+        x = x.float()  # Need to convert as dist doesn't work on int
         self.std.data = torch.clamp(self.std, self.std_min, self.std_max)
+
         if self.size == 1:
             return self.dist(x.view(-1, 1), scale=self.std.view(-1, 1))
 
