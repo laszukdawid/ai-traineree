@@ -1,10 +1,8 @@
-import math
 from functools import lru_cache
 from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.distributions import Beta, Dirichlet, MultivariateNormal, Normal
 from torch.distributions.distribution import Distribution
 
@@ -21,23 +19,22 @@ class MultivariateGaussianPolicySimple(PolicyType):
     """
     Multivariate Gaussian (Normal) Policy.
 
-    Simplicity of this class, compared to `MultivariateGaussianPolicy`, is due to
-    the assumption that the covariance is sample independent and it is a trainable
-    parameter.
+    Simplicity of this class, compared to `MultivariateGaussianPolicy`, is in
+    the assumption that the covariance is diagonal, sample independent and
+    is treated a trainable parameter.
     """
 
     param_dim = 1
 
     def __init__(
-        self, size: int, std_init: float = 1.0, std_min: float = 0.1, std_max: float = 3.0, device=None, **kwargs
+        self, size: int, std_init: float = 0.5, std_min: float = 0.0001, std_max: float = 2.0, device=None, **kwargs
     ):
         """
         Parameters:
-            size: Size of the observation.
-            batch_size: Expected size of batch. Helps in memory assignments.
-            std_init: (default 2) Initial value for covariance's diagonal. All values start the same.
-            std_min: Minimum value for standard deviation.
-            std_max: Maximum value for standard deviation.
+            size (int): Size of the observation.
+            std_init: Initial value for covariance's diagonal. All values start the same. Default: 0.5.
+            std_min: Minimum value for standard deviation. Default: 0.0001.
+            std_max: Maximum value for standard deviation. Default: 2.
             device: Device where to allocate memory. CPU or CUDA.
 
         """
@@ -59,31 +56,40 @@ class MultivariateGaussianPolicySimple(PolicyType):
     def diag_idx(batch_size: int, size: int, device):
         return torch.arange(size, device=device).repeat((batch_size, 1, 1))
 
-    def forward(self, x) -> Distribution:
-        """Returns distribution"""
+    def forward(self, x, deterministic: bool = False) -> Distribution:
+        """Samples from distribution.
+
+        Parameters:
+            x (tensor): Uses a location (mu) for the distrubition.
+            deterministic (bool): Whether to sample from distribution, or use estimates.
+                Default: False, i.e. it'll sample distribution.
+
+        """
+        if deterministic:
+            return x.view(-1, 1)
+
+        x = x.float()  # Need to convert as dist doesn't work on int
         self.std.data = torch.clamp(self.std, self.std_min, self.std_max)
+
         if self.size == 1:
             return self.dist(x.view(-1, 1), scale=self.std.view(-1, 1))
 
-        # Distinction here is primarily performance optimization (though it isn't too optimal)
         batch_size = x.shape[0]
-        if len(x.shape) == 1 or x.shape[0] == 1:
-            new_shape = (1, self.size, 1)
-            idx = torch.arange(self.size, device=x.device).view(new_shape)
-            std = self._empty_std(batch_size, self.size, x.device).scatter(-1, idx, self.std.repeat(new_shape))
-        else:
-            std = self.std.repeat((batch_size, 1, 1))
-            std = self._empty_std(batch_size, self.size, x.device).scatter(
-                1, self.diag_idx(batch_size, self.size, x.device), std
-            )
-        return self.dist(x, scale_tril=std)
+        new_shape = (batch_size, 1, 1)
+        idx = self.diag_idx(batch_size, self.size, device=x.device)
+        std_shell = self._empty_std(batch_size, self.size, x.device)
+        std_vals = self.std.repeat(new_shape)
+        std = std_shell.scatter(1, idx, std_vals)
+        self._last_samples = {"mu": x, "std": self.std}
+        self._last_dist = self.dist(x, scale_tril=std)
+        return self._last_dist.rsample()
 
     def act(self, x):
-        return x
+        return self.forward(x, deterministic=True)
 
-    @staticmethod
-    def log_prob(dist, samples) -> torch.Tensor:
-        return dist.log_prob(samples)
+    def log_prob(self, samples) -> torch.Tensor:
+        assert self._last_dist is not None, "Need to execute `forward` on data first"
+        return self._last_dist.log_prob(samples)
 
 
 class MultivariateGaussianPolicy(PolicyType):
