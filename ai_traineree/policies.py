@@ -1,10 +1,8 @@
-import math
 from functools import lru_cache
 from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.distributions import Beta, Dirichlet, MultivariateNormal, Normal
 from torch.distributions.distribution import Distribution
 
@@ -21,9 +19,9 @@ class MultivariateGaussianPolicySimple(PolicyType):
     """
     Multivariate Gaussian (Normal) Policy.
 
-    Simplicity of this class, compared to `MultivariateGaussianPolicy`, is due to
-    the assumption that the covariance is sample independent and it is a trainable
-    parameter.
+    Simplicity of this class, compared to `MultivariateGaussianPolicy`, is in
+    the assumption that the covariance is diagonal, sample independent and
+    is treated a trainable parameter.
     """
 
     param_dim = 1
@@ -33,11 +31,10 @@ class MultivariateGaussianPolicySimple(PolicyType):
     ):
         """
         Parameters:
-            size: Size of the observation.
-            batch_size: Expected size of batch. Helps in memory assignments.
-            std_init: (default 2) Initial value for covariance's diagonal. All values start the same.
-            std_min: Minimum value for standard deviation.
-            std_max: Maximum value for standard deviation.
+            size (int): Size of the observation.
+            std_init: Initial value for covariance's diagonal. All values start the same. Default: 0.5.
+            std_min: Minimum value for standard deviation. Default: 0.0001.
+            std_max: Maximum value for standard deviation. Default: 2.
             device: Device where to allocate memory. CPU or CUDA.
 
         """
@@ -60,7 +57,14 @@ class MultivariateGaussianPolicySimple(PolicyType):
         return torch.arange(size, device=device).repeat((batch_size, 1, 1))
 
     def forward(self, x, deterministic: bool = False) -> Distribution:
-        """Returns distribution"""
+        """Samples from distribution.
+
+        Parameters:
+            x (tensor): Uses a location (mu) for the distrubition.
+            deterministic (bool): Whether to sample from distribution, or use estimates.
+                Default: False, i.e. it'll sample distribution.
+
+        """
         if deterministic:
             return x.view(-1, 1)
         self.std.data = torch.clamp(self.std, self.std_min, self.std_max)
@@ -68,10 +72,8 @@ class MultivariateGaussianPolicySimple(PolicyType):
             return self.dist(x.view(-1, 1), scale=self.std.view(-1, 1))
 
         batch_size = x.shape[0]
-
         new_shape = (batch_size, 1, 1)
         idx = self.diag_idx(batch_size, self.size, device=x.device)
-        # idx = torch.arange(self.size, device=x.device).repeat(new_shape)
         std_shell = self._empty_std(batch_size, self.size, x.device)
         std_vals = self.std.repeat(new_shape)
         std = std_shell.scatter(1, idx, std_vals)

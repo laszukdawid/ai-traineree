@@ -1,3 +1,4 @@
+# *Note* that this example isn't optimial but it should work.
 import datetime
 
 import pylab as plt
@@ -9,7 +10,6 @@ from ai_traineree.runners.env_runner import EnvRunner
 from ai_traineree.tasks import GymTask
 from ai_traineree.types import TaskType
 
-
 seed = 321671
 torch.manual_seed(seed)
 
@@ -19,14 +19,14 @@ task: TaskType = GymTask(env_name, seed=seed)
 config = {
     "warm_up": 5000,
     "device": "cpu",
-    "batch_size": 50,
-    "update_freq": 200,
+    "batch_size": 200,
+    "update_freq": 500,
     "number_updates": 10,
     "actor_number_updates": 5,
     "critic_number_updates": 5,
-    # "max_grad_norm_actor": 10,
-    # "max_grad_norm_critic": 10,
-    # "max_grad_norm_alpha": 3,
+    "max_grad_norm_actor": 10,
+    "max_grad_norm_critic": 10,
+    "max_grad_norm_alpha": 3,
     "hidden_layers": (200, 200),
     "actor_lr": 1e-3,
     "critic_lr": 3e-4,
@@ -34,7 +34,7 @@ config = {
     "tau": 0.005,
     "alpha": 0.3,
     "seed": seed,
-    "simple_policy": True,  # TODO: Test with False
+    "simple_policy": True,
 }
 agent = SACAgent(task.obs_space, task.action_space, **config)
 
