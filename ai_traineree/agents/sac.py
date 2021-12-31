@@ -1,5 +1,6 @@
 import copy
 import itertools
+from functools import cached_property
 from typing import Dict, Tuple, Union
 
 import numpy as np
@@ -11,11 +12,11 @@ from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import hard_update, soft_update
 from ai_traineree.buffers.buffer_factory import BufferFactory
-from ai_traineree.buffers.per import PERBuffer
+from ai_traineree.buffers import PERBuffer, ReplayBuffer
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
 from ai_traineree.networks.heads import DoubleCritic
-from ai_traineree.policies import GaussianPolicy, MultivariateGaussianPolicySimple
+from ai_traineree.policies import GaussianPolicy, MultivariateGaussianPolicy, MultivariateGaussianPolicySimple
 from ai_traineree.types.dataspace import DataSpace
 from ai_traineree.types.experience import Experience
 from ai_traineree.types.state import AgentState, BufferState, NetworkState
@@ -73,45 +74,65 @@ class SACAgent(AgentBase):
         self.tau: float = float(self._register_param(kwargs, "tau", 0.02))
         self.batch_size: int = int(self._register_param(kwargs, "batch_size", 64))
         self.buffer_size: int = int(self._register_param(kwargs, "buffer_size", int(1e6)))
-        self.buffer = PERBuffer(self.batch_size, self.buffer_size)
+        # self.buffer = PERBuffer(self.batch_size, self.buffer_size)
+        self.buffer = ReplayBuffer(self.batch_size, self.buffer_size)
 
-        self.action_min = self._register_param(kwargs, "action_min", -1)
-        self.action_max = self._register_param(kwargs, "action_max", 1)
         self.action_scale = self._register_param(kwargs, "action_scale", 1)
 
         self.warm_up = int(self._register_param(kwargs, "warm_up", 0))
         self.update_freq = int(self._register_param(kwargs, "update_freq", 1))
         self.number_updates = int(self._register_param(kwargs, "number_updates", 1))
-        self.actor_number_updates = int(self._register_param(kwargs, "actor_number_updates", 1))
         self.critic_number_updates = int(self._register_param(kwargs, "critic_number_updates", 1))
+        self.actor_number_updates = int(self._register_param(kwargs, "actor_number_updates", 1))
 
         # Reason sequence initiation.
         hidden_layers = to_numbers_seq(self._register_param(kwargs, "hidden_layers", (128, 128)))
         actor_hidden_layers = to_numbers_seq(self._register_param(kwargs, "actor_hidden_layers", hidden_layers))
         critic_hidden_layers = to_numbers_seq(self._register_param(kwargs, "critic_hidden_layers", hidden_layers))
 
-        self.simple_policy = bool(self._register_param(kwargs, "simple_policy", False))
+        self.simple_policy = bool(self._register_param(kwargs, "simple_policy", True))
         if self.simple_policy:
             self.policy = MultivariateGaussianPolicySimple(action_size, **kwargs)
             self.actor = ActorBody(
                 obs_space.shape,
                 (self.policy.param_dim * action_size,),
                 hidden_layers=actor_hidden_layers,
+                gate=torch.tanh,
+                gate_out=torch.tanh,
                 device=self.device,
             )
         else:
             self.policy = GaussianPolicy(
-                (actor_hidden_layers[-1],), self.action_space.shape, out_scale=self.action_scale, device=self.device
+                (actor_hidden_layers[-1],),
+                self.action_space.shape,
+                out_scale=self.action_scale,
+                gate=nn.ReLU(),
+                device=self.device,
             )
             self.actor = ActorBody(
-                obs_space.shape, (actor_hidden_layers[-1],), hidden_layers=actor_hidden_layers[:-1], device=self.device
+                obs_space.shape,
+                (actor_hidden_layers[-1],),
+                hidden_layers=actor_hidden_layers[:-1],
+                gate=nn.ReLU(),
+                gate_out=torch.tanh,
+                device=self.device,
             )
 
         self.double_critic = DoubleCritic(
-            obs_space.shape, action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device
+            obs_space.shape,
+            action_size,
+            CriticBody,
+            hidden_layers=critic_hidden_layers,
+            gate=nn.ReLU(),
+            device=self.device,
         )
         self.target_double_critic = DoubleCritic(
-            obs_space.shape, action_size, CriticBody, hidden_layers=critic_hidden_layers, device=self.device
+            obs_space.shape,
+            action_size,
+            CriticBody,
+            hidden_layers=critic_hidden_layers,
+            gate=nn.ReLU(),
+            device=self.device,
         )
 
         # Target sequence initiation
@@ -176,6 +197,14 @@ class SACAgent(AgentBase):
         self.double_critic.reset_parameters()
         hard_update(self.target_double_critic, self.double_critic)
 
+    @cached_property
+    def action_min(self):
+        return to_tensor(self.action_space.low)
+
+    @cached_property
+    def action_max(self):
+        return to_tensor(self.action_space.high)
+
     def state_dict(self) -> Dict[str, dict]:
         """
         Returns network's weights in order:
@@ -195,25 +224,37 @@ class SACAgent(AgentBase):
         Parameters:
             obs (array_like): current state
             eps (float): epsilon, for epsilon-greedy action selection
-            deterministic (optional bool): Whether to use deterministic policy.
+            deterministic (optional bool): Whether to use deterministic policy. Only has effect in `train` mode.
+                In `test` mode all actions are deterministic.
 
         Returns:
             action: (list float) Action values.
 
         """
-        if self.iteration < self.warm_up or self._rng.random() < epsilon:
+        if self.train and self.iteration < self.warm_up or self._rng.random() < epsilon:
             rnd = torch.rand(self.action_space.shape)
             rnd_action = (self.action_max + self.action_min) * rnd + self.action_min
             action = rnd_action.cpu().tolist()
             return experience.update(action=action)
 
+        _deterministic = (not self.train) or deterministic
         t_obs = to_tensor(experience.obs).view((1,) + self.obs_space.shape).float().to(self.device)
+
         proto_action = self.actor(t_obs)
-        action = self.policy(proto_action, deterministic)
-        action = action.flatten().tolist()
+        action = self.policy(proto_action, _deterministic).flatten()
+        if self.train and not deterministic:
+            last_samples = self.policy._last_samples
+            added_noise = action - self.policy(proto_action, deterministic=True).flatten()
+            noise_params = [*last_samples.get("mu").flatten().tolist(), *last_samples.get("std").flatten().tolist()]
+            experience = experience.update(noise=added_noise, noise_params=noise_params)
+        action = torch.clamp(action, self.action_min, self.action_max)
+        action = action.tolist()
         return experience.update(action=action)
 
-    def step(self, experience: Experience):
+    def step(self, experience: Experience) -> None:
+        if not self.train:
+            return
+
         self.iteration += 1
         self.buffer.add(
             obs=experience.obs,
@@ -234,9 +275,10 @@ class SACAgent(AgentBase):
         Q1_expected, Q2_expected = self.double_critic(states, actions)
 
         with torch.no_grad():
-            proto_next_action = self.actor(states)
+            # next_actions, log_prob = self.actor(next_states)
+            proto_next_action = self.actor(next_states)
             next_actions = self.policy(proto_next_action)
-            log_prob = self.policy.logprob
+            log_prob = self.policy.log_prob(next_actions).view(-1, 1)
             assert next_actions.shape == (self.batch_size,) + self.action_space.shape
             assert log_prob.shape == (self.batch_size, 1)
 
@@ -262,17 +304,19 @@ class SACAgent(AgentBase):
         self._metrics["value/critic2"] = {"mean": float(Q2_expected.mean()), "std": float(Q2_expected.std())}
         self._metrics["value/critic2_lse"] = float(mse_loss_2.item())
 
-        Q_diff = Q1_expected - Q2_expected
-        self._metrics["value/Q_diff"] = {"mean": float(Q_diff.mean()), "std": float(Q_diff.std())}
+        with torch.no_grad():
+            Q_diff = Q1_expected - Q2_expected
+            self._metrics["value/Q_diff"] = {"mean": float(Q_diff.mean()), "std": float(Q_diff.std())}
+            error: Tensor = torch.max(error_1, error_2)
 
-        error: Tensor = torch.min(error_1, error_2)
         loss = mse_loss_1 + mse_loss_2
         return loss, error
 
     def compute_policy_loss(self, states):
+        self.double_critic.requires_grad_ = False
         proto_actions = self.actor(states)
         pred_actions = self.policy(proto_actions)
-        log_prob = self.policy.logprob
+        log_prob = self.policy.log_prob(pred_actions)
         assert pred_actions.shape == (self.batch_size,) + self.action_space.shape
 
         Q_estimate = torch.min(*self.double_critic(states, pred_actions))
@@ -284,11 +328,13 @@ class SACAgent(AgentBase):
         # Update alpha
         if self.alpha_lr is not None:
             self.alpha_optimizer.zero_grad()
-            loss_alpha = -(self.alpha * (log_prob + self.target_entropy).detach()).mean()
+            # loss_alpha = -(self.alpha * (log_prob + self.target_entropy).detach()).mean()  # CORRECT?
+            loss_alpha = -(self.alpha * log_prob.detach()).mean()
             loss_alpha.backward()
             nn.utils.clip_grad_norm_(self.log_alpha, self.max_grad_norm_alpha)
             self.alpha_optimizer.step()
 
+        self.double_critic.requires_grad_ = True
         return loss
 
     def learn(self, samples):
@@ -302,23 +348,34 @@ class SACAgent(AgentBase):
         next_obss = to_tensor(samples["next_obs"]).float().to(self.device).view(batch_obs_shape)
         actions = to_tensor(samples["action"]).to(self.device).view(batch_action_shape)
 
+        self.actor_optimizer.zero_grad()
+        policy_loss = self.compute_policy_loss(obss)
+        policy_loss.backward()
+        nn.utils.clip_grad_norm_(self.actor_params, self.max_grad_norm_actor)
+        self.actor_optimizer.step()
+
         # Critic (value) update
-        for _ in range(self.critic_number_updates):
-            value_loss, error = self.compute_value_loss(obss, actions, rewards, next_obss, dones)
+        c_loss = np.zeros(self.critic_number_updates)
+        for idx in range(self.critic_number_updates):
             self.critic_optimizer.zero_grad()
+            value_loss, error = self.compute_value_loss(obss, actions, rewards, next_obss, dones)
             value_loss.backward()
-            nn.utils.clip_grad_norm_(self.critic_params, self.max_grad_norm_critic)
+            # nn.utils.clip_grad_norm_(self.critic_params, self.max_grad_norm_critic)
             self.critic_optimizer.step()
-            self._loss_critic = float(value_loss.item())
+            c_loss[idx] = float(value_loss.item())
+        self._loss_critic = c_loss.mean()
 
         # Actor (policy) update
-        for _ in range(self.actor_number_updates):
-            policy_loss = self.compute_policy_loss(obss)
+        a_loss = np.zeros(self.actor_number_updates)
+        for idx in range(self.actor_number_updates):
             self.actor_optimizer.zero_grad()
+            policy_loss = self.compute_policy_loss(obss)
             policy_loss.backward()
-            nn.utils.clip_grad_norm_(self.actor_params, self.max_grad_norm_actor)
+            # nn.utils.clip_grad_norm_(self.actor_params, self.max_grad_norm_actor)
             self.actor_optimizer.step()
-            self._loss_actor = float(policy_loss.item())
+            a_loss[idx] = float(policy_loss.item())
+
+        self._loss_actor = a_loss.mean()
 
         if hasattr(self.buffer, "priority_update"):
             assert any(~torch.isnan(error))
