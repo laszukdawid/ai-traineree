@@ -11,7 +11,7 @@ from torch import Tensor, optim
 from ai_traineree import DEVICE
 from ai_traineree.agents import AgentBase
 from ai_traineree.agents.agent_utils import hard_update, soft_update
-from ai_traineree.buffers import PERBuffer, ReplayBuffer
+from ai_traineree.buffers import PERBuffer
 from ai_traineree.buffers.buffer_factory import BufferFactory
 from ai_traineree.loggers import DataLogger
 from ai_traineree.networks.bodies import ActorBody, CriticBody
@@ -74,8 +74,7 @@ class SACAgent(AgentBase):
         self.tau: float = float(self._register_param(kwargs, "tau", 0.02))
         self.batch_size: int = int(self._register_param(kwargs, "batch_size", 64))
         self.buffer_size: int = int(self._register_param(kwargs, "buffer_size", int(1e6)))
-        # self.buffer = PERBuffer(self.batch_size, self.buffer_size)
-        self.buffer = ReplayBuffer(self.batch_size, self.buffer_size)
+        self.buffer = PERBuffer(self.batch_size, self.buffer_size)
 
         self.action_scale = self._register_param(kwargs, "action_scale", 1)
 
@@ -97,7 +96,7 @@ class SACAgent(AgentBase):
                 obs_space.shape,
                 (self.policy.param_dim * action_size,),
                 hidden_layers=actor_hidden_layers,
-                gate=torch.tanh,
+                gate=nn.ReLU(),
                 gate_out=torch.tanh,
                 device=self.device,
             )

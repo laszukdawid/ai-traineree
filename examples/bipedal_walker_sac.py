@@ -11,26 +11,26 @@ data_logger = TensorboardLogger()
 env_name = "BipedalWalker-v3"
 task: TaskType = GymTask(env_name)
 config = {
-    "warm_up": 500,
-    "batch_size": 200,
-    "update_freq": 30,
-    "number_updates": 1,
-    "gamma": 0.99,
-    "critic_lr": 1e-3,
-    "actor_lr": 2e-3,
-    "alpha": 0.2,
-    "tau": 0.01,
+    "warm_up": 2000,
+    "batch_size": 100,
+    "update_freq": 10,
+    "number_updates": 10,
+    "actor_number_updates": 2,
+    "critic_number_updates": 2,
+    "gamma": 0.999,
+    "critic_lr": 3e-4,
+    "actor_lr": 3e-4,
+    "alpha_lr": 3e-4,
+    "alpha": 0.3,
+    "tau": 0.005,
     "max_grad_norm_alpha": 1.0,
     "max_grad_norm_actor": 10.0,
     "max_grad_norm_critic": 10.0,
 }
-agent = Agent(task.obs_space, task.action_space, hidden_layers=(100, 100), **config)
+agent = Agent(task.obs_space, task.action_space, hidden_layers=(200, 200), **config)
 
 env_runner = EnvRunner(task, agent, max_iterations=10000, data_logger=data_logger)
-# env_runner.interact_episode(render=True)
-scores = env_runner.run(
-    reward_goal=10, max_episodes=500, eps_decay=0.99, log_episode_freq=1, gif_every_episodes=200, force_new=True
-)
+scores = env_runner.run(reward_goal=100, max_episodes=3000, eps_decay=0.99, log_episode_freq=1, force_new=True)
 env_runner.interact_episode(render=True)
 
 # plot the scores
