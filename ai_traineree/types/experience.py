@@ -27,6 +27,7 @@ class Experience:
         "logprob",
         "value",
         "noise",
+        "noise_params",
         "priority",
         "index",
         "weight",

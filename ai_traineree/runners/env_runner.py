@@ -67,6 +67,7 @@ class EnvRunner:
             self.data_logger.set_hparams(self.agent.hparams, {})
 
         self._debug_log: bool = bool(kwargs.get("debug_log", False))
+        self._exp: List[Tuple[int, Experience]] = []
         self._actions: List[Any] = []
         self._states: List[Any] = []
         self._rewards: List[Any] = []
@@ -128,6 +129,7 @@ class EnvRunner:
             self._rewards.append((self.iteration, reward))
 
             if self._debug_log:
+                self._exp.append((self.iteration, experience))
                 self._actions.append((self.iteration, action))
                 self._states.append((self.iteration, obs))
                 self._dones.append((self.iteration, done))
@@ -346,6 +348,13 @@ class EnvRunner:
         else:
             for loss_name, loss_value in kwargs.get("loss", {}).items():
                 self.data_logger.log_value(f"loss/{loss_name}", loss_value, self.iteration)
+
+        while self._debug_log and self._exp:
+            step, exp = self._exp.pop(0)
+            noise_params = exp.get("noise_params")
+            if not noise_params:
+                continue
+            self.data_logger.log_values_dict("env/noise_params", {str(i): a for i, a in enumerate(noise_params)}, step)
 
         while self._debug_log and self._states:
             step, states = self._states.pop(0)
