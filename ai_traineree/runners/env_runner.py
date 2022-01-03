@@ -211,39 +211,30 @@ class EnvRunner:
         epsilons = []
 
         while self.episode < max_episodes:
-            test_agent = (self.episode % test_every) == 0
-            render_gif = gif_every_episodes is not None and (self.episode % gif_every_episodes) == 0
             self.episode += 1
+            train_agent = (self.episode % test_every) != 0
+            render_gif = gif_every_episodes is not None and (self.episode % gif_every_episodes) == 0
+            eps = self.episode if train_agent else 0
 
-            if test_agent:
-                score, iterations = self.interact_episode(
-                    train=False, eps=0, render_gif=render_gif, log_interaction_freq=log_interaction_freq
-                )
+            score, iterations = self.interact_episode(
+                train=train_agent, eps=eps, render_gif=render_gif, log_interaction_freq=log_interaction_freq
+            )
+
+            if not train_agent:
                 self.scores_window.append(score)
                 mean_scores.append(sum(self.scores_window) / len(self.scores_window))
-                self.info(
-                    episodes=[self.episode],
-                    mean_scores=mean_scores[-1:],
-                    iterations=[iterations],
-                    scores=[score],
-                    loss=self.agent.loss,
-                )
-
-            render_gif = render_gif and not test_agent
-            score, iterations = self.interact_episode(
-                train=True, eps=self.epsilon, render_gif=render_gif, log_interaction_freq=log_interaction_freq
-            )
 
             self.all_iterations.append(iterations)
             self.all_scores.append(score)
 
-            epsilons.append(self.epsilon)
+            epsilons.append(eps)
 
             self.epsilon = max(eps_end, eps_decay * self.epsilon)
 
             if self.episode % log_episode_freq == 0:
                 last_episodes = [self.episode - i for i in range(log_episode_freq)[::-1]]
                 self.info(
+                    train_mode=train_agent,
                     episodes=last_episodes,
                     iterations=self.all_iterations[-log_episode_freq:],
                     scores=self.all_scores[-log_episode_freq:],
@@ -257,7 +248,7 @@ class EnvRunner:
                 save_gif(gif_path, self.__images)
                 self.__images = []
 
-            if mean_scores[-1] >= reward_goal and len(self.scores_window) == self.window_len:
+            if len(mean_scores) and mean_scores[-1] >= reward_goal and len(self.scores_window) == self.window_len:
                 print(f"Environment solved after {self.episode} episodes!\tAverage Score: {mean_scores[-1]:.2f}")
                 self.save_state(self.model_path)
                 self.agent.save_state(f"{self.model_path}_agent.net")
@@ -299,7 +290,9 @@ class EnvRunner:
         line_chunks = []
         episodes = kwargs.get("episodes")
         if episodes is not None:
-            line_chunks += [f"Episode {episodes[-1]}"]
+            is_train = kwargs.get("train_mode", True)
+            test_mark = "" if is_train else "T"
+            line_chunks += [f"Episode {episodes[-1]}{test_mark}"]
 
         scores = kwargs.get("scores")
         if scores is not None:
@@ -310,7 +303,7 @@ class EnvRunner:
             line_chunks += [f"Iter: {iterations[-1]}"]
 
         mean_scores = kwargs.get("mean_scores")
-        if mean_scores is not None:
+        if mean_scores is not None and len(mean_scores):
             line_chunks += [f"Average Score: {mean_scores[-1]:.2f}"]
 
         epsilons = kwargs.get("epsilons")
