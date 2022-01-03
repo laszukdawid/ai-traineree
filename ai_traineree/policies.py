@@ -193,38 +193,27 @@ class GaussianPolicy(PolicyType):
         self.log_std_max = 2
 
         self._last_dist: Optional[Distribution] = None
-        self._last_samples: Optional[torch.Tensor] = None
+        self._last_samples = None
 
-    @property
-    def logprob(self) -> Optional[torch.Tensor]:
-        if self._last_dist is None or self._last_samples is None:
+    def log_prob(self, samples) -> Optional[torch.Tensor]:
+        if self._last_dist is None:
             return None
+        return self._last_dist.log_prob(samples).sum(axis=-1)
 
-        # *Note*: The note below is borrowed from the SpinningUp implementation.
-        #         Please return once not needed.
-        # Compute logprob from Gaussian, and then apply correction for Tanh squashing.
-        # NOTE: The correction formula is a little bit magic. To get an understanding
-        # of where it comes from, check out the original SAC paper (arXiv 1801.01290)
-        # and look in appendix C. This is a more numerically-stable equivalent to Eq 21.
-        # Try deriving it yourself as a (very difficult) exercise. :)
-        actions = self._last_samples
-        logprob = self._last_dist.log_prob(actions).sum(axis=-1)
-        logprob -= 2 * (math.log(2) - actions - F.softplus(-2 * actions)).sum(axis=1)
-        return logprob.view(-1, 1)
-
-    def forward(self, x, deterministic=False) -> torch.Tensor:
+    def forward(self, x, deterministic: bool = False) -> torch.Tensor:
         mu = self.mu(x)
-        log_std = self.log_std(x)
-        log_std = torch.clamp(log_std, self.log_std_min, self.log_std_max)
-        std = torch.exp(log_std)
-
         if deterministic:
             self._last_dist, self._last_samples = (None, None)
             return mu
 
+        log_std = self.log_std(x)
+        log_std = torch.clamp(log_std, self.log_std_min, self.log_std_max)
+        std = torch.exp(log_std)
+
         self._last_dist = dist = self.dist(mu, std)
-        self._last_samples = actions = dist.rsample()
-        return self.out_scale * torch.tanh(actions)
+        actions = dist.rsample()
+        self._last_samples = {"mu": mu.squeeze(0), "std": std}
+        return actions
 
 
 class BetaPolicy(PolicyType):
