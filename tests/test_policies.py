@@ -70,13 +70,15 @@ def test_multi_gauss():
     test_cov_mat = torch.eye(size).unsqueeze(0)  # Shape: (1, 3, 3)
 
     # Act
-    dist = policy(x)
+    samples = policy(x)
 
     # Assert
     assert policy.param_dim == 2
     assert x.shape == (1, policy.param_dim * size)  # Shape: (1, 6)
-    assert torch.all(dist.loc == loc)
-    assert torch.all(dist.covariance_matrix == test_cov_mat)
+    assert samples.shape == (size,)
+
+    assert torch.all(policy._last_dist.loc == loc)
+    assert torch.all(policy._last_dist.covariance_matrix == test_cov_mat)
 
 
 if __name__ == "__main__":

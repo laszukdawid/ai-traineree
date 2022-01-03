@@ -207,8 +207,7 @@ class D3PGAgent(AgentBase):
 
         else:
             action_seed = self.actor.act(t_obs).view(1, -1)
-            action_dist = self.policy(action_seed)
-            action = action_dist.sample()
+            action = self.policy(action_seed)
             action = action.squeeze()
 
         # Purely for logging
@@ -249,7 +248,7 @@ class D3PGAgent(AgentBase):
 
         # Q_w' estimate via Bellman's dist operator
         next_action_seeds = self.target_actor.act(next_states)
-        next_actions = self.policy(next_action_seeds).sample()
+        next_actions = self.policy(next_action_seeds)
         assert next_actions.shape == (self.batch_size,) + self.action_space.shape
 
         target_value_dist_estimate = self.target_critic.act(states, next_actions)
@@ -281,7 +280,7 @@ class D3PGAgent(AgentBase):
     def compute_policy_loss(self, states):
         # Compute actor loss
         pred_action_seeds = self.actor(states)
-        pred_actions = self.policy(pred_action_seeds).rsample()
+        pred_actions = self.policy(pred_action_seeds)
         # Negative because the optimizer minimizes, but we want to maximize the value
         value_dist = self.critic(states, pred_actions)
         self._metric_batch_value_dist = value_dist.detach()

@@ -215,8 +215,7 @@ class D4PGAgent(AgentBase):
                 action = (self.action_max - self.action_min) * r - self.action_min
             else:
                 action_seed = self.actor.act(t_obs[worker].view(1, -1))
-                action_dist = self.policy(action_seed)
-                action = action_dist.sample()
+                action = self.policy(action_seed)
                 action = torch.clamp(action.squeeze(), self.action_min, self.action_max).cpu()
             actions.append(action.tolist())
 
@@ -263,7 +262,7 @@ class D4PGAgent(AgentBase):
 
         # Q_w' estimate via Bellman's dist operator
         next_action_seeds = self.target_actor.act(next_states)
-        next_actions = self.policy(next_action_seeds).sample()
+        next_actions = self.policy(next_action_seeds)
         assert next_actions.shape == (self.batch_size,) + self.action_space.shape
 
         target_value_dist_est = self.target_critic.act(states, next_actions)
@@ -294,7 +293,7 @@ class D4PGAgent(AgentBase):
         # Compute actor loss
         pred_action_seeds = self.actor(states)
         pred_actions = self.policy.act(pred_action_seeds)
-        pred_actions = self.policy(pred_action_seeds).rsample()
+        pred_actions = self.policy(pred_action_seeds)
         # Negative because the optimizer minimizes, but we want to maximize the value
         value_dist = self.critic(states, pred_actions)
         self._batch_value_dist_metric = value_dist.detach()

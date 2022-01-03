@@ -69,7 +69,7 @@ class MultivariateGaussianPolicySimple(PolicyType):
             return x.view(-1, 1)
 
         x = x.float()  # Need to convert as dist doesn't work on int
-        self.std.data = torch.clamp(self.std, self.std_min, self.std_max)
+        self.std.data.clamp_(self.std_min, self.std_max)
 
         if self.size == 1:
             return self.dist(x.view(-1, 1), scale=self.std.view(-1, 1))
@@ -105,7 +105,9 @@ class MultivariateGaussianPolicy(PolicyType):
 
     param_dim = 2
 
-    def __init__(self, size: int, std_init: float = 1.0, std_min: float = 0.1, std_max: float = 3.0, device=None):
+    def __init__(
+        self, size: int, std_init: float = 1.0, std_min: float = 0.001, std_max: float = 2.0, device=None, **kwargs
+    ):
         """
         Parameters:
             size: Observation's dimensionality upon sampling.
@@ -118,6 +120,7 @@ class MultivariateGaussianPolicy(PolicyType):
         self.std_init = std_init
         self.std_min = std_min
         self.std_max = std_max
+        self._last_samples = None
 
     @staticmethod
     @lru_cache(maxsize=10)
@@ -129,31 +132,38 @@ class MultivariateGaussianPolicy(PolicyType):
     def diag_idx(batch_size: int, size: int, device):
         return torch.arange(size, device=device).repeat((batch_size, 1, 1)).view(batch_size, size, 1)
 
-    def forward(self, x) -> Distribution:
+    def forward(self, x, deterministic=False) -> Distribution:
         """Returns distribution"""
         x = x.view(-1, self.param_dim, self.size)
         mu = x[:, 0]
+        if deterministic:
+            return mu.view(-1, 1)
+
         std = torch.clamp(x[:, 1], self.std_min, self.std_max).unsqueeze(-1)
+
         if self.size == 1:
-            return self.dist(mu.view(-1, 1), scale=std.view(-1, 1))
+            _mu = mu.view(-1, 1)
+            _scale = std.view(-1, 1)
+            self._last_samples = {"mu": _mu, "std": torch.diagonal(_scale)}
+            self._last_dist = self.dist(mu.view(-1, 1), scale=_scale)
+            return self._last_dist.rsample()
 
         batch_size = x.shape[0]
-        if x.shape[0] == 1:
-            idx = torch.arange(self.size, device=x.device).view(1, self.size, 1)
-            std = torch.zeros((1, self.size, self.size), device=x.device).scatter(-1, idx, std)
-        else:
-            std = self._empty_std(batch_size, self.size, x.device).scatter(
-                -1, self.diag_idx(batch_size, self.size, x.device), std
-            )
-        return self.dist(mu, scale_tril=std)
+        std_shell = self._empty_std(batch_size, self.size, x.device)
+        idx = self.diag_idx(batch_size, self.size, x.device)
+        std = std_shell.scatter(-1, idx, std)
+        _std_values = torch.diagonal(std.squeeze(0))
+        self._last_samples = {"mu": mu.squeeze(0), "std": _std_values}
+        self._last_dist = self.dist(mu.squeeze(0), std.squeeze(0))
+
+        return self._last_dist.rsample()
 
     def act(self, x) -> torch.Tensor:
         """Deterministic pass. Ignores covariance and returns locations directly."""
         return x.view(-1, self.size, self.param_dim)[..., 0]
 
-    @staticmethod
-    def log_prob(dist, samples) -> torch.Tensor:
-        return dist.log_prob(samples)
+    def log_prob(self, samples):
+        return self._last_dist.log_prob(samples)
 
 
 class GaussianPolicy(PolicyType):

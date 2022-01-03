@@ -177,10 +177,9 @@ class PPOAgent(AgentBase):
             actor_est = self.actor.act(t_obs[worker].unsqueeze(0))
             assert not torch.any(torch.isnan(actor_est))
 
-            dist = self.policy(actor_est)
-            action = dist.sample()
+            action = self.policy(actor_est)
             value = self.critic.act(t_obs[worker].unsqueeze(0))  # Shape: (1, 1)
-            logprob = self.policy.log_prob(dist, action)  # Shape: (1,)
+            logprob = self.policy.log_prob(action)  # Shape: (1,)
             values.append(value)
             logprobs.append(logprob)
 
@@ -279,10 +278,11 @@ class PPOAgent(AgentBase):
         obss, actions, old_log_probs, _, advantages = samples
 
         actor_est = self.actor(obss)
-        dist = self.policy(actor_est)
+        _ = self.policy(actor_est)
 
+        dist = self.policy._last_dist
         entropy = dist.entropy()
-        new_log_probs = self.policy.log_prob(dist, actions).view(-1, 1)
+        new_log_probs = self.policy.log_prob(actions).view(-1, 1)
         assert new_log_probs.shape == old_log_probs.shape
 
         r_theta = (new_log_probs - old_log_probs).exp()
