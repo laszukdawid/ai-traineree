@@ -19,9 +19,9 @@ config = {
 agent = Agent(task.obs_space, task.action_space, **config)
 env_runner = EnvRunner(task, agent)
 
-# env_runner.interact_episode(0, render=True)
+# env_runner.interact_episode(eps=0, render=True)
 scores = env_runner.run(0, 2000, eps_start=1.0, eps_end=0.05, eps_decay=0.99, log_episode_freq=1)
-env_runner.interact_episode(0, render=True)
+env_runner.interact_episode(eps=0, render=True)
 
 # plot the scores
 fig = plt.figure()

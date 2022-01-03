@@ -34,7 +34,7 @@ env_runner = EnvRunner(task, agent, data_logger=data_logger, window_len=30, debu
 
 # interact_episode(task, agent, 0, render=True)
 scores = env_runner.run(reward_goal=80, max_episodes=2000, eps_end=0.2, eps_decay=0.99, force_new=True)
-# env_runner.interact_episode(0, render=True)
+# env_runner.interact_episode(eps=0, render=True)
 
 data_logger.close()
 

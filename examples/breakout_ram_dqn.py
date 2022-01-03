@@ -14,9 +14,9 @@ task = GymTask(env_name)
 agent = DQNAgent(task.obs_space, task.action_space, **config)
 env_runner = EnvRunner(task, agent)
 
-# env_runner.interact_episode(0, render=True)
+# env_runner.interact_episode(eps=0, render=True)
 scores = env_runner.run(reward_goal=5, max_episodes=5000)
-env_runner.interact_episode(100, render=True)
+env_runner.interact_episode(eps=0, render=True)
 
 # plot the scores
 fig = plt.figure()

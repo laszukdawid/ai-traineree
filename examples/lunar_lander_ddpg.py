@@ -36,7 +36,7 @@ scores = env_runner.run(
     force_new=True,
     checkpoint_every=None,
 )
-# env_runner.interact_episode(0, render=True)
+# env_runner.interact_episode(eps=0, render=True)
 data_logger.close()
 
 # plot the scores
