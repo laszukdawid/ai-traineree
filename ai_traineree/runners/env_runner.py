@@ -214,7 +214,7 @@ class EnvRunner:
             self.episode += 1
             train_agent = (self.episode % test_every) != 0
             render_gif = gif_every_episodes is not None and (self.episode % gif_every_episodes) == 0
-            eps = self.episode if train_agent else 0
+            eps = self.epsilon if train_agent else 0
 
             score, iterations = self.interact_episode(
                 train=train_agent, eps=eps, render_gif=render_gif, log_interaction_freq=log_interaction_freq
