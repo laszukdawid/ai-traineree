@@ -184,7 +184,7 @@ class DQNAgent(AgentBase):
         """Returns actions for given obs as per current policy.
 
         Parameters:
-            obs (array_like): current observation
+            experience (Experience): current observation
             eps (optional float): epsilon, for epsilon-greedy action selection. Default 0.
 
         Returns:

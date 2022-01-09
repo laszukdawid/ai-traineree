@@ -45,13 +45,11 @@ class PPOAgent(AgentBase):
         Keyword arguments:
             hidden_layers (tuple of ints): Shape of the hidden layers in fully connected network. Default: (128, 128).
             is_discrete (bool): Whether return discrete action. Default: False.
-            kl_div (bool): Whether to use KL divergence in loss. Default: False.
+            using_kl_div (bool): Whether to use KL divergence in loss. Default: False.
             using_gae (bool): Whether to use General Advantage Estimator. Default: True.
             gae_lambda (float): Value of lambda in GAE. Default: 0.96.
             actor_lr (float): Learning rate for the actor (policy). Default: 0.0003.
             critic_lr (float): Learning rate for the critic (value function). Default: 0.001.
-            actor_betas: (tuple of two floats) Adam's betas for actor optimizer. Default: (0.9, 0.999).
-            critic_betas: (tuple of two floats) Adam's betas for critic optimizer. Default: (0.9, 0.999).
             gamma (float): Discount value. Default: 0.99.
             ppo_ratio_clip (float): Policy ratio clipping value. Default: 0.25.
             num_epochs (int): Number of time to learn from samples. Default: 1.
@@ -60,7 +58,6 @@ class PPOAgent(AgentBase):
             actor_number_updates (int): Number of times policy losses are propagated. Default: 10.
             critic_number_updates (int): Number of times value losses are propagated. Default: 10.
             entropy_weight (float): Weight of the entropy term in the loss. Default: 0.005.
-            value_loss_weight (float): Weight of the entropy term in the loss. Default: 0.005.
             max_grad_norm_actor (float) Maximum norm value for actor gradient. Default: 100.
             max_grad_norm_critic (float): Maximum norm value for critic gradient. Default: 100.
 
@@ -84,9 +81,7 @@ class PPOAgent(AgentBase):
         self.gae_lambda = float(self._register_param(kwargs, "gae_lambda", 0.96))
 
         self.actor_lr = float(self._register_param(kwargs, "actor_lr", 3e-4))
-        self.actor_betas = to_numbers_seq(self._register_param(kwargs, "actor_betas", (0.9, 0.999)))
         self.critic_lr = float(self._register_param(kwargs, "critic_lr", 1e-3))
-        self.critic_betas = to_numbers_seq(self._register_param(kwargs, "critic_betas", (0.9, 0.999)))
         self.gamma = float(self._register_param(kwargs, "gamma", 0.99))
         self.ppo_ratio_clip = float(self._register_param(kwargs, "ppo_ratio_clip", 0.25))
 
@@ -101,8 +96,7 @@ class PPOAgent(AgentBase):
         self.batch_size = int(self._register_param(kwargs, "batch_size", self.rollout_length))
         self.actor_number_updates = int(self._register_param(kwargs, "actor_number_updates", 10))
         self.critic_number_updates = int(self._register_param(kwargs, "critic_number_updates", 10))
-        self.entropy_weight = float(self._register_param(kwargs, "entropy_weight", 0.5))
-        self.value_loss_weight = float(self._register_param(kwargs, "value_loss_weight", 1.0))
+        self.entropy_loss_weight = float(self._register_param(kwargs, "entropy_loss_weight", 0.5))
 
         self.max_grad_norm_actor = float(self._register_param(kwargs, "max_grad_norm_actor", 100.0))
         self.max_grad_norm_critic = float(self._register_param(kwargs, "max_grad_norm_critic", 100.0))
@@ -126,8 +120,8 @@ class PPOAgent(AgentBase):
         self.actor_params = list(self.actor.parameters()) + list(self.policy.parameters())
         self.critic_params = list(self.critic.parameters())
 
-        self.actor_opt = optim.Adam(self.actor_params, lr=self.actor_lr, betas=self.actor_betas)
-        self.critic_opt = optim.Adam(self.critic_params, lr=self.critic_lr, betas=self.critic_betas)
+        self.actor_opt = optim.Adam(self.actor_params, lr=self.actor_lr)
+        self.critic_opt = optim.Adam(self.critic_params, lr=self.critic_lr)
         self._loss_actor = float("nan")
         self._loss_critic = float("nan")
         self._metrics: Dict[str, float] = {}
@@ -162,11 +156,11 @@ class PPOAgent(AgentBase):
         """Acting on the observations. Returns action.
 
         Parameters:
-            obs (array_like): current state
-            eps (float): epsilon, for epsilon-greedy action selection
+            experience (Experience): current state
+            noise (float): epsilon, for epsilon-greedy action selection
 
         Returns:
-            action: (list float) Action values.
+            Experience updated with action taken.
 
         """
         actions: List[ActionType] = []
@@ -189,25 +183,33 @@ class PPOAgent(AgentBase):
                 action = action.cpu().numpy().flatten().tolist()
             actions.append(action)
 
-        assert len(actions) == self.num_workers
         value = torch.cat(values)
         logprob = torch.stack(logprobs)
         action = actions if self.num_workers > 1 else actions[0]
         experience.update(action=action, value=torch.cat(values), logprob=torch.stack(logprobs))
         return experience
 
-    def step(self, experience: Experience):
+    def step(self, experience: Experience) -> None:
+        """Step agent's internal learning mechanisms.
+
+        Updates buffer with currenct experience and increments learning counter.
+        When the learning counter hits `rollout_length` when we commence learning session.
+        The learning counter isn't updated when the agent is in `test` mode.
+
+        """
+
+        if not self.train:
+            return
+
         self.iteration += 1
-        logprob = experience.get("logprob")
-        value = experience.get("value")
 
         self.buffer.add(
             obs=torch.tensor(experience.obs).reshape((self.num_workers,) + self.obs_space.shape).float(),
             action=torch.tensor(experience.action).reshape((self.num_workers,) + self.action_space.shape).float(),
             reward=torch.tensor(experience.reward).reshape(self.num_workers, 1),
             done=torch.tensor(experience.done).reshape(self.num_workers, 1),
-            logprob=logprob.reshape(self.num_workers, 1),
-            value=value.reshape(self.num_workers, 1),
+            logprob=experience.get("logprob").reshape(self.num_workers, 1),
+            value=experience.get("value").reshape(self.num_workers, 1),
         )
 
         if self.iteration % self.rollout_length == 0:
@@ -298,7 +300,7 @@ class PPOAgent(AgentBase):
             joint_theta_adv = torch.stack((r_theta * advantages, r_theta_clip * advantages))
             assert joint_theta_adv.shape[0] == 2
             policy_loss = -torch.amin(joint_theta_adv, dim=0).mean()
-        entropy_loss = -self.entropy_weight * entropy.mean()
+        entropy_loss = -self.entropy_loss_weight * entropy.mean()
 
         loss = policy_loss + entropy_loss
         self._metrics["policy/kl_div"] = approx_kl_div
