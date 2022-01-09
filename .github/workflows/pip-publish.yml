@@ -1,13 +1,11 @@
 name: Upload Python Package
 
 on:
-  workflow_run:
+  push:
+    paths:
+      - "ai_traineree/__init__.py"
     branches:
       - $default-branch
-    types:
-      - completed
-    workflows:
-      - "Test"
 
 jobs:
   deploy:

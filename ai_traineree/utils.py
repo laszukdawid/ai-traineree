@@ -12,6 +12,18 @@ jsons.set_serializer(lambda x, **kwargs: x.tolist(), torch.Tensor)  # type: igno
 jsons.set_serializer(lambda x, **kwargs: x.tolist(), np.ndarray)  # type: ignore
 
 
+def to_list(e):
+    if isinstance(e, torch.Tensor) or isinstance(e, np.ndarray):
+        return e.tolist()
+    elif e is None:
+        return None
+    else:
+        try:
+            return list(e)
+        except Exception:
+            return [e]
+
+
 def to_tensor(x) -> torch.Tensor:
     if isinstance(x, torch.Tensor):
         return x

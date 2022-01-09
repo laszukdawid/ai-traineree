@@ -2,7 +2,7 @@ from typing import Any, Dict, Optional
 
 import jsons
 
-from ai_traineree import to_list
+from ai_traineree.utils import to_list
 
 from .primitive import ActionType, DoneType, ObsType, RewardType
 
