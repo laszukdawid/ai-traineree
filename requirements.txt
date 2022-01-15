@@ -1,5 +1,5 @@
-# As intended, this is mainly short hand for development.
-# Please keep in sync with setup.cfg
-numpy~=1.19.0
-torch~=1.9.0
-jsons~=1.4
+# *NOTE* this file will be removed in a few months (now 01/2022). Don't count on it.
+numpy>=1.19.0  # Note: >= 1.9.0, < 1.21 have security issue
+torch>=1.9.0
+jsons>=1.4
+gym~=0.19.0
