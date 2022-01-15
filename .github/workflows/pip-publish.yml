@@ -3,9 +3,10 @@ name: Upload Python Package
 on:
   push:
     paths:
-      - "ai_traineree/__init__.py"
+      - ai_traineree/__init__.py
     branches:
-      - $default-branch
+      - "master"
+      - "ci-test"
 
 jobs:
   deploy:
