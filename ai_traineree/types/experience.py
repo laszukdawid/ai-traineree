@@ -59,6 +59,9 @@ class Experience:
                 self.__dict__[key] = value  # TODO: Delete after checking that everything is updated
         return self
 
+    def __add__(self, o_exp):
+        return self.update(**o_exp.get_dict())
+
     def get_dict(self, serialize=False) -> Dict[str, Any]:
         if serialize:
             return {k: to_list(v) for (k, v) in self.data.items()}
