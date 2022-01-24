@@ -283,8 +283,8 @@ class PPOAgent(AgentBase):
         _ = self.policy(actor_est)
 
         dist = self.policy._last_dist
-        entropy = dist.entropy()
-        new_log_probs = self.policy.log_prob(actions).view(-1, 1)
+        entropy = dist.entropy().reshape(actor_est.shape[:-1] + (1,))
+        new_log_probs = self.policy.log_prob(actions).reshape(old_log_probs.shape)
         assert new_log_probs.shape == old_log_probs.shape
 
         r_theta = (new_log_probs - old_log_probs).exp()
