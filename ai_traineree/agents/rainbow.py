@@ -231,7 +231,7 @@ class RainbowAgent(AgentBase):
 
             prob_next = prob_next[self.__batch_indices, a_next, :]
 
-        m = self.net.dist_projection(rewards, 1 - dones, self.gamma ** self.n_steps, prob_next)
+        m = self.net.dist_projection(rewards, 1 - dones, self.gamma**self.n_steps, prob_next)
         assert m.shape == (self.batch_size, self.num_atoms)
 
         log_prob = self.net(obss, log_prob=True)

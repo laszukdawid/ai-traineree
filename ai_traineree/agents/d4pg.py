@@ -270,7 +270,7 @@ class D4PGAgent(AgentBase):
         target_value_dist_est = target_value_dist_est.squeeze()
         assert target_value_dist_est.shape == (self.batch_size, self.num_atoms)
 
-        discount = self.gamma ** self.n_steps
+        discount = self.gamma**self.n_steps
         target_value_projected = self.target_critic.dist_projection(rewards, 1 - dones, discount, target_value_dist_est)
         assert target_value_projected.shape == (self.batch_size, self.num_atoms)
 

@@ -256,7 +256,7 @@ class D3PGAgent(AgentBase):
         target_value_dist_estimate = target_value_dist_estimate.squeeze()
         assert target_value_dist_estimate.shape == (self.batch_size, self.num_atoms)
 
-        discount = self.gamma ** self.n_steps
+        discount = self.gamma**self.n_steps
         target_value_projected = self.target_critic.dist_projection(
             rewards, 1 - dones, discount, target_value_dist_estimate
         )

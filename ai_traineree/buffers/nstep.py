@@ -15,7 +15,7 @@ class NStepBuffer(BufferBase):
         super().__init__()
         self.gamma = gamma
         self.n_steps = n_steps
-        self.n_gammas = [gamma ** i for i in range(1, n_steps + 1)]
+        self.n_gammas = [gamma**i for i in range(1, n_steps + 1)]
 
         self.data: Deque = deque(maxlen=n_steps)
 

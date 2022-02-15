@@ -179,7 +179,7 @@ class SumTree(object):
         self.leafs_num = leafs_num
         self.tree_height = math.ceil(math.log(leafs_num, 2)) + 1
         self.leaf_offset = 2 ** (self.tree_height - 1) - 1
-        self.tree_size = 2 ** self.tree_height - 1
+        self.tree_size = 2**self.tree_height - 1
         self.tree = numpy.zeros(self.tree_size)
         self.data: List[Optional[Dict]] = [None for i in range(self.leafs_num)]
         self.size = 0

@@ -64,7 +64,7 @@ def test_nstep_buffer_add_many_samples_discounted():
     assert len(buffer) == buffer_size
     for expected_len in range(buffer_size)[::-1]:
         sample = buffer.get()
-        discounted_reward = sum([r * gamma ** idx for (idx, r) in enumerate(last_rewards[-expected_len - 1 :])])
+        discounted_reward = sum([r * gamma**idx for (idx, r) in enumerate(last_rewards[-expected_len - 1 :])])
         assert len(buffer) == expected_len
         assert sample.reward[0] == discounted_reward, f"{sample}"
 
