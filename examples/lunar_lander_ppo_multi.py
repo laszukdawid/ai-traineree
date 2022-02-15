@@ -3,7 +3,7 @@ from typing import List
 import pylab as plt
 
 from ai_traineree.agents.ppo import PPOAgent as Agent
-from ai_traineree.loggers import TensorboardLogger
+from ai_traineree.loggers.tensorboard_logger import TensorboardLogger
 from ai_traineree.runners.multi_sync_env_runner import MultiSyncEnvRunner
 from ai_traineree.tasks import GymTask
 from ai_traineree.types import TaskType

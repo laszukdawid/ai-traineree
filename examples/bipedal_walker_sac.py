@@ -2,12 +2,11 @@ import numpy as np
 import pylab as plt
 
 from ai_traineree.agents.sac import SACAgent as Agent
-from ai_traineree.loggers import TensorboardLogger
+from ai_traineree.loggers.file_logger import FileLogger
 from ai_traineree.runners.env_runner import EnvRunner
 from ai_traineree.tasks import GymTask
 from ai_traineree.types import TaskType
 
-data_logger = TensorboardLogger()
 env_name = "BipedalWalker-v3"
 task: TaskType = GymTask(env_name)
 config = {
@@ -28,6 +27,7 @@ config = {
     "max_grad_norm_critic": 10.0,
 }
 agent = Agent(task.obs_space, task.action_space, hidden_layers=(200, 200), **config)
+data_logger = FileLogger(f"{agent.model}_{env_name}")
 
 env_runner = EnvRunner(task, agent, max_iterations=10000, data_logger=data_logger)
 scores = env_runner.run(reward_goal=100, max_episodes=3000, eps_decay=0.99, log_episode_freq=1, force_new=True)

@@ -3,7 +3,7 @@ from collections import defaultdict
 import pylab as plt
 from pettingzoo.sisl import multiwalker_v7
 
-from ai_traineree.loggers import TensorboardLogger
+from ai_traineree.loggers.tensorboard_logger import TensorboardLogger
 from ai_traineree.multi_agent.maddpg import MADDPGAgent
 from ai_traineree.runners.multiagent_env_runner import MultiAgentCycleEnvRunner
 from ai_traineree.tasks import PettingZooTask

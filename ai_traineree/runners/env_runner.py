@@ -61,7 +61,7 @@ class EnvRunner:
         self.data_logger: Optional[DataLogger] = kwargs.get("data_logger")
         if self.data_logger:
             self.logger.info("DataLogger: %s", str(self.data_logger))
-            self.data_logger.set_hparams(self.agent.hparams, {})
+            self.data_logger.set_hparams(hparams=self.agent.hparams)
 
         self._debug_log: bool = bool(kwargs.get("debug_log", False))
         self._exp: List[Tuple[int, Experience]] = []
@@ -262,7 +262,8 @@ class EnvRunner:
                 "hparam/total_episodes": len(self.all_iterations),
                 "hparam/score": mean_scores[-1],
             }
-            self.data_logger.set_hparams(self.agent.hparams, end_metrics, run_name="hparams")
+            hparams = {**self.agent.hparams, **end_metrics}
+            self.data_logger.set_hparams(hparams=hparams)
 
         return self.all_scores
 

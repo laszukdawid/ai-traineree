@@ -1,7 +1,7 @@
 import pylab as plt
 
 from ai_traineree.agents.ddpg import DDPGAgent as DDPG
-from ai_traineree.loggers import TensorboardLogger
+from ai_traineree.loggers.tensorboard_logger import TensorboardLogger
 from ai_traineree.runners.env_runner import EnvRunner
 from ai_traineree.tasks import GymTask
 from ai_traineree.types import TaskType

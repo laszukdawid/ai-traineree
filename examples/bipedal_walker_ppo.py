@@ -1,13 +1,12 @@
 import pylab as plt
 
 from ai_traineree.agents.ppo import PPOAgent as Agent
-from ai_traineree.loggers import TensorboardLogger
+from ai_traineree.loggers.file_logger import FileLogger
 from ai_traineree.runners.env_runner import EnvRunner
 from ai_traineree.tasks import GymTask
 from ai_traineree.types import TaskType
 
 env_name = "BipedalWalker-v3"
-data_logger = TensorboardLogger()
 task: TaskType = GymTask(env_name)
 config = {
     "device": "cuda",
@@ -30,6 +29,7 @@ config = {
     "actor_lr": 3e-4,
 }
 agent = Agent(task.obs_space, task.action_space, **config)
+data_logger = FileLogger(f"{agent.model}_{env_name}")
 env_runner = EnvRunner(task, agent, max_iterations=2000, data_logger=data_logger)
 # env_runner.interact_episode(render=True)
 scores = env_runner.run(300, 2000, eps_end=0.001, eps_decay=0.9, log_episode_freq=10, force_new=True)
