@@ -63,7 +63,7 @@ class SACAgent(AgentBase):
 
         """
         super().__init__(**kwargs)
-        self.device = kwargs.get("device", DEVICE)
+        self.device = self._register_param(kwargs, "device", DEVICE, update=True)  # Default device is CUDA if available
         self.obs_space = obs_space
         self.action_space = action_space
         self._config["obs_space"] = self.obs_space
