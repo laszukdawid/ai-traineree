@@ -87,7 +87,7 @@ class GymTask(TaskType):
         self.is_discrete = "Discrete" in str(type(self.env.action_space))
 
         obs_space = self.env.observation_space.shape
-        self.obs_size = obs_space[0] if len(obs_space) == 1 else obs_space
+        self.obs_size: int = reduce(mul, obs_space)
         self.action_size = self.__determine_action_size(self.env.action_space)
         self.state_transform = state_transform
         self.reward_transform = reward_transform

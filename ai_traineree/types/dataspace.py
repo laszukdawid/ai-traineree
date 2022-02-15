@@ -64,5 +64,5 @@ class DataSpace:
         However, for now, it simplifies.
         """
         if self.dtype.startswith("int") and len(self.shape) == 1:
-            return (self.high - self.low + 1,)
+            return (int(self.high) - int(self.low) + 1,)
         return self.shape
