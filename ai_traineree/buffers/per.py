@@ -74,15 +74,15 @@ class PERBuffer(BufferBase):
     def add(self, *, priority: float = 0, **kwargs):
         priority += self.tiny_offset
         if self._states_mng:
-            kwargs["state_idx"] = self._states.add(kwargs.pop("state"))
-            if "next_state" in kwargs:
-                kwargs["next_state_idx"] = self._states.add(kwargs.pop("next_state"))
+            kwargs["obs_idx"] = self._states.add(kwargs.pop("obs"))
+            if "next_obs" in kwargs:
+                kwargs["next_obs_idx"] = self._states.add(kwargs.pop("next_obs"))
         # old_data = self.tree.insert(kwargs, pow(priority, self.alpha))
         old_data = self.tree.insert(Experience(**kwargs), pow(priority, self.alpha))
 
         if len(self.tree) >= self.buffer_size and self._states_mng and old_data is not None:
-            self._states.remove(old_data["state_idx"])
-            self._states.remove(old_data["next_state_idx"])
+            self._states.remove(old_data["obs_idx"])
+            self._states.remove(old_data["next_obs_idx"])
 
     def _sample_list(self, beta: float = 1, **kwargs) -> List[Experience]:
         """The method return samples randomly without duplicates"""
@@ -94,6 +94,7 @@ class PERBuffer(BufferBase):
         indices = []
         weights = self.__default_weights.copy()
         priorities = []
+
         for k in range(self.batch_size):
             r = self._rng.random()
             data, priority, index = self.tree.find(r)
@@ -110,8 +111,8 @@ class PERBuffer(BufferBase):
             experience.weight = weight
             experience.index = index
             if self._states_mng:
-                experience.state = self._states.get(experience.state_idx)
-                experience.next_state = self._states.get(experience.next_state_idx)
+                experience.obs = self._states.get(experience.obs_idx)
+                experience.next_obs = self._states.get(experience.next_obs_idx)
             experiences.append(experience)
 
         return experiences
@@ -124,7 +125,7 @@ class PERBuffer(BufferBase):
 
         for exp in sampled_exp:
             for key in exp.__dict__.keys():
-                if self._states_mng and (key == "state" or key == "next_state"):
+                if self._states_mng and (key == "obs" or key == "next_obs"):
                     value = self._states.get(getattr(exp, key + "_idx"))
                 else:
                     value = getattr(exp, key)
@@ -176,12 +177,12 @@ class SumTree(object):
             leafs_num (int): Number of leaf nodes.
 
         """
-        self.leafs_num = leafs_num
+        self.leafs_num = int(leafs_num)
         self.tree_height = math.ceil(math.log(leafs_num, 2)) + 1
         self.leaf_offset = 2 ** (self.tree_height - 1) - 1
         self.tree_size = 2**self.tree_height - 1
         self.tree = numpy.zeros(self.tree_size)
-        self.data: List[Optional[Dict]] = [None for i in range(self.leafs_num)]
+        self.data: List[Optional[Dict]] = [None] * self.leafs_num
         self.size = 0
         self.cursor = 0
 
@@ -204,16 +205,16 @@ class SumTree(object):
         self.weight_update(index, weight)
         return old_data
 
-    def weight_update(self, index, weight):
+    def weight_update(self, index, weight) -> None:
+        "Updates weight of a leaf node (by index)"
         tree_index = self.leaf_offset + index
         diff = weight - self.tree[tree_index]
         self._tree_update(tree_index, diff)
 
     def _tree_update(self, tindex, diff):
-        self.tree[tindex] += diff
-        if tindex != 0:
+        while tindex >= 0:
+            self.tree[tindex] += diff
             tindex = (tindex - 1) // 2
-            self._tree_update(tindex, diff)
 
     def find(self, weight) -> Tuple[Any, float, int]:
         """Returns (data, weight, index)"""
@@ -221,6 +222,12 @@ class SumTree(object):
         return self._find(weight * self.tree[0], 0)
 
     def _find(self, weight, index) -> Tuple[Any, float, int]:
+        """Recursively finds a data by the weight.
+
+        Returns:
+            Tuple of (data, weight, index) where the index is in the leaf layer.
+
+        """
         if self.leaf_offset <= index:  # Moved to the leaf layer
             return (
                 self.data[min(index - self.leaf_offset, self.leafs_num - 1)],
