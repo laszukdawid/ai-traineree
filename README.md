@@ -3,11 +3,15 @@
 [![DocStatus](https://readthedocs.org/projects/ai-traineree/badge/?version=latest)](https://ai-traineree.readthedocs.io/)
 [![codecov](https://codecov.io/gh/laszukdawid/ai-traineree/branch/master/graph/badge.svg?token=S62DK7HPYA)](https://codecov.io/gh/laszukdawid/ai-traineree)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/00563b8422454e10bb4ffab64068aa62)](https://www.codacy.com/gh/laszukdawid/ai-traineree/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=laszukdawid/ai-traineree&amp;utm_campaign=Badge_Grade)
+[![Discord chat](https://img.shields.io/discord/909530201837432873?logo=discord)](https://discord.gg/n4bN7ZHn)
 [![DOI](https://zenodo.org/badge/267484000.svg)](https://zenodo.org/badge/latestdoi/267484000)
 
 The intention is to have a zoo of Deep Reinforcment Learning methods and showcasing their application on some environments.
 
 Read more in the doc: [ReadTheDocs AI-Traineree](https://ai-traineree.readthedocs.io/).
+
+![CartPole-v1](./static/CartPole-v1.gif)
+![Snek](./static/hungrysnek.gif)
 
 ## Why another?
 
@@ -71,26 +75,26 @@ This is just a beginning and there will be more work on these interactions.
 
 ### Agents
 
-| Short | Progress | Link | Full name | Doc |
-|-------|----------|------|-----------|-----|
-| DQN  | [Implemented](ai_traineree/agents/dqn.py) | [DeepMind](https://deepmind.com/research/publications/human-level-control-through-deep-reinforcement-learning), [Nature](https://www.nature.com/articles/nature14236)| Deep Q-learning Network  | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#dqn)
-| DDPG | [Implemented](ai_traineree/agents/ddpg.py) | [arXiv](https://arxiv.org/abs/1509.02971) | Deep Deterministic Policy Gradient | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#ddpg)
-| D4PG | [Implemented](ai_traineree/agents/d4pg.py) | [arXiv](https://arxiv.org/abs/1804.08617) | Distributed Distributional Deterministic Policy Gradients | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#d4pg)
-| TD3 | [Implemented](ai_traineree/agents/td3.py) | [arXiv](https://arxiv.org/abs/1802.09477) | Twine Delayed Deep Deterministic policy gradient | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#td3)
-| PPO | [Implemented](ai_traineree/agents/ppo.py) | [arXiv](https://arxiv.org/abs/1707.06347) | Proximal Policy Optimization |[Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#ppo)
-| SAC | [Implemented](ai_traineree/agents/sac.py) | [arXiv](https://arxiv.org/abs/1801.01290) | Soft Actor Critic |[Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#sac)
-| TRPO | | [arXiv](https://arxiv.org/abs/1502.05477) | Trust Region Policy Optimization |
-| RAINBOW | [Implemented](ai_traineree/agents/rainbow.py) | [arXiv](https://arxiv.org/abs/1710.02298) | DQN with a few improvements |[Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#rainbow)
+| Short   | Progress                                      | Link                                                                                                           | Full name                                                 | Doc                                                                      |
+| ------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------ |
+| DQN     | [Implemented](ai_traineree/agents/dqn.py)     | [DeepMind](https://deepmind.com/research/publications/human-level-control-through-deep-reinforcement-learning) | Deep Q-learning Network                                   | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#dqn)     |
+| DDPG    | [Implemented](ai_traineree/agents/ddpg.py)    | [arXiv](https://arxiv.org/abs/1509.02971)                                                                      | Deep Deterministic Policy Gradient                        | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#ddpg)    |
+| D4PG    | [Implemented](ai_traineree/agents/d4pg.py)    | [arXiv](https://arxiv.org/abs/1804.08617)                                                                      | Distributed Distributional Deterministic Policy Gradients | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#d4pg)    |
+| TD3     | [Implemented](ai_traineree/agents/td3.py)     | [arXiv](https://arxiv.org/abs/1802.09477)                                                                      | Twine Delayed Deep Deterministic policy gradient          | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#td3)     |
+| PPO     | [Implemented](ai_traineree/agents/ppo.py)     | [arXiv](https://arxiv.org/abs/1707.06347)                                                                      | Proximal Policy Optimization                              | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#ppo)     |
+| SAC     | [Implemented](ai_traineree/agents/sac.py)     | [arXiv](https://arxiv.org/abs/1801.01290)                                                                      | Soft Actor Critic                                         | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#sac)     |
+| TRPO    |                                               | [arXiv](https://arxiv.org/abs/1502.05477)                                                                      | Trust Region Policy Optimization                          |
+| RAINBOW | [Implemented](ai_traineree/agents/rainbow.py) | [arXiv](https://arxiv.org/abs/1710.02298)                                                                      | DQN with a few improvements                               | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#rainbow) |
 
 ### Multi agents
 
 We provide both Multi Agents agents entities and means to execute them against supported (below) environements.
 However, that doesn't mean one can be used without the other.
 
-| Short | Progress | Link | Full name | Doc |
-|-------|----------|------|-----------|-----|
-| IQL | [Implemented](ai_traineree/multi_agent/iql.py) | | Independent Q-Learners|[Doc](https://ai-traineree.readthedocs.io/en/latest/multi_agent.html#iql)
-| MADDPG | [Implemented](ai_traineree/multi_agent/maddpg.py) | [arXiv](https://arxiv.org/abs/1706.02275) | Multi agent DDPG |[Doc](https://ai-traineree.readthedocs.io/en/latest/multi_agent.html#maddpg)
+| Short  | Progress                                          | Link                                      | Full name              | Doc                                                                          |
+| ------ | ------------------------------------------------- | ----------------------------------------- | ---------------------- | ---------------------------------------------------------------------------- |
+| IQL    | [Implemented](ai_traineree/multi_agent/iql.py)    |                                           | Independent Q-Learners | [Doc](https://ai-traineree.readthedocs.io/en/latest/multi_agent.html#iql)    |
+| MADDPG | [Implemented](ai_traineree/multi_agent/maddpg.py) | [arXiv](https://arxiv.org/abs/1706.02275) | Multi agent DDPG       | [Doc](https://ai-traineree.readthedocs.io/en/latest/multi_agent.html#maddpg) |
 
 ### Loggers
 
@@ -100,14 +104,14 @@ Supports using Tensorboard (via PyTorch's [SummaryWriter](https://pytorch.org/do
 
 ### Environments
 
-| Name | Progress | Link |
-|------|----------|------|
-| OpenAI Gym - Classic | Done |
-| OpenAI Gym - Atari | Done |
-| OpenAI Gym - MuJoCo | Not interested. |
-| PettingZoo | Initial support | [Page](https://www.pettingzoo.ml/) / [GitHub](https://github.com/PettingZoo-Team/PettingZoo) |
-| Unity ML | Somehow supported. | [Page](https://unity3d.com/machine-learning)
-| MAME Linux emulator | Interested. | [Official page](https://www.mamedev.org/)
+| Name                 | Progress           | Link                                                                                         |
+| -------------------- | ------------------ | -------------------------------------------------------------------------------------------- |
+| OpenAI Gym - Classic | Done               |
+| OpenAI Gym - Atari   | Done               |
+| OpenAI Gym - MuJoCo  | Not interested.    |
+| PettingZoo           | Initial support    | [Page](https://www.pettingzoo.ml/) / [GitHub](https://github.com/PettingZoo-Team/PettingZoo) |
+| Unity ML             | Somehow supported. | [Page](https://unity3d.com/machine-learning)                                                 |
+| MAME Linux emulator  | Interested.        | [Official page](https://www.mamedev.org/)                                                    |
 
 ### Development
 
