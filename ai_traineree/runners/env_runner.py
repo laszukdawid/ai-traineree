@@ -38,7 +38,7 @@ class EnvRunner:
         Expects the environment to come as the TaskType and the agent as the AgentBase.
 
         Keyword Arguments:
-            window_len (int): Length of the score averaging window.
+            window_len (int): Length of the score averaging window. Default 50.
             data_logger: An instance of Data Logger, e.g. TensorboardLogger.
             logger_level: Logging level. Default: logging.INFO.
 
@@ -53,7 +53,7 @@ class EnvRunner:
         self.iteration = 0
         self.all_scores = []
         self.all_iterations = []
-        self.window_len = kwargs.get("window_len", 100)
+        self.window_len = kwargs.get("window_len", 50)
         self.scores_window = deque(maxlen=self.window_len)
         self.__images = []
 
@@ -154,6 +154,11 @@ class EnvRunner:
             # n -> n+1  => S(n) <- S(n+1)
             obs = next_obs
 
+        if render_gif and len(self.__images):
+            gif_path = "gifs/{}_e{}.gif".format(self.model_path, str(self.episode))
+            save_gif(gif_path, self.__images)
+            self.__images = []
+
         return score, iterations
 
     def run(
@@ -239,11 +244,6 @@ class EnvRunner:
                     epsilons=epsilons[-log_episode_freq:],
                     loss=self.agent.loss,
                 )
-
-            if render_gif and len(self.__images):
-                gif_path = "gifs/{}_e{}.gif".format(self.model_path, str(self.episode).zfill(len(str(max_episodes))))
-                save_gif(gif_path, self.__images)
-                self.__images = []
 
             if len(mean_scores) and mean_scores[-1] >= reward_goal and len(self.scores_window) == self.window_len:
                 print(f"Environment solved after {self.episode} episodes!\tAverage Score: {mean_scores[-1]:.2f}")
