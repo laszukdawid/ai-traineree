@@ -1,7 +1,10 @@
 import random
 
 import mock
-from pettingzoo.sisl import multiwalker_v7
+import pytest
+
+pettingzoo = pytest.importorskip("pettingzoo")
+multiwalker_v7 = pettingzoo.multiwalker_v7
 
 from ai_traineree.multi_agents.maddpg import MADDPGAgent
 from ai_traineree.runners.multiagent_env_runner import MultiAgentCycleEnvRunner
@@ -181,7 +184,11 @@ def test_multiagent_cycle_env_runner_log_episode_metrics(mock_data_logger, mock_
     scores = [[1.5, 5], [2.0, 0.1]]
     iterations = [10, 10]
     episode_data = dict(
-        episodes=episodes, epsilons=epsilons, mean_scores=mean_scores, iterations=iterations, scores=scores
+        episodes=episodes,
+        epsilons=epsilons,
+        mean_scores=mean_scores,
+        iterations=iterations,
+        scores=scores,
     )
     env_runner = MultiAgentCycleEnvRunner(mock_task, mock_agent, data_logger=mock_data_logger)
 
@@ -282,7 +289,11 @@ def test_multiagent_cycle_env_runner_load_state_no_file(mock_task, mock_agent):
 def test_multiagent_cycle_env_runner_load_state(mock_task, mock_agent, mock_os):
     # Assign
     env_runner = MultiAgentCycleEnvRunner(mock_task, mock_agent, max_iterations=10)
-    mock_os.listdir.return_value = ["saved_state_e10.json", "saved_state_e999.json", "other.file"]
+    mock_os.listdir.return_value = [
+        "saved_state_e10.json",
+        "saved_state_e999.json",
+        "other.file",
+    ]
     mocked_state = '{"episode": 10, "epsilon": 0.2, "score": 0.3, "average_score": -0.1}'
 
     # Act

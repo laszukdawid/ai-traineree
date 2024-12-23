@@ -1,0 +1,26 @@
+version: 3
+
+tasks:
+  clean:
+    desc: "Clean up the project"
+    cmds:
+      - rm -rf dist 
+  
+  install:
+    desc: "Install the project and dependencies"
+    cmds:
+      - uv python install 3.8.20
+      - task: install:swig
+  
+  install:swig:
+    desc: Installing swig on Ubuntu
+    status:
+      - swig -version
+    cmd: sudo apt install swig
+  
+  test:
+    cmds:
+      - uv run python -m pytest
+      
+  run:example:
+    cmd: uv run examples/cart_dqn.py

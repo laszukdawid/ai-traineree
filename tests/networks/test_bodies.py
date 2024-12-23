@@ -33,7 +33,8 @@ def test_fc_default():
     assert net.in_features == in_features
     assert net.out_features == out_features
     assert out_tensor.shape == (1,) + out_features
-    assert net.gate is not None and net.gate == torch.tanh
+    assert net.gate is not None
+    assert isinstance(net.gate, nn.ReLU)
     assert isinstance(net.gate_out, nn.Identity)
 
 
