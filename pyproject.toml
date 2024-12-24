@@ -26,6 +26,7 @@ dev-dependencies = [
 ]
 
 [project.optional-dependencies]
+dev = ["isort", "black==22.6", "pycodestyle"]
 plot = ["matplotlib"]
 tensorboard = ["tensorboard"]
 neptune = ["neptune-client", "psutil"]
