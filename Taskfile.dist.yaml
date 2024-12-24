@@ -9,7 +9,7 @@ tasks:
   install:
     desc: "Install the project and dependencies"
     cmds:
-      - uv python install 3.8.20
+      - uv python install 3.8.18
       - task: install:swig
   
   install:swig:

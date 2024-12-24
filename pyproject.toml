@@ -3,7 +3,7 @@ name = "ai-traineree"
 version = "0.6.0"
 description = "Yet another zoo of (Deep) Reinforcement Learning methods in Python using PyTorch"
 readme = "README.md"
-requires-python = "==3.8.20"
+requires-python = "==3.8.18"
 dependencies = [
     "numpy>=1.19.0,<2.0",
     "torch>=1.9.0,<2.0",
