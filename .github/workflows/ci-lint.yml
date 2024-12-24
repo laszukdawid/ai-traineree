@@ -21,8 +21,5 @@ jobs:
           # TODO: Do matrix for supported versions
           python-version-file: ".python-version"
 
-      - name: Install dependencies
-        run: uv sync --all-extras --dev
-
-      # - name: Lint
-      #   run: uvx ruff@0.3.0 check
+      - name: Lint
+        run: uvx ruff@0.3.0 check
