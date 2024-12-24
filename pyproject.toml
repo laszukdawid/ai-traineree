@@ -3,24 +3,23 @@ name = "ai-traineree"
 version = "0.6.0"
 description = "Yet another zoo of (Deep) Reinforcement Learning methods in Python using PyTorch"
 readme = "README.md"
-requires-python = "==3.8.18"
+requires-python = ">=3.12"
 dependencies = [
-    "numpy>=1.19.0,<2.0",
-    "torch>=1.9.0,<2.0",
+    "numpy>=2.0",
+    "torch>=2.0",
     "jsons>=1.4",
-    "gym",
+    "gym==0.17",
     "matplotlib>=3.7.5",
 ]
 
 
 [tool.uv]
 dev-dependencies = [
-    "pytest",
-    "mock~=4.0",
-    "pytest~=5.4",
-    "pytest-cov~=2.10",
-    "pytest-mock~=3.3",
-    "flake8~=3.9",
+    "mock",
+    "pytest>=6.2.5",
+    "pytest-cov",
+    "pytest-mock",
+    "pytest-timeout",
     "gym[box2d]",
     "swig",
 ]
@@ -30,12 +29,12 @@ plot = ["matplotlib"]
 tensorboard = ["tensorboard"]
 neptune = ["neptune-client", "psutil"]
 # gym = ["gym[all]==0.19.0"]
-mlagents = ["mlagents"]
+# mlagents = ["mlagents"]
 # pettingzoo = ["pettingzoo[other]==1.11.0"]
 examples = [
     "matplotlib",
     "tensorboard",
-    "gym==0.17.0"
+    "gym"
 ]
 
 [tool.ruff]
@@ -49,40 +48,21 @@ profile = "black"
 line-length = 120
 
 [tool.pytest.ini_options]
-addopts = "--verbose --cov-config=setup.cfg --cov=ai_traineree"
+addopts = "--verbose --cov=ai_traineree --timeout=30"
 testpaths = ["ai_traineree", "tests"]
 
-# [coverage.run]
-# omit = ["*/test_*.py"]
+[tool.coverage.run]
+omit = ["*/test_*.py"]
 
-# [coverage.report]
-# exclude_lines = [
-#     "pragma: no cover",
-#     "def __repr__",
-#     "if self.debug:",
-#     "if settings.DEBUG",
-#     "raise AssertionError",
-#     "raise NotImplementedError",
-#     "if 0:",
-#     "if __name__ == '__main__':",
-#     "@abstract"
-# ]
-
-# [pycodestyle]
-# max-line-length = 120
-# ignore = ["E203", "E226", "E252", "E293", "W503"]
-# [tool.uv]
-# dev-dependencies = [
-#     # "sphinx~=4.0",
-#     # "sphinx-rtd-theme~=0.5",
-#     # "mock~=4.0",
-#     # "pytest~=5.4",
-#     # "pytest-cov~=2.10",
-#     # "pytest-mock~=3.3",
-#     # "flake8>=3.9",
-#     # # "gym[box2d]~=0.19.0",
-#     # # "pettingzoo[sisl,other]==1.11.*"
-#     # "black~=22.1.0",
-#     # "isort~=5.10.0",
-#     # "pycodestyle~=2.8.0"
-# ]
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == '__main__':",
+    "@abstract"
+]

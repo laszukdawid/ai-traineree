@@ -1,1 +1,1 @@
-from .data_logger import DataLogger
+from .data_logger import DataLogger  # noqa

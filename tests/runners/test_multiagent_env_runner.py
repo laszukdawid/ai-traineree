@@ -3,12 +3,12 @@ import random
 import mock
 import pytest
 
-pettingzoo = pytest.importorskip("pettingzoo")
-multiwalker_v7 = pettingzoo.multiwalker_v7
-
 from ai_traineree.multi_agents.maddpg import MADDPGAgent
 from ai_traineree.runners.multiagent_env_runner import MultiAgentCycleEnvRunner
 from ai_traineree.tasks import PettingZooTask
+
+pettingzoo = pytest.importorskip("pettingzoo")
+multiwalker_v7 = pettingzoo.multiwalker_v7
 
 # NOTE: Some of these tests use `test_task` and `test_agent` which are real instances.
 #       This is partially to make sure that the tricky part is covered, and not hid

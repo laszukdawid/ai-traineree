@@ -1,6 +1,5 @@
 import copy
 import random
-from math import exp
 from typing import Any, List, Sequence, Tuple
 
 import mock

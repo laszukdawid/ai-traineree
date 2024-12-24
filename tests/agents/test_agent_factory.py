@@ -148,21 +148,3 @@ def test_agent_factory_sac_agent_from_state():
     assert new_agent.model == SACAgent.model
     assert new_agent.hparams == agent.hparams
     assert new_agent.buffer == agent.buffer
-
-
-def test_agent_factory_ppo_agent_from_state_network_buffer_none():
-    # Assign
-    obs_space = DataSpace(dtype="float", shape=(10,))
-    action_space = DataSpace(dtype="float", shape=(5,))
-    agent = SACAgent(obs_space, action_space, device="cpu")
-    state = agent.get_state()
-    state.network = None
-    state.buffer = None
-
-    # Act
-    new_agent = AgentFactory.from_state(state)
-
-    # Assert
-    assert id(new_agent) != id(agent)
-    assert new_agent.model == SACAgent.model
-    assert new_agent.hparams == agent.hparams

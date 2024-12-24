@@ -158,7 +158,7 @@ class FcNet(NetworkType):
             last_layer_range: The range for the uniform distribution that initiates the last layer.
 
         Keyword arguments:
-            gate (optional torch.nn.layer): Activation function for each layer, expect the last. Default: torch.tanh.
+            gate (optional torch.nn.layer): Activation function for each layer, expect the last. Default: ReLU.
             gate_out (optional torch.nn.layer): Activation function after the last layer. Default: Identity layer.
             device (torch.devce or str): Device where to allocate memory. CPU or CUDA.
 
@@ -178,7 +178,7 @@ class FcNet(NetworkType):
         self.layers = nn.ModuleList(layers)
         self.reset_parameters()
 
-        self.gate = kwargs.get("gate", torch.tanh)
+        self.gate = kwargs.get("gate", nn.ReLU())
         self.gate_out = kwargs.get("gate_out", nn.Identity())
         self.to(kwargs.get("device"))
 
