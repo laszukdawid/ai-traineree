@@ -26,7 +26,7 @@ dev-dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["isort", "black==22.6", "pycodestyle"]
+dev = ["isort", "black==22.6"]
 plot = ["matplotlib"]
 tensorboard = ["tensorboard"]
 neptune = ["neptune-client", "psutil"]
@@ -67,23 +67,4 @@ testpaths = ["ai_traineree", "tests"]
 #     "if 0:",
 #     "if __name__ == '__main__':",
 #     "@abstract"
-# ]
-
-# [pycodestyle]
-# max-line-length = 120
-# ignore = ["E203", "E226", "E252", "E293", "W503"]
-# [tool.uv]
-# dev-dependencies = [
-#     # "sphinx~=4.0",
-#     # "sphinx-rtd-theme~=0.5",
-#     # "mock~=4.0",
-#     # "pytest~=5.4",
-#     # "pytest-cov~=2.10",
-#     # "pytest-mock~=3.3",
-#     # "flake8>=3.9",
-#     # # "gym[box2d]~=0.19.0",
-#     # # "pettingzoo[sisl,other]==1.11.*"
-#     # "black~=22.1.0",
-#     # "isort~=5.10.0",
-#     # "pycodestyle~=2.8.0"
 # ]
