@@ -6,7 +6,7 @@ from tests.buffers.test_buffer_factory import generate_sample_SARS
 
 
 def populate_buffer(buffer, num_samples):
-    for (state, action, reward, next_state, done) in generate_sample_SARS(num_samples):
+    for state, action, reward, next_state, done in generate_sample_SARS(num_samples):
         buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
     return buffer
 
@@ -43,7 +43,7 @@ def test_nstep_buffer_add_many_samples():
     for expected_len in range(buffer_size)[::-1]:
         sample = buffer.get()
         assert len(buffer) == expected_len
-        assert sample.reward[0] == sum(last_rewards[-expected_len - 1 :])
+        assert sample.reward[0] == pytest.approx(sum(last_rewards[-expected_len - 1 :]), abs=1e-9)
 
 
 def test_nstep_buffer_add_many_samples_discounted():
@@ -66,7 +66,7 @@ def test_nstep_buffer_add_many_samples_discounted():
         sample = buffer.get()
         discounted_reward = sum([r * gamma**idx for (idx, r) in enumerate(last_rewards[-expected_len - 1 :])])
         assert len(buffer) == expected_len
-        assert sample.reward[0] == discounted_reward, f"{sample}"
+        assert sample.reward[0] == pytest.approx(discounted_reward, abs=1e-9)
 
 
 def test_nstep_buffer_add_many_samples_discounted_terminate():
