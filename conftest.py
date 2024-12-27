@@ -32,8 +32,8 @@ def rnd_state():
 @pytest.fixture
 def fix_env_discrete():
     mock_env = mock.Mock()
-    mock_env.reset.return_value = rnd_state()
-    mock_env.step.return_value = (rnd_state(), 0, False, "")
+    mock_env.reset.return_value = (rnd_state(), {})
+    mock_env.step.return_value = (rnd_state(), 0, False, False, "")
     mock_env.observation_space = np.array((4, 2))
     mock_env.action_space = MockDiscreteSpace(2)
     return mock_env
@@ -42,14 +42,14 @@ def fix_env_discrete():
 @pytest.fixture
 def fix_env():
     mock_env = mock.Mock()
-    mock_env.reset.return_value = rnd_state()
-    mock_env.step.return_value = (rnd_state(), 0, False, "")
+    mock_env.reset.return_value = (rnd_state(), {})
+    mock_env.step.return_value = (rnd_state(), 0, False, False, "")
     mock_env.observation_space = np.array((4, 2))
     mock_env.action_space = MockContinuousSpace(2, 4)
     return mock_env
 
 
-def deterministic_interactions(agent: AgentType, num_iters=50):
+def deterministic_interactions(agent: AgentType, num_iters=50) -> list[Any]:
     obs_size = agent.obs_space.shape[0]
     obs = np.zeros(agent.obs_space.shape).tolist()
     next_obs = copy.copy(obs)
@@ -69,19 +69,21 @@ def deterministic_interactions(agent: AgentType, num_iters=50):
     return actions
 
 
-def fake_step(step_shape: Sequence[int]) -> Tuple[List[Any], float, bool]:
+def fake_step(step_shape: Sequence[int]) -> tuple[list[Any], float, bool, bool]:
     state = np.random.random(step_shape).tolist()
     reward = random.random()
     terminal = random.random() > 0.8
-    return state, reward, terminal
+    truncated = False
+    return state, reward, terminal, truncated
 
 
 def feed_agent(agent: AgentBase, num_samples: int, as_list=False):
     action_space = agent.action_space
-    s, _, _ = fake_step(agent.obs_space.shape)
+    s, _, _, _ = fake_step(agent.obs_space.shape)
 
     for _ in range(num_samples):
-        sn, r, d = fake_step(agent.obs_space.shape)
+        sn, r, ter, trunc = fake_step(agent.obs_space.shape)
+        d = ter or trunc
         if action_space.dtype == "int":
             # a = random.randint(0, agent.action_size-1)
             a = int(np.random.randint(0, action_space.shape)[0])  # Only one action allowed

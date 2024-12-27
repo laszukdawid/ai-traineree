@@ -10,7 +10,7 @@ import torch
 from ai_traineree.types import ActionType, DataSpace, MultiAgentTaskType, StateType, TaskType
 
 try:
-    import gym
+    import gymnasium as gym
 
     BaseEnv = gym.Env  # To satisfy parser on MultiAgentUnityTask import
 except ImportError:
@@ -34,7 +34,6 @@ class TerminationMode:
 
 
 class GymTask(TaskType):
-
     logger = logging.getLogger("GymTask")
 
     def __init__(
@@ -122,10 +121,12 @@ class GymTask(TaskType):
 
     def seed(self, seed):
         if isinstance(seed, (int, float)):
-            return self.env.seed(seed)
+            return self.env.reset(seed=seed)
 
     def reset(self) -> Union[torch.Tensor, np.ndarray]:
-        state = self.env.reset()
+        # TODO: info is currently ignored
+        state, info = self.env.reset()
+        # state = self.env.reset()
         if self.state_transform is not None:
             state = self.state_transform(state)
 
@@ -156,7 +157,10 @@ class GymTask(TaskType):
             action = int(action)
         if isinstance(action, torch.Tensor):
             action = action.cpu().numpy()
-        state, reward, done, info = self.env.step(action)
+        # Gym deprecated
+        # state, reward, done, info = self.env.step(action)
+        state, reward, terminated, truncated, info = self.env.step(action)
+        done = terminated or truncated
         if self.state_transform is not None:
             state = self.state_transform(state)
         if self.reward_transform is not None:
@@ -195,7 +199,7 @@ class PettingZooTask(MultiAgentTaskType):
     @cached_property
     def observation_spaces(self) -> Dict[str, DataSpace]:
         spaces = {}
-        for (unit, space) in self.env.observation_spaces.items():
+        for unit, space in self.env.observation_spaces.items():
             if type(space).__name__ == "Dict":
                 space = space["observation"]
             spaces[unit] = DataSpace.from_gym_space(space)
@@ -207,7 +211,7 @@ class PettingZooTask(MultiAgentTaskType):
 
     def action_mask_spaces(self) -> Optional[Dict[str, DataSpace]]:
         spaces = {}
-        for (unit, space) in self.env.observation_spaces.items():
+        for unit, space in self.env.observation_spaces.items():
             if not type(space).__name__ == "Dict":
                 return None
             spaces[unit] = DataSpace.from_gym_space(space["action_mask"])

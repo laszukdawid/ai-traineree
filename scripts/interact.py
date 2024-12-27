@@ -2,7 +2,7 @@ import gzip
 import json
 import time
 
-import gym
+import gymnasium as gym
 from gym.utils.play import PlayPlot, play
 
 from ai_traineree.buffers.replay import ReplayBuffer

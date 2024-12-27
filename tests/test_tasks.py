@@ -23,7 +23,7 @@ def test_gym_task_actual_openai_discrete():
 
 def test_gym_task_actual_openai_continious():
     # Assign
-    gym_name = "Pendulum-v0"
+    gym_name = "Pendulum-v1"
 
     # Act
     task = GymTask(gym_name, can_render=False)
@@ -44,11 +44,14 @@ def test_gym_task_reset(mock_gym, fix_env):
     task = GymTask("example")
 
     # Act
+    # TODO: update with gymnasium
+    # out, info = task.reset()
     out = task.reset()
 
     # Assert
     assert fix_env.reset.called_once()
     assert len(out) > 0
+    # assert isinstance(info, dict)  # Update with gymnasium
 
 
 @mock.patch("ai_traineree.tasks.gym")

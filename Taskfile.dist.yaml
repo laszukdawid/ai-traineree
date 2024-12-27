@@ -9,14 +9,21 @@ tasks:
   install:
     desc: "Install the project and dependencies"
     cmds:
-      - uv python install 3.8.18
+      - uv python install 3.12.0
       - task: install:swig
+      - uv pip install swig
+      - chmod +x .venv/lib/python3.12/site-packages/swig/data/bin/swig
   
   install:swig:
     desc: Installing swig on Ubuntu
     status:
       - swig -version
     cmd: sudo apt install swig
+  
+  lint:
+    desc: "Lint the project"
+    cmds:
+      - uvx ruff@0.3.0 check
   
   test:
     cmds:

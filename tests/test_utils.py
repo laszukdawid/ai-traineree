@@ -36,57 +36,69 @@ def test_to_tensor_tensor():
     assert torch.equal(new_t, t)
 
 
-def test_to_tensor_list():
-    # Assign
-    int_l = [0, 1, 2, 3]
-    float_l = [0.5, 1.1, 2.9, 3.0]
-    int_l_shape = [list(range(4 * i, 4 * (i + 1))) for i in range(5)]
-
+@pytest.mark.parametrize(
+    "test_input,expected_shape",
+    [
+        ([0, 1, 2, 3], (4,)),
+        ([0.5, 1.1, 2.9, 3.0], (4,)),
+        ([list(range(4 * i, 4 * (i + 1))) for i in range(5)], (5, 4)),
+    ],
+)
+def test_to_tensor_list(test_input, expected_shape):
     # Act
-    int_t = to_tensor(int_l)
-    float_t = to_tensor(float_l)
-    int_t_shape = to_tensor(int_l_shape)
+    out = to_tensor(test_input)
 
     # Assert
-    assert torch.equal(torch.tensor(int_l), int_t)
-    assert torch.equal(torch.tensor(float_l), float_t)
-    assert torch.equal(torch.tensor(int_l_shape), int_t_shape)
-
-    assert int_t.shape == (4,)
-    assert float_t.shape == (4,)
-    assert int_t_shape.shape == (5, 4)
+    assert torch.equal(out, torch.tensor(test_input))
+    assert out.shape == expected_shape
 
 
-def test_to_tensor_list_tesors():
-    # Assign
-    int_l = [torch.tensor([0, 1, 2, 3]), torch.tensor([1, 2, 5, 10])]
-    float_l = [torch.tensor([0.5, 1.1, 2.9, 3.0]), torch.tensor([0.1, 0.1, 0.1, 10.0])]
-
+@pytest.mark.parametrize(
+    "test_input,expected_shape",
+    [
+        ([torch.tensor([0, 1, 2, 3]), torch.tensor([1, 2, 5, 10])], (2, 4)),
+        ([torch.tensor([0.5, 1.1, 2.9, 3.0]), torch.tensor([0.1, 0.1, 0.1, 10.0])], (2, 4)),
+    ],
+)
+def test_to_tensor_list_tesors(test_input, expected_shape):
     # Act
-    int_t = to_tensor(int_l)
-    float_t = to_tensor(float_l)
+    out = to_tensor(test_input)
 
     # Assert
-    assert torch.equal(torch.stack(int_l), int_t)
-    assert torch.equal(torch.stack(float_l), float_t)
-
-    assert int_t.shape == (2, 4)
-    assert float_t.shape == (2, 4)
+    assert torch.equal(torch.stack(test_input), out)
+    assert out.shape == expected_shape
 
 
-def test_to_tensor_numpy():
-    # Assign
-    int_l = np.array([0, 1, 2, 3])
-    float_l = np.random.random(4)
-    float_l = np.random.random(4)
-
+@pytest.mark.parametrize(
+    "test_input",
+    [
+        np.array([0, 1, 2, 3]),  # int
+        np.random.random(4).astype(dtype=np.float16),  # float
+        np.random.random(4).astype(dtype=np.float32),  # float
+    ],
+)
+def test_to_tensor_numpy(test_input):
     # Act
-    int_t = to_tensor(int_l)
-    float_t = to_tensor(float_l)
+    out = to_tensor(test_input)
 
     # Assert
-    assert torch.equal(torch.tensor(int_l), int_t)
-    assert torch.equal(torch.tensor(float_l), float_t)
+    assert torch.equal(torch.tensor(test_input), out)
+
+
+@pytest.mark.parametrize(
+    "test_input",
+    [
+        [np.array([0, 1, 2, 3]), np.array([1, 2, 5, 10])],
+        [np.random.random(4), np.random.random(4)],
+    ],
+)
+def test_to_tensor_list_numpy(test_input):
+    # Act
+    out = to_tensor(test_input)
+
+    # Assert
+    assert isinstance(out, torch.Tensor)
+    assert out.shape == (len(test_input), len(test_input[0]))
 
 
 def test_str_to_number():

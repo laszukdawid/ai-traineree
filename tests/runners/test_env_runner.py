@@ -10,7 +10,7 @@ from ai_traineree.types.experience import Experience
 #       by aggressive mocking. The other part, however, is the burden of keeping env mocks.
 #       This results in unnecessary performance hit. A lightweight env would be nice.
 
-test_task = GymTask("LunarLanderContinuous-v2")
+test_task = GymTask("LunarLanderContinuous-v3")
 test_agent = PPOAgent(test_task.obs_space, test_task.action_space)
 
 

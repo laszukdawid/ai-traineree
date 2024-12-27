@@ -31,6 +31,8 @@ def to_tensor(x) -> torch.Tensor:
         return torch.from_numpy(x)
     elif isinstance(x, list) and isinstance(x[0], torch.Tensor):
         return torch.stack(x)
+    elif isinstance(x, list) and isinstance(x[0], np.ndarray):
+        return torch.tensor(np.stack(x))
     else:
         return torch.tensor(x)
 

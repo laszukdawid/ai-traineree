@@ -8,7 +8,7 @@ dependencies = [
     "numpy>=2.0",
     "torch>=2.0",
     "jsons>=1.4",
-    "gym==0.17",
+    "gymnasium==1.0.0",
     "matplotlib>=3.7.5",
 ]
 
@@ -17,24 +17,25 @@ dependencies = [
 dev-dependencies = [
     "mock",
     "pytest>=6.2.5",
-    "pytest-cov",
+    "pytest-cov>=6.0.0",
     "pytest-mock",
     "pytest-timeout",
-    "gym[box2d]",
+    "gymnasium[box2d]==1.0.0",  # remember about Swig
     "swig",
 ]
 
 [project.optional-dependencies]
+
 plot = ["matplotlib"]
 tensorboard = ["tensorboard"]
 neptune = ["neptune-client", "psutil"]
-# gym = ["gym[all]==0.19.0"]
+gym = ["gymnasium[all]==1.0.0"]
 # mlagents = ["mlagents"]
 # pettingzoo = ["pettingzoo[other]==1.11.0"]
 examples = [
     "matplotlib",
     "tensorboard",
-    "gym"
+    "gymnasium==1.0.0",
 ]
 
 [tool.ruff]

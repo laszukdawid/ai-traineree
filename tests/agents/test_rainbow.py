@@ -90,13 +90,13 @@ def test_rainbow_warm_up(mock_soft_update):
 
     # Act & assert
     for _ in range(warm_up - 1):
-        obs, reward, done = fake_step((1,))
-        agent.step(Experience(obs=obs, reward=reward, done=done, next_obs=obs, action=1))
+        obs, reward, term, trunc = fake_step((1,))
+        agent.step(Experience(obs=obs, reward=reward, done=(term or trunc), next_obs=obs, action=1))
         agent.learn.assert_not_called()
         assert not mock_soft_update.called
 
-    obs, reward, done = fake_step((1,))
-    agent.step(Experience(obs=obs, reward=reward, done=done, next_obs=obs, action=1))
+    obs, reward, term, trunc = fake_step((1,))
+    agent.step(Experience(obs=obs, reward=reward, done=(term or trunc), next_obs=obs, action=1))
     agent.learn.assert_called()
     assert mock_soft_update.called
 

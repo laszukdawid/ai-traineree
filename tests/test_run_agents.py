@@ -44,7 +44,7 @@ def test_runs_rainbow():
 
 def test_runs_ppo():
     # Assign
-    task = GymTask("Pendulum-v0")
+    task = GymTask("Pendulum-v1")
     agent = PPOAgent(task.obs_space, task.action_space, device=DEVICE)
     env_runner = EnvRunner(task, agent, max_iterations=50)
 
@@ -54,7 +54,7 @@ def test_runs_ppo():
 
 def test_runs_ddpg():
     # Assign
-    task = GymTask("Pendulum-v0")
+    task = GymTask("Pendulum-v1")
     agent = DDPGAgent(task.obs_space, task.action_space, device=DEVICE)
     env_runner = EnvRunner(task, agent, max_iterations=50)
 
@@ -64,7 +64,7 @@ def test_runs_ddpg():
 
 def test_runs_td3():
     # Assign
-    task = GymTask("Pendulum-v0")
+    task = GymTask("Pendulum-v1")
     agent = TD3Agent(task.obs_space, task.action_space, device=DEVICE)
     env_runner = EnvRunner(task, agent, max_iterations=50)
 

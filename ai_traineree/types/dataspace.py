@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional, Tuple, Union
 
-import gym
+import gymnasium as gym
 from torch import Tensor
 
 from ai_traineree.types.primitive import FeatureType, Numeric
