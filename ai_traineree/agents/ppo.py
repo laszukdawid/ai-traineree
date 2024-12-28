@@ -1,7 +1,6 @@
 import copy
 import itertools
 import logging
-from typing import Dict, List
 
 import torch
 import torch.nn as nn
@@ -124,10 +123,10 @@ class PPOAgent(AgentBase):
         self.critic_opt = optim.Adam(self.critic_params, lr=self.critic_lr)
         self._loss_actor = float("nan")
         self._loss_critic = float("nan")
-        self._metrics: Dict[str, float] = {}
+        self._metrics: dict[str, float] = {}
 
     @property
-    def loss(self) -> Dict[str, float]:
+    def loss(self) -> dict[str, float]:
         return {"actor": self._loss_actor, "critic": self._loss_critic}
 
     @loss.setter
@@ -163,7 +162,7 @@ class PPOAgent(AgentBase):
             Experience updated with action taken.
 
         """
-        actions: List[ActionType] = []
+        actions: list[ActionType] = []
         logprobs = []
         values = []
         t_obs = to_tensor(experience.obs).view((self.num_workers,) + self.obs_space.shape).float().to(self.device)

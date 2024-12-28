@@ -1,5 +1,3 @@
-from typing import Dict
-
 import torch
 
 from ai_traineree import DEVICE
@@ -11,7 +9,6 @@ from ai_traineree.utils import to_numbers_seq
 
 
 class IQLAgents(MultiAgentType):
-
     model = "IQL"
 
     def __init__(self, obs_space: DataSpace, action_space: DataSpace, num_agents: int, **kwargs):
@@ -58,14 +55,14 @@ class IQLAgents(MultiAgentType):
         kwargs["update_freq"] = int(self._register_param(kwargs, "update_freq", 1))
         kwargs["number_updates"] = int(self._register_param(kwargs, "number_updates", 1))
 
-        self.agents: Dict[str, DQNAgent] = {
+        self.agents: dict[str, DQNAgent] = {
             agent_name: DQNAgent(obs_space, action_space, name=agent_name, **kwargs) for agent_name in self.agent_names
         }
 
         self.reset()
 
     @property
-    def loss(self) -> Dict[str, float]:
+    def loss(self) -> dict[str, float]:
         out = {}
         for agent_name, agent in self.agents.items():
             for loss_name, loss_value in agent.loss.items():
@@ -128,5 +125,5 @@ class IQLAgents(MultiAgentType):
             agent._config = agent_state.get("config", {})
             agent.__dict__.update(**agent._config)
 
-    def state_dict(self) -> Dict[str, dict]:
+    def state_dict(self) -> dict[str, dict]:
         return {name: agent.state_dict() for (name, agent) in self.agents.items()}

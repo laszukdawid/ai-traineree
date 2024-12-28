@@ -1,5 +1,5 @@
 from collections import OrderedDict, defaultdict
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -19,7 +19,6 @@ from ai_traineree.utils import to_numbers_seq, to_tensor
 
 
 class MADDPGAgent(MultiAgentType):
-
     model = "MADDPG"
 
     def __init__(self, obs_space: DataSpace, action_space: DataSpace, num_agents: int, **kwargs):
@@ -53,7 +52,7 @@ class MADDPGAgent(MultiAgentType):
         self.obs_space = obs_space
         self.action_space = action_space
         self.num_agents: int = num_agents
-        self.agent_names: List[str] = kwargs.get("agent_names", map(str, range(self.num_agents)))
+        self.agent_names: list[str] = kwargs.get("agent_names", map(str, range(self.num_agents)))
 
         hidden_layers = to_numbers_seq(self._register_param(kwargs, "hidden_layers", (100, 100), update=True))
         noise_scale = float(self._register_param(kwargs, "noise_scale", 0.5))
@@ -61,7 +60,7 @@ class MADDPGAgent(MultiAgentType):
         actor_lr = float(self._register_param(kwargs, "actor_lr", 3e-4))
         critic_lr = float(self._register_param(kwargs, "critic_lr", 3e-4))
 
-        self.agents: Dict[str, DDPGAgent] = OrderedDict(
+        self.agents: dict[str, DDPGAgent] = OrderedDict(
             {
                 agent_name: DDPGAgent(
                     obs_space,
@@ -78,7 +77,7 @@ class MADDPGAgent(MultiAgentType):
 
         self.gamma = float(self._register_param(kwargs, "gamma", 0.99))
         self.tau = float(self._register_param(kwargs, "tau", 0.02))
-        self.gradient_clip: Optional[float] = self._register_param(kwargs, "gradient_clip")
+        self.gradient_clip: float | None = self._register_param(kwargs, "gradient_clip")
 
         self.batch_size = int(self._register_param(kwargs, "batch_size", 64))
         self.buffer_size = int(self._register_param(kwargs, "buffer_size", int(1e6)))
@@ -99,11 +98,11 @@ class MADDPGAgent(MultiAgentType):
 
         self._step_data = {}
         self._loss_critic: float = float("nan")
-        self._loss_actor: Dict[str, float] = {name: float("nan") for name in self.agent_names}
+        self._loss_actor: dict[str, float] = {name: float("nan") for name in self.agent_names}
         self.reset()
 
     @property
-    def loss(self) -> Dict[str, float]:
+    def loss(self) -> dict[str, float]:
         out = {}
         for agent_name, agent in self.agents.items():
             for loss_name, loss_value in agent.loss.items():
@@ -243,7 +242,7 @@ class MADDPGAgent(MultiAgentType):
         for agent_name, agent in self.agents.items():
             data_logger.log_values_dict(f"{agent_name}/loss", agent.loss, step)
 
-    def get_state(self) -> Dict[str, dict]:
+    def get_state(self) -> dict[str, dict]:
         """Returns agents' internal states"""
         agents_state = {}
         agents_state["config"] = self._config
@@ -263,7 +262,7 @@ class MADDPGAgent(MultiAgentType):
         agents_state = self.get_state()
         torch.save(agents_state, path)
 
-    def load_state(self, *, path: Optional[str] = None, agent_state: Optional[dict] = None) -> None:
+    def load_state(self, *, path: str | None = None, agent_state: dict | None = None) -> None:
         """Loads the state into the Multi Agent.
 
         The state can be provided either via path to a file that contains the state,
@@ -292,5 +291,5 @@ class MADDPGAgent(MultiAgentType):
         for agent in self.agents.values():
             agent.seed(seed)
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         return {name: agent.state_dict() for (name, agent) in self.agents.items()}

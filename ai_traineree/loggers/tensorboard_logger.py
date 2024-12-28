@@ -1,5 +1,4 @@
 import logging
-from typing import Dict
 
 from .data_logger import DataLogger
 
@@ -44,13 +43,13 @@ class TensorboardLogger(DataLogger):
     def close(self):
         self.writer.close()
 
-    def set_hparams(self, *, hparams: Dict):
+    def set_hparams(self, *, hparams: dict):
         self.writer.add_hparams(hparam_dict=hparams, metric_dict={})
 
     def log_value(self, name: str, value, step: int) -> None:
         self.writer.add_scalar(name, value, step)
 
-    def log_values_dict(self, name: str, values: Dict[str, float], step: int) -> None:
+    def log_values_dict(self, name: str, values: dict[str, float], step: int) -> None:
         self.writer.add_scalars(name, values, step)
 
     def add_histogram(self, *args, **kwargs):

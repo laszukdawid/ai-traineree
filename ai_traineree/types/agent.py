@@ -1,5 +1,5 @@
 import abc
-from typing import Any, Dict, List
+from typing import Any
 
 from ai_traineree.loggers import DataLogger
 from ai_traineree.types.experience import Experience
@@ -9,13 +9,12 @@ from .state import AgentState
 
 
 class AgentType(abc.ABC):
-
     model: str
     obs_space: DataSpace
     action_space: DataSpace
-    loss: Dict[str, float]
+    loss: dict[str, float]
     train: bool = True
-    _config: Dict = {}
+    _config: dict = {}
 
     @property
     def hparams(self):
@@ -24,7 +23,7 @@ class AgentType(abc.ABC):
 
         return {k: make_strings_out_of_things_that_are_not_obvious_numbers(v) for (k, v) in self._config.items()}
 
-    def _register_param(self, source: Dict[str, Any], name: str, default_value=None, update=False, drop=False) -> Any:
+    def _register_param(self, source: dict[str, Any], name: str, default_value=None, update=False, drop=False) -> Any:
         self._config[name] = value = source.get(name, default_value)
         if drop and name in source:
             del source[name]
@@ -61,15 +60,14 @@ class AgentType(abc.ABC):
 
 
 class MultiAgentType(abc.ABC):
-
     model: str
     obs_space: DataSpace
     action_space: DataSpace
-    loss: Dict[str, float]
-    agents: List[AgentType]
-    agent_names: List[str]
+    loss: dict[str, float]
+    agents: list[AgentType]
+    agent_names: list[str]
     num_agents: int
-    _config: Dict = {}
+    _config: dict = {}
 
     @property
     def hparams(self):
@@ -78,7 +76,7 @@ class MultiAgentType(abc.ABC):
 
         return {k: make_strings_out_of_things_that_are_not_obvious_numbers(v) for (k, v) in self._config.items()}
 
-    def _register_param(self, source: Dict[str, Any], name: str, default_value=None, update=False, drop=False) -> Any:
+    def _register_param(self, source: dict[str, Any], name: str, default_value=None, update=False, drop=False) -> Any:
         self._config[name] = value = source.get(name, default_value)
         if drop:
             del source[name]
@@ -98,7 +96,7 @@ class MultiAgentType(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         """Returns description of all agent's components."""
         pass
 

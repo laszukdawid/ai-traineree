@@ -1,7 +1,6 @@
 import copy
 import itertools
 from functools import cached_property
-from typing import Dict, Tuple, Union
 
 import numpy as np
 import torch
@@ -162,14 +161,14 @@ class SACAgent(AgentBase):
 
         self._loss_actor = float("nan")
         self._loss_critic = float("nan")
-        self._metrics: Dict[str, Union[float, Dict[str, float]]] = {}
+        self._metrics: dict[str, float | dict[str, float]] = {}
 
     @property
     def alpha(self):
         return self.log_alpha.exp()
 
     @property
-    def loss(self) -> Dict[str, float]:
+    def loss(self) -> dict[str, float]:
         return {"actor": self._loss_actor, "critic": self._loss_critic}
 
     @loss.setter
@@ -204,7 +203,7 @@ class SACAgent(AgentBase):
     def action_max(self):
         return to_tensor(self.action_space.high)
 
-    def state_dict(self) -> Dict[str, dict]:
+    def state_dict(self) -> dict[str, dict]:
         """
         Returns network's weights in order:
         Actor, TargetActor, Critic, TargetCritic
@@ -270,7 +269,7 @@ class SACAgent(AgentBase):
             for _ in range(self.number_updates):
                 self.learn(self.buffer.sample())
 
-    def compute_value_loss(self, states, actions, rewards, next_states, dones) -> Tuple[Tensor, Tensor]:
+    def compute_value_loss(self, states, actions, rewards, next_states, dones) -> tuple[Tensor, Tensor]:
         Q1_expected, Q2_expected = self.double_critic(states, actions)
 
         with torch.no_grad():

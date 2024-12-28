@@ -1,11 +1,11 @@
-from typing import Dict, List, Sequence, Union
+from typing import Sequence
 
-Numeric = Union[int, float]
-ObsType = ObservationType = Union[List[int], List[float]]
-StateType = Union[int, List[float]]
-ActionType = Union[int, float, List]
+Numeric = int | float
+ObsType = ObservationType = list[int] | list[float]
+StateType = int | list[float]
+ActionType = int | float | list
 DoneType = bool
-RewardType = Union[int, float]
+RewardType = int | float
 
-HyperparameterType = Dict[str, str]
+HyperparameterType = dict[str, str]
 FeatureType = Sequence[int]

@@ -1,5 +1,5 @@
 from pprint import pprint
-from typing import Any, Dict
+from typing import Any
 
 import torch
 
@@ -15,7 +15,7 @@ task = GymTask("CartPole-v1")
 seeds = [32167, 1, 999, 2833700, 13]
 
 for idx, config_update in enumerate(config_updates):
-    config: Dict[str, Any] = config_default.copy()
+    config: dict[str, Any] = config_default.copy()
     config.update(config_update)
 
     for seed in seeds:

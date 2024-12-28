@@ -1,10 +1,10 @@
 import abc
-from typing import Any, List, Optional, Tuple
+from typing import Any
 
 from .dataspace import DataSpace
 from .primitive import ActionType, DoneType, RewardType, StateType
 
-TaskStepType = Tuple[StateType, RewardType, DoneType, Any]
+TaskStepType = tuple[StateType, RewardType, DoneType, Any]
 
 
 class TaskType(abc.ABC):
@@ -27,7 +27,7 @@ class TaskType(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def render(self, mode: Optional[str] = None) -> None:
+    def render(self, mode: str | None = None) -> None:
         pass
 
     @abc.abstractmethod
@@ -37,5 +37,5 @@ class TaskType(abc.ABC):
 
 class MultiAgentTaskType(TaskType):
     @abc.abstractmethod
-    def reset(self) -> List[StateType]:
+    def reset(self) -> list[StateType]:
         pass

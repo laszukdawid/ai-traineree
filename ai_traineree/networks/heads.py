@@ -13,9 +13,10 @@ topography and at some point you'll need branching.
 Heads are "special" in that each is built on networks/brains and will likely need
 some special pipeping when attaching to your agent.
 """
+
 from functools import lru_cache, reduce
 from operator import mul
-from typing import Callable, List, Optional, Sequence
+from typing import Callable, Sequence
 
 import torch
 import torch.nn as nn
@@ -34,7 +35,7 @@ class NetChainer(NetworkType):
     The need for wrapper comes from unified API to reset properties.
     """
 
-    def __init__(self, net_classes: List[NetworkTypeClass], **kwargs):
+    def __init__(self, net_classes: list[NetworkTypeClass], **kwargs):
         super(NetChainer, self).__init__()
         self.nets = nn.ModuleList(net_classes)
 
@@ -90,9 +91,9 @@ class DuelingNet(NetworkType):
         in_features: Sequence[int],
         out_features: Sequence[int],
         hidden_layers: Sequence[int],
-        net_fn: Optional[Callable[..., NetworkType]] = None,
-        net_class: Optional[NetworkTypeClass] = None,
-        **kwargs
+        net_fn: Callable[..., NetworkType] | None = None,
+        net_class: NetworkTypeClass | None = None,
+        **kwargs,
     ):
         """
         Parameters:
@@ -161,11 +162,11 @@ class CategoricalNet(NetworkType):
         num_atoms: int = 21,
         v_min: float = -20.0,
         v_max: float = 20.0,
-        in_features: Optional[FeatureType] = None,
-        out_features: Optional[FeatureType] = None,
+        in_features: FeatureType | None = None,
+        out_features: FeatureType | None = None,
         hidden_layers: Sequence[int] = (200, 200),
-        net: Optional[NetworkType] = None,
-        device: Optional[torch.device] = None,
+        net: NetworkType | None = None,
+        device: torch.device | None = None,
     ):
         """
         Parameters:

@@ -1,6 +1,6 @@
 from functools import reduce
 from math import sqrt
-from typing import Any, Optional, Sequence, Tuple, Union
+from typing import Any, Sequence
 
 import torch
 import torch.nn as nn
@@ -16,7 +16,7 @@ def hidden_init(layer: nn.Module):
     return (-lim, lim)
 
 
-def layer_init(layer: nn.Module, range_value: Optional[Tuple[float, float]] = None, remove_mean=True):
+def layer_init(layer: nn.Module, range_value: tuple[float, float] | None = None, remove_mean=True):
     if not (isinstance(layer, nn.Conv2d) or isinstance(layer, nn.Linear)):
         return
     if range_value is not None:
@@ -28,7 +28,7 @@ def layer_init(layer: nn.Module, range_value: Optional[Tuple[float, float]] = No
 
 
 class ScaleNet(NetworkType):
-    def __init__(self, scale: Union[float, int]) -> None:
+    def __init__(self, scale: float | int) -> None:
         super(ScaleNet, self).__init__()
         self.scale = scale
 
@@ -106,7 +106,7 @@ class ConvNet(NetworkType):
         self.to(self.device)
 
     @staticmethod
-    def _expand_to_seq(o: Union[Any, Sequence[Any]], size) -> Sequence[Any]:
+    def _expand_to_seq(o: Any | Sequence[Any], size) -> Sequence[Any]:
         return o if isinstance(o, Sequence) else (o,) * size
 
     @property
@@ -144,7 +144,7 @@ class FcNet(NetworkType):
         self,
         in_features: FeatureType,
         out_features: FeatureType,
-        hidden_layers: Optional[Sequence[int]] = (200, 100),
+        hidden_layers: Sequence[int] | None = (200, 100),
         last_layer_range=(-3e-4, 3e-4),
         bias: bool = True,
         **kwargs,
@@ -214,7 +214,7 @@ class CriticBody(NetworkType):
         in_features: FeatureType,
         inj_action_size: int,
         out_features: FeatureType = (1,),
-        hidden_layers: Optional[Sequence[int]] = (100, 100),
+        hidden_layers: Sequence[int] | None = (100, 100),
         inj_actions_layer: int = 1,
         **kwargs,
     ):
@@ -373,7 +373,7 @@ class NoisyNet(NetworkType):
         self,
         in_features: FeatureType,
         out_features: FeatureType,
-        hidden_layers: Optional[Sequence[int]] = (100, 100),
+        hidden_layers: Sequence[int] | None = (100, 100),
         sigma=0.4,
         factorised=True,
         **kwargs,

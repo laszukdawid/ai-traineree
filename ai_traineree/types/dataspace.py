@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Tuple, Union
 
 import gymnasium as gym
 from torch import Tensor
@@ -13,9 +12,9 @@ from ai_traineree.utils import condens_ndarray, to_numbers_seq
 @dataclass
 class DataSpace:
     dtype: str
-    shape: Tuple[int]
-    low: Optional[Union[Numeric, Tensor]] = None
-    high: Optional[Union[Numeric, Tensor]] = None
+    shape: tuple[int]
+    low: Numeric | Tensor | None = None
+    high: Numeric | Tensor | None = None
 
     @staticmethod
     def from_int(size: int):

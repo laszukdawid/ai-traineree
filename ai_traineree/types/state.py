@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import torch
 
@@ -11,13 +11,13 @@ class BufferState:
     type: str
     buffer_size: int
     batch_size: int
-    data: Optional[List] = field(default=None, init=False)
-    extra: Optional[Dict[str, Any]] = field(default=None, init=False, repr=False)
+    data: list | None = field(default=None, init=False)
+    extra: dict[str, Any] | None = field(default=None, init=False, repr=False)
 
 
 @dataclass
 class NetworkState:
-    net: Dict[str, Any]
+    net: dict[str, Any]
 
     def __eq__(self, other):
         for key, value in other.net.items():
@@ -34,6 +34,6 @@ class AgentState:
     model: str
     obs_space: DataSpace
     action_space: DataSpace
-    config: Dict[str, Any]
+    config: dict[str, Any]
     network: Optional[NetworkState]
     buffer: Optional[BufferState]

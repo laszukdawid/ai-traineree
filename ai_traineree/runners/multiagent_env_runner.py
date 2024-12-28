@@ -5,7 +5,7 @@ import sys
 import time
 from collections import defaultdict, deque
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Iterable
 
 from ai_traineree.loggers import DataLogger
 from ai_traineree.tasks import PettingZooTask
@@ -67,8 +67,8 @@ class MultiAgentEnvRunner:
         self.mode = mode
         self.episode = 0
         self.iteration = 0
-        self.all_scores: List[List[RewardType]] = []
-        self.all_iterations: List[int] = []
+        self.all_scores: list[list[RewardType]] = []
+        self.all_iterations: list[int] = []
         self.scores_window = deque(maxlen=self.window_len)
         self._images = []
         self._debug_log = kwargs.get("debug_log", False)
@@ -76,7 +76,7 @@ class MultiAgentEnvRunner:
         self._rewards = []
         self._dones = []
 
-        self.data_logger: Optional[DataLogger] = kwargs.get("data_logger")
+        self.data_logger: DataLogger | None = kwargs.get("data_logger")
         self.logger.info("DataLogger: %s", str(self.data_logger))
 
     def __str__(self) -> str:
@@ -89,20 +89,20 @@ class MultiAgentEnvRunner:
     def reset(self):
         """Resets the EnvRunner. The task env and the agent are preserved."""
         self.episode = 0
-        self.all_scores: List[List[RewardType]] = []
+        self.all_scores: list[list[RewardType]] = []
         self.all_iterations = []
         self.scores_window = deque(maxlen=self.window_len)
 
     def interact_episode(
         self,
         eps: float = 0,
-        max_iterations: Optional[int] = None,
+        max_iterations: int | None = None,
         render: bool = False,
         render_gif: bool = False,
-        log_interaction_freq: Optional[int] = None,
-    ) -> Tuple[List[RewardType], int]:
-        score: List[RewardType] = [0.0] * self.multi_agent.num_agents
-        states: List[StateType] = self.task.reset()
+        log_interaction_freq: int | None = None,
+    ) -> tuple[list[RewardType], int]:
+        score: list[RewardType] = [0.0] * self.multi_agent.num_agents
+        states: list[StateType] = self.task.reset()
 
         iterations = 0
         max_iterations = max_iterations if max_iterations is not None else self.max_iterations
@@ -118,10 +118,10 @@ class MultiAgentEnvRunner:
                 self.task.render("human")
                 time.sleep(1.0 / FRAMES_PER_SEC)
 
-            next_states: List[StateType] = []
-            rewards: List[RewardType] = []
-            dones: List[DoneType] = []
-            actions: List[ActionType] = []
+            next_states: list[StateType] = []
+            rewards: list[RewardType] = []
+            dones: list[DoneType] = []
+            actions: list[ActionType] = []
             for agent_id in range(self.multi_agent.num_agents):
                 experience = Experience(obs=states[agent_id])
                 experience = self.multi_agent.act(str(agent_id), experience, eps)
@@ -162,10 +162,10 @@ class MultiAgentEnvRunner:
         eps_end=0.01,
         eps_decay=0.995,
         log_episode_freq=1,
-        gif_every_episodes: Optional[int] = None,
+        gif_every_episodes: int | None = None,
         checkpoint_every=200,
         force_new=False,
-    ) -> List[List[RewardType]]:
+    ) -> list[list[RewardType]]:
         """
         Evaluates the multi_agent in the environment.
         The evaluation will stop when the agent reaches the `reward_goal` in the averaged last `self.window_len`, or
@@ -267,7 +267,7 @@ class MultiAgentEnvRunner:
     def log_episode_metrics(self, **kwargs):
         """Uses data_logger, e.g. Tensorboard, to store env metrics."""
         assert self.data_logger, "Cannot log without DataLogger"
-        episodes: List[int] = kwargs.get("episodes", [])
+        episodes: list[int] = kwargs.get("episodes", [])
         for episode, epsilon in zip(episodes, kwargs.get("epsilons", [])):
             self.data_logger.log_value("episode/epsilon", epsilon, episode)
 
@@ -407,8 +407,8 @@ class MultiAgentCycleEnvRunner:
         self.mode = mode
         self.episode: float = 0
         self.iteration = 0
-        self.all_scores: List[Dict[str, RewardType]] = []
-        self.all_iterations: List[int] = []
+        self.all_scores: list[dict[str, RewardType]] = []
+        self.all_iterations: list[int] = []
         self.window_len = kwargs.get("window_len", 100)
         self.scores_window = deque(maxlen=self.window_len)
 
@@ -432,18 +432,18 @@ class MultiAgentCycleEnvRunner:
     def reset(self) -> None:
         """Resets instance. Preserves everything about task and agent."""
         self.episode: float = 0
-        self.all_scores: List[Dict[str, RewardType]] = []
+        self.all_scores: list[dict[str, RewardType]] = []
         self.all_iterations = []
         self.scores_window = deque(maxlen=self.window_len)
 
     def interact_episode(
         self,
         eps: float = 0,
-        max_iterations: Optional[int] = None,
+        max_iterations: int | None = None,
         render: bool = False,
         render_gif: bool = False,
-        log_interaction_freq: Optional[int] = None,
-    ) -> Tuple[Dict[str, RewardType], int]:
+        log_interaction_freq: int | None = None,
+    ) -> tuple[dict[str, RewardType], int]:
         score = defaultdict(float)
         iterations = 0
         max_iterations = max_iterations if max_iterations is not None else self.max_iterations
@@ -460,9 +460,9 @@ class MultiAgentCycleEnvRunner:
                 self.task.render("human")
                 time.sleep(1.0 / FRAMES_PER_SEC)
 
-            # next_states: Dict[str, StateType] = {}
-            # rewards: Dict[str, RewardType] = {}
-            dones: Dict[str, DoneType] = {}
+            # next_states: dict[str, StateType] = {}
+            # rewards: dict[str, RewardType] = {}
+            dones: dict[str, DoneType] = {}
 
             # TODO: Iterate over distinc agents in a single cycle. This `for` doesn't guarantee that.
             for agent_name in self.task.agent_iter(max_iter=self.multi_agent.num_agents):
@@ -509,10 +509,10 @@ class MultiAgentCycleEnvRunner:
         eps_end=0.01,
         eps_decay=0.995,
         log_episode_freq=1,
-        gif_every_episodes: Optional[int] = None,
+        gif_every_episodes: int | None = None,
         checkpoint_every=200,
         force_new=False,
-    ) -> List[Dict[str, RewardType]]:
+    ) -> list[dict[str, RewardType]]:
         """
         Evaluates the Multi Agent in the environment.
         The evaluation will stop when the agent reaches the `reward_goal` in the averaged last `self.window_len`, or
@@ -614,7 +614,7 @@ class MultiAgentCycleEnvRunner:
     def log_episode_metrics(self, **kwargs):
         """Uses data_logger, e.g. Tensorboard, to store env metrics."""
         assert self.data_logger, "Cannot log without DataLogger"
-        episodes: List[int] = kwargs.get("episodes", [])
+        episodes: list[int] = kwargs.get("episodes", [])
         for episode, epsilon in zip(episodes, kwargs.get("epsilons", [])):
             self.data_logger.log_value("episode/epsilon", epsilon, episode)
 

@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any
 
 import jsons
 
@@ -38,7 +38,7 @@ class Experience:
     action: ActionType
     reward: RewardType
     done: DoneType
-    next_obs: Optional[ObsType]
+    next_obs: ObsType | None
     state: ObsType
     next_state: ObsType
 
@@ -53,7 +53,7 @@ class Experience:
         return self.data.get(key)
 
     def update(self, **kwargs):
-        for (key, value) in kwargs.items():
+        for key, value in kwargs.items():
             if key in Experience.whitelist:
                 self.data[key] = value
                 self.__dict__[key] = value  # TODO: Delete after checking that everything is updated
@@ -62,13 +62,13 @@ class Experience:
     def __add__(self, o_exp):
         return self.update(**o_exp.get_dict())
 
-    def get_dict(self, serialize=False) -> Dict[str, Any]:
+    def get_dict(self, serialize=False) -> dict[str, Any]:
         if serialize:
             return {k: to_list(v) for (k, v) in self.data.items()}
         return self.data
 
 
-def exprience_serialization(obj: Experience, **kwargs) -> Dict[str, Any]:
+def exprience_serialization(obj: Experience, **kwargs) -> dict[str, Any]:
     # return {k: to_list(v) for (k, v) in obj.data.items() if v is not None}
     return {k: jsons.dumps(v) for (k, v) in obj.data.items()}
 

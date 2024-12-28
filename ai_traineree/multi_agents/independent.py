@@ -1,5 +1,3 @@
-from typing import Dict, List, Optional
-
 import torch
 
 from ai_traineree.loggers import DataLogger
@@ -8,10 +6,9 @@ from ai_traineree.types.experience import Experience
 
 
 class IndependentAgents(MultiAgentType):
-
     model = "IMA"
 
-    def __init__(self, agents: List[AgentType], agent_names: Optional[List[str]] = None, **kwargs):
+    def __init__(self, agents: list[AgentType], agent_names: list[str] | None = None, **kwargs):
         """Independent agents.
 
         An abstraction to manage multiple agents. It assumes no interaction between agents.
@@ -29,12 +26,12 @@ class IndependentAgents(MultiAgentType):
         assert len(agent_names) == len(agents), "Expecting `agents` and `agent_names` to have the same lengths"
 
         self.num_agents = len(agents)
-        self.agents: Dict[str, AgentType] = {agent_name: agent for (agent_name, agent) in zip(agent_names, agents)}
+        self.agents: dict[str, AgentType] = {agent_name: agent for (agent_name, agent) in zip(agent_names, agents)}
 
         self.reset()
 
     @property
-    def loss(self) -> Dict[str, float]:
+    def loss(self) -> dict[str, float]:
         out = {}
         for agent_name, agent in self.agents.items():
             for loss_name, loss_value in agent.loss.items():
@@ -94,5 +91,5 @@ class IndependentAgents(MultiAgentType):
             agent._config = agent_state.get("config", {})
             agent.__dict__.update(**agent._config)
 
-    def state_dict(self) -> Dict[str, dict]:
+    def state_dict(self) -> dict[str, dict]:
         return {name: agent.state_dict() for (name, agent) in self.agents.items()}

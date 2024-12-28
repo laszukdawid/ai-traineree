@@ -2,7 +2,7 @@ import logging
 from collections import deque
 from functools import cached_property, reduce
 from operator import mul
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Callable, Sequence
 
 import numpy as np
 import torch
@@ -24,7 +24,7 @@ except (ImportError, ModuleNotFoundError):
     logging.warning("Couldn't import `gym_unity` and/or `mlagents`. MultiAgentUnityTask won't work.")
 
 
-GymStepResult = Tuple[np.ndarray, float, bool, Dict]
+GymStepResult = tuple[np.ndarray, float, bool, dict]
 
 
 class TerminationMode:
@@ -38,9 +38,9 @@ class GymTask(TaskType):
 
     def __init__(
         self,
-        env: Union[str, gym.Env],
-        state_transform: Optional[Callable] = None,
-        reward_transform: Optional[Callable] = None,
+        env: str | gym.Env,
+        state_transform: Callable | None = None,
+        reward_transform: Callable | None = None,
         can_render=True,
         stack_frames: int = 1,
         skip_start_frames: int = 0,
@@ -123,7 +123,7 @@ class GymTask(TaskType):
         if isinstance(seed, (int, float)):
             return self.env.reset(seed=seed)
 
-    def reset(self) -> Union[torch.Tensor, np.ndarray]:
+    def reset(self) -> torch.Tensor | np.ndarray:
         # TODO: info is currently ignored
         state, info = self.env.reset()
         # state = self.env.reset()
@@ -140,14 +140,14 @@ class GymTask(TaskType):
             self.logger.warning("Asked for rendering but it's not available in this environment")
             return
 
-    def step(self, action: ActionType) -> Tuple:
+    def step(self, action: ActionType) -> tuple:
         """Each action results in a new state, reward, done flag, and info about env.
 
         Parameters:
             action: An action that the agent is taking in current environment step.
 
         Returns:
-            step_tuple (Tuple[torch.Tensor, float, bool, Any]):
+            step_tuple (tuple[torch.Tensor, float, bool, Any]):
                 The return consists of a next state, a reward in that state,
                 a flag whether the next state is terminal and additional information provided
                 by the environment regarding that state.
@@ -197,7 +197,7 @@ class PettingZooTask(MultiAgentTaskType):
         return self.env.agents
 
     @cached_property
-    def observation_spaces(self) -> Dict[str, DataSpace]:
+    def observation_spaces(self) -> dict[str, DataSpace]:
         spaces = {}
         for unit, space in self.env.observation_spaces.items():
             if type(space).__name__ == "Dict":
@@ -206,10 +206,10 @@ class PettingZooTask(MultiAgentTaskType):
         return spaces
 
     @cached_property
-    def action_spaces(self) -> Dict[str, DataSpace]:
+    def action_spaces(self) -> dict[str, DataSpace]:
         return {unit: DataSpace.from_gym_space(space) for (unit, space) in self.env.action_spaces.items()}
 
-    def action_mask_spaces(self) -> Optional[Dict[str, DataSpace]]:
+    def action_mask_spaces(self) -> dict[str, DataSpace] | None:
         spaces = {}
         for unit, space in self.env.observation_spaces.items():
             if not type(space).__name__ == "Dict":
@@ -237,7 +237,7 @@ class PettingZooTask(MultiAgentTaskType):
     def dones(self):
         return self.env.dones
 
-    def last(self, agent_name: Optional[str] = None) -> Tuple[Any, float, bool, Any]:
+    def last(self, agent_name: str | None = None) -> tuple[Any, float, bool, Any]:
         if agent_name is None:
             return self.env.last()
         return (
@@ -365,7 +365,7 @@ class MultiAgentUnityTask(MultiAgentTaskType):
             self._action_space = spaces.Box(-high, high, dtype=np.float32)
 
         # Set observations space
-        list_spaces: List[gym.Space] = []
+        list_spaces: list[gym.Space] = []
         shapes = self._get_vis_obs_shape()
         for shape in shapes:
             if uint8_visual:
@@ -382,7 +382,7 @@ class MultiAgentUnityTask(MultiAgentTaskType):
             self._observation_space = list_spaces[0]  # only return the first one
 
     # def reset(self) -> Union[List[np.ndarray], np.ndarray]:
-    def reset(self) -> List[StateType]:
+    def reset(self) -> list[StateType]:
         """Resets the state of the environment and returns an initial observation.
         Returns: observation (object/list): the initial observation of the
         space.
@@ -398,7 +398,7 @@ class MultiAgentUnityTask(MultiAgentTaskType):
         return states
         # return res[0]
 
-    def step(self, action: List[Any], agent_id: int) -> GymStepResult:
+    def step(self, action: list[Any], agent_id: int) -> GymStepResult:
         """Run one timestep of the environment's dynamics. When end of
         episode is reached, you are responsible for calling `reset()`
         to reset this environment's state.
@@ -430,7 +430,7 @@ class MultiAgentUnityTask(MultiAgentTaskType):
             return self._single_step(decision_step)
 
     # def detect_game_over(self, termianl_steps: List[TerminalSteps]) -> bool:
-    def detect_game_over(self, termianl_steps: List) -> bool:
+    def detect_game_over(self, termianl_steps: list) -> bool:
         """Determine whether the episode has finished.
 
         Expects the `terminal_steps` to contain only steps that terminated. Note that other steps
@@ -484,8 +484,8 @@ class MultiAgentUnityTask(MultiAgentTaskType):
                 result += 1
         return result
 
-    def _get_vis_obs_shape(self) -> List[Tuple]:
-        result: List[Tuple] = []
+    def _get_vis_obs_shape(self) -> list[tuple]:
+        result: list[tuple] = []
         for shape in self.group_spec.observation_shapes:
             if len(shape) == 3:
                 result.append(shape)
@@ -493,8 +493,8 @@ class MultiAgentUnityTask(MultiAgentTaskType):
 
     @staticmethod
     # def _get_vis_obs_list(step_result: Union[DecisionSteps, TerminalSteps]) -> List[np.ndarray]:
-    def _get_vis_obs_list(step_result) -> List[np.ndarray]:
-        result: List[np.ndarray] = []
+    def _get_vis_obs_list(step_result) -> list[np.ndarray]:
+        result: list[np.ndarray] = []
         for obs in step_result.obs:
             if len(obs.shape) == 4:
                 result.append(obs)
@@ -503,7 +503,7 @@ class MultiAgentUnityTask(MultiAgentTaskType):
     @staticmethod
     # def _get_vector_obs(step_result: Union[DecisionSteps, TerminalSteps]) -> np.ndarray:
     def _get_vector_obs(step_result) -> np.ndarray:
-        result: List[np.ndarray] = []
+        result: list[np.ndarray] = []
         for obs in step_result.obs:
             if len(obs.shape) == 2:
                 result.append(obs)
@@ -550,7 +550,7 @@ class MultiAgentUnityTask(MultiAgentTaskType):
         return {"render.modes": ["rgb_array"]}
 
     @property
-    def reward_range(self) -> Tuple[float, float]:
+    def reward_range(self) -> tuple[float, float]:
         return -float("inf"), float("inf")
 
     @property

@@ -2,7 +2,7 @@ import copy
 import math
 import random
 from collections import defaultdict
-from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
+from typing import Any, Iterator, Sequence
 
 import numpy
 
@@ -84,7 +84,7 @@ class PERBuffer(BufferBase):
             self._states.remove(old_data["obs_idx"])
             self._states.remove(old_data["next_obs_idx"])
 
-    def _sample_list(self, beta: float = 1, **kwargs) -> List[Experience]:
+    def _sample_list(self, beta: float = 1, **kwargs) -> list[Experience]:
         """The method return samples randomly without duplicates"""
         if len(self.tree) < self.batch_size:
             return []
@@ -107,7 +107,7 @@ class PERBuffer(BufferBase):
         self.priority_update(indices, priorities)  # Revert priorities
         weights = weights / max(weights)
 
-        for (experience, weight, index) in zip(samples, weights, indices):
+        for experience, weight, index in zip(samples, weights, indices):
             experience.weight = weight
             experience.index = index
             if self._states_mng:
@@ -117,7 +117,7 @@ class PERBuffer(BufferBase):
 
         return experiences
 
-    def sample(self, beta: float = 0.5) -> Optional[Dict[str, List]]:
+    def sample(self, beta: float = 0.5) -> dict[str, list] | None:
         all_experiences = defaultdict(lambda: [])
         sampled_exp = self._sample_list(beta=beta)
         if len(sampled_exp) == 0:
@@ -132,7 +132,7 @@ class PERBuffer(BufferBase):
                 all_experiences[key].append(value)
         return all_experiences
 
-    def priority_update(self, indices: Sequence[int], priorities: List) -> None:
+    def priority_update(self, indices: Sequence[int], priorities: list) -> None:
         """Updates prioprities for elements on provided indices."""
         for i, p in zip(indices, priorities):
             self.tree.weight_update(i, math.pow(p, self.alpha))
@@ -155,12 +155,12 @@ class PERBuffer(BufferBase):
             buffer.load_buffer(state.data)
         return buffer
 
-    def dump_buffer(self, serialize: bool = False) -> Iterator[Dict[str, List]]:
+    def dump_buffer(self, serialize: bool = False) -> Iterator[dict[str, list]]:
         for exp in self.tree.data[: len(self.tree)]:
             # yield Experience(**exp).get_dict(serialize=serialize)
             yield exp.get_dict(serialize=serialize)
 
-    def load_buffer(self, buffer: List[Experience]):
+    def load_buffer(self, buffer: list[Experience]):
         for experience in buffer:
             self.add(**experience.data)
 
@@ -182,7 +182,7 @@ class SumTree(object):
         self.leaf_offset = 2 ** (self.tree_height - 1) - 1
         self.tree_size = 2**self.tree_height - 1
         self.tree = numpy.zeros(self.tree_size)
-        self.data: List[Optional[Dict]] = [None] * self.leafs_num
+        self.data: list[dict | None] = [None] * self.leafs_num
         self.size = 0
         self.cursor = 0
 
@@ -216,12 +216,12 @@ class SumTree(object):
             self.tree[tindex] += diff
             tindex = (tindex - 1) // 2
 
-    def find(self, weight) -> Tuple[Any, float, int]:
+    def find(self, weight) -> tuple[Any, float, int]:
         """Returns (data, weight, index)"""
         assert 0 <= weight <= 1, "Expecting weight to be sampling weight [0, 1]"
         return self._find(weight * self.tree[0], 0)
 
-    def _find(self, weight, index) -> Tuple[Any, float, int]:
+    def _find(self, weight, index) -> tuple[Any, float, int]:
         """Recursively finds a data by the weight.
 
         Returns:

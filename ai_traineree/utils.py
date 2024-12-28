@@ -1,7 +1,7 @@
 import logging
 import os
 from pathlib import Path
-from typing import Any, List, Tuple, Union
+from typing import Any
 
 import jsons
 import numpy as np
@@ -37,7 +37,7 @@ def to_tensor(x) -> torch.Tensor:
         return torch.tensor(x)
 
 
-def save_gif(path, images: List[np.ndarray]) -> None:
+def save_gif(path, images: list[np.ndarray]) -> None:
     logging.debug(f"Saving as a gif to {path}")
     from PIL import Image
 
@@ -47,12 +47,12 @@ def save_gif(path, images: List[np.ndarray]) -> None:
     imgs[0].save(path, save_all=True, append_images=imgs[1:], optimize=True, quality=85)
 
 
-def str_to_number(s: str) -> Union[int, float]:
+def str_to_number(s: str) -> int | float:
     "Smartly converts string either to an int or float"
     return int(s) if "." not in s else float(s)
 
 
-def str_to_list(s: str) -> List:
+def str_to_list(s: str) -> list:
     """Converts a string list of numbers into a evaluated list.
 
     Example:
@@ -70,7 +70,7 @@ def str_to_list(s: str) -> List:
     return [str_to_number(num) for num in s.split(",")]
 
 
-def str_to_tuple(s: str) -> Tuple:
+def str_to_tuple(s: str) -> tuple:
     """Converts a string tuple of numbers into a evaluated tuple.
 
     Example:
@@ -90,7 +90,7 @@ def str_to_tuple(s: str) -> Tuple:
     return tuple(map(str_to_number, s.split(",")))
 
 
-def str_to_seq(s: str) -> Union[Tuple, List]:
+def str_to_seq(s: str) -> tuple | list:
     """Converts a string sequence of number into tuple or list.
     The distnction is based on the surrounding brackets. If no brackets detected then it attempts to cast to tuple.
 
@@ -109,7 +109,7 @@ def str_to_seq(s: str) -> Union[Tuple, List]:
         return str_to_tuple(s)
 
 
-def to_numbers_seq(x: Any) -> Union[Tuple, List]:
+def to_numbers_seq(x: Any) -> tuple | list:
     """Tries to convert an object into a sequence of numbers."""
     if isinstance(x, (tuple, list)):
         return x
@@ -126,7 +126,7 @@ def serialize(obj) -> str:
     return jsons.dumps(obj)
 
 
-def condens_ndarray(a: np.ndarray) -> Union[int, float, np.ndarray]:
+def condens_ndarray(a: np.ndarray) -> int | float | np.ndarray:
     """Condense ndarray to a common value.
 
     Returns:

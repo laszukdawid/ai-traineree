@@ -5,7 +5,7 @@ import sys
 import time
 from collections import deque
 from pathlib import Path
-from typing import Any, Iterable, List, Optional, Tuple
+from typing import Any, Iterable
 
 from ai_traineree.agents import AgentBase
 from ai_traineree.loggers import DataLogger
@@ -58,18 +58,18 @@ class EnvRunner:
         self.__images = []
 
         self.logger.setLevel(kwargs.get("logger_level", logging.INFO))
-        self.data_logger: Optional[DataLogger] = kwargs.get("data_logger")
+        self.data_logger: DataLogger | None = kwargs.get("data_logger")
         if self.data_logger:
             self.logger.info("DataLogger: %s", str(self.data_logger))
             self.data_logger.set_hparams(hparams=self.agent.hparams)
 
         self._debug_log: bool = bool(kwargs.get("debug_log", False))
-        self._exp: List[Tuple[int, Experience]] = []
-        self._actions: List[Any] = []
-        self._states: List[Any] = []
-        self._rewards: List[Any] = []
-        self._dones: List[Any] = []
-        self._noises: List[Any] = []
+        self._exp: list[tuple[int, Experience]] = []
+        self._actions: list[Any] = []
+        self._states: list[Any] = []
+        self._rewards: list[Any] = []
+        self._dones: list[Any] = []
+        self._noises: list[Any] = []
 
         self.seed(kwargs.get("seed"))
 
@@ -92,12 +92,12 @@ class EnvRunner:
         self,
         train: bool = False,
         eps: float = 0,
-        max_iterations: Optional[int] = None,
+        max_iterations: int | None = None,
         render: bool = False,
         render_gif: bool = False,
-        log_interaction_freq: Optional[int] = 10,
-        full_log_interaction_freq: Optional[int] = 1000,
-    ) -> Tuple[RewardType, int]:
+        log_interaction_freq: int | None = 10,
+        full_log_interaction_freq: int | None = 1000,
+    ) -> tuple[RewardType, int]:
         score = 0
         obs = self.task.reset()
         iterations = 0
@@ -171,10 +171,10 @@ class EnvRunner:
         eps_decay: float = 0.995,
         log_episode_freq: int = 1,
         log_interaction_freq: int = 10,
-        gif_every_episodes: Optional[int] = None,
-        checkpoint_every: Optional[int] = 200,
+        gif_every_episodes: int | None = None,
+        checkpoint_every: int | None = 200,
         force_new: bool = False,
-    ) -> List[float]:
+    ) -> list[float]:
         """
         Evaluates the agent in the environment.
         The evaluation will stop when the agent reaches the `reward_goal` in the averaged last `self.window_len`, or
@@ -317,7 +317,7 @@ class EnvRunner:
 
     def log_episode_metrics(self, **kwargs):
         """Uses DataLogger, e.g. TensorboardLogger, to store env metrics."""
-        episodes: List[int] = kwargs.get("episodes", [])
+        episodes: list[int] = kwargs.get("episodes", [])
         for episode, epsilon in zip(episodes, kwargs.get("epsilons", [])):
             self.data_logger.log_value("episode/epsilon", epsilon, episode)
 

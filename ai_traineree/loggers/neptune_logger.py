@@ -1,5 +1,4 @@
 import logging
-from typing import Dict
 
 from .data_logger import DataLogger
 
@@ -34,8 +33,7 @@ class NeptuneLogger(DataLogger):
     def close(self):
         self.experiment.stop()
 
-    def set_hparams(self, *, hparams: Dict):
-        ...
+    def set_hparams(self, *, hparams: dict): ...
 
     def log_value(self, name: str, value, step: int) -> None:
         self.experiment.log_metric(name, x=step, y=value)

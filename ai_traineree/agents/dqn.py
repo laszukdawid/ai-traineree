@@ -1,5 +1,5 @@
 import copy
-from typing import Callable, Dict, Optional, Type
+from typing import Callable, Type
 
 import torch
 import torch.nn as nn
@@ -40,9 +40,9 @@ class DQNAgent(AgentBase):
         action_space: DataSpace,
         network_fn: Callable[[], NetworkType] = None,
         network_class: Type[NetworkTypeClass] = None,
-        state_transform: Optional[Callable] = None,
-        reward_transform: Optional[Callable] = None,
-        **kwargs
+        state_transform: Callable | None = None,
+        reward_transform: Callable | None = None,
+        **kwargs,
     ):
         """Initiates the DQN agent.
 
@@ -113,7 +113,7 @@ class DQNAgent(AgentBase):
         self._loss: float = float("nan")
 
     @property
-    def loss(self) -> Dict[str, float]:
+    def loss(self) -> dict[str, float]:
         return {"loss": self._loss}
 
     @loss.setter
@@ -202,7 +202,7 @@ class DQNAgent(AgentBase):
         action = int(torch.argmax(action_values.cpu()))
         return experience.update(action=action)
 
-    def learn(self, experiences: Dict[str, list]) -> None:
+    def learn(self, experiences: dict[str, list]) -> None:
         """Updates agent's networks based on provided experience.
 
         Parameters:
@@ -237,7 +237,7 @@ class DQNAgent(AgentBase):
             assert any(~torch.isnan(error))
             self.buffer.priority_update(experiences["index"], error.abs())
 
-    def state_dict(self) -> Dict[str, dict]:
+    def state_dict(self) -> dict[str, dict]:
         """Describes agent's networks.
 
         Returns:
@@ -301,7 +301,7 @@ class DQNAgent(AgentBase):
         agent_state = self.get_state()
         torch.save(agent_state, path)
 
-    def load_state(self, *, path: Optional[str] = None, state: Optional[AgentState] = None) -> None:
+    def load_state(self, *, path: str | None = None, state: AgentState | None = None) -> None:
         """Loads state from a file under provided path.
 
         Parameters:

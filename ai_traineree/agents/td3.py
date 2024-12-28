@@ -1,5 +1,4 @@
 from functools import cached_property
-from typing import Dict
 
 import torch
 import torch.nn as nn
@@ -35,7 +34,7 @@ class TD3Agent(AgentBase):
         action_space: DataSpace,
         noise_scale: float = 0.5,
         noise_sigma: float = 1.0,
-        **kwargs
+        **kwargs,
     ):
         """
         Parameters:
@@ -129,7 +128,7 @@ class TD3Agent(AgentBase):
         self._loss_critic = float("nan")
 
     @property
-    def loss(self) -> Dict[str, float]:
+    def loss(self) -> dict[str, float]:
         return {"actor": self._loss_actor, "critic": self._loss_critic}
 
     @loss.setter
@@ -262,7 +261,7 @@ class TD3Agent(AgentBase):
 
         self.critic.requires_grad_ = True
 
-    def state_dict(self) -> Dict[str, dict]:
+    def state_dict(self) -> dict[str, dict]:
         """Describes agent's networks.
 
         Returns:

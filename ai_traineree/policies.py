@@ -1,5 +1,4 @@
 from functools import lru_cache
-from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
@@ -9,6 +8,7 @@ from torch.distributions.distribution import Distribution
 from ai_traineree.networks import NetworkType
 from ai_traineree.networks.bodies import FcNet
 from ai_traineree.types import FeatureType
+from ai_traineree.types.dataspace import DataSpace
 
 
 class PolicyType(NetworkType):
@@ -192,10 +192,10 @@ class GaussianPolicy(PolicyType):
         self.log_std_min = -10
         self.log_std_max = 2
 
-        self._last_dist: Optional[Distribution] = None
+        self._last_dist: Distribution | None = None
         self._last_samples = None
 
-    def log_prob(self, samples) -> Optional[torch.Tensor]:
+    def log_prob(self, samples) -> torch.Tensor | None:
         if self._last_dist is None:
             return None
         return self._last_dist.log_prob(samples).sum(axis=-1)
@@ -229,7 +229,8 @@ class BetaPolicy(PolicyType):
 
     param_dim = 2
 
-    def __init__(self, size: int, bounds: Tuple[float, float] = (1, float("inf"))):
+    # def __init__(self, size: int, bounds: Tuple[float, float] = (1, float("inf"))):
+    def __init__(self, size: int, bound_space: DataSpace, out_scale: float = 1, **kwargs):
         """
         Parameters:
             size: Observation's dimensionality upon sampling.
@@ -238,39 +239,58 @@ class BetaPolicy(PolicyType):
 
         """
         super(BetaPolicy, self).__init__()
-        self.bounds = bounds
+        if bound_space.low is None or bound_space.high is None:
+            raise ValueError(
+                "Bound space needs to have both low and high boundaries. "
+                f"Provided: low={bound_space.low}, high={bound_space.high}"
+            )
+        self.bound_space = bound_space
         self.action_size = size
         self.dist = Beta if size > 1 else Dirichlet
+        self._last_dist: Distribution | None = None
+        self._last_samples = None
 
-    def forward(self, x) -> Distribution:
+    def forward(self, x, deterministic: bool = False) -> torch.Tensor:
         x = x.view(-1, self.action_size, self.param_dim)
-        x = torch.clamp(x, self.bounds[0], self.bounds[1])
-        dist = self.dist(x[..., 0], x[..., 1])
-        return dist
+        loc = x[..., 0]
+        if deterministic:
+            return loc
 
-    @staticmethod
-    def log_prob(dist, samples):
-        return dist.log_prob(samples).mean(dim=-1)
+        # x = torch.clamp(x, self.bound_space.low, self.bound_space.high)
+        # self._last_dist = self.dist(x[..., 0], x[..., 1])
+        self._last_dist = self.dist()
+        return self._last_dist.rsample()
+
+    def log_prob(self, samples):
+        if self._last_dist is None:
+            return None
+        return self._last_dist.log_prob(samples).mean(dim=-1)
 
 
 class DirichletPolicy(PolicyType):
+    param_dim = 2
 
-    param_dim = 1
-
-    def __init__(self, *, alpha_min: float = 0.05):
+    def __init__(self, size: int, *, alpha_min: float = 0.05):
         super(DirichletPolicy, self).__init__()
+        self.size = size
         self.alpha_min = alpha_min
 
-    def forward(self, x) -> Distribution:
-        x = torch.clamp(x, self.alpha_min)
-        return Dirichlet(x)
+    def forward(self, x, deterministic: bool = False) -> torch.Tensor:
+        _x = x.view(-1, self.param_dim, self.size)
+        loc = _x[..., 0]
+        if deterministic:
+            return loc
+        alpha = torch.clamp(_x[..., 1], self.alpha_min)
+        self._last_dist = Dirichlet(alpha)
+        self._last_loc = loc.detach()
+        return loc + self._last_dist.rsample()
 
-    def log_prob(self, dist: Dirichlet, samples) -> torch.Tensor:
-        return dist.log_prob(samples)
+    def log_prob(self, samples) -> torch.Tensor:
+        _sampled = samples - self._last_loc
+        return self._last_dist.log_prob(_sampled)
 
 
 class DeterministicPolicy(PolicyType):
-
     param_dim = 1
 
     def __init__(self, action_size):

@@ -1,7 +1,6 @@
 import json
 import time
 from os.path import getsize, splitext
-from typing import Dict
 
 from .data_logger import DataLogger
 
@@ -59,7 +58,7 @@ class FileLogger(DataLogger):
             all_rows = f.readlines()
             f.writelines(all_rows[len(all_rows) // 2 :])
 
-    def set_hparams(self, *, hparams: Dict):
+    def set_hparams(self, *, hparams: dict):
         filepath = splitext(self.filepath)[0]
 
         with open(filepath + "_hparams.json", "w") as f:
@@ -70,7 +69,7 @@ class FileLogger(DataLogger):
         with open(self.filepath, "a") as f:
             f.write(f"{self._timestamp()},step,{step},{name},{value}\n")
 
-    def log_values_dict(self, name: str, values: Dict[str, float], step: int) -> None:
+    def log_values_dict(self, name: str, values: dict[str, float], step: int) -> None:
         self._check_and_trim()
         log = ",".join([f"{name}_{key},{value}" for (key, value) in values.items()])
         with open(self.filepath, "a") as f:

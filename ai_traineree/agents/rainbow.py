@@ -1,5 +1,5 @@
 import copy
-from typing import Callable, Dict, List, Optional
+from typing import Callable
 
 import torch
 import torch.nn as nn
@@ -45,8 +45,8 @@ class RainbowAgent(AgentBase):
         self,
         obs_space: DataSpace,
         action_space: DataSpace,
-        state_transform: Optional[Callable] = None,
-        reward_transform: Optional[Callable] = None,
+        state_transform: Callable | None = None,
+        reward_transform: Callable | None = None,
         **kwargs,
     ):
         """
@@ -201,7 +201,7 @@ class RainbowAgent(AgentBase):
         action = int(q_values.argmax(-1))  # Action maximizes state-action value Q(s, a)
         return experience.update(action=action)
 
-    def learn(self, experiences: Dict[str, List]) -> None:
+    def learn(self, experiences: dict[str, list]) -> None:
         """
         Parameters:
             experiences: Contains all experiences for the agent. Typically sampled from the memory buffer.
@@ -256,7 +256,7 @@ class RainbowAgent(AgentBase):
         # Update networks - sync local & target
         soft_update(self.target_net, self.net, self.tau)
 
-    def state_dict(self) -> Dict[str, dict]:
+    def state_dict(self) -> dict[str, dict]:
         """Returns agent's state dictionary.
 
         Returns:

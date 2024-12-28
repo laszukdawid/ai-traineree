@@ -1,7 +1,6 @@
 import copy
 import operator
 from functools import cached_property, reduce
-from typing import Dict, Optional
 
 import torch
 import torch.nn as nn
@@ -125,7 +124,7 @@ class DDPGAgent(AgentBase):
         hard_update(self.target_critic, self.critic)
 
     @property
-    def loss(self) -> Dict[str, float]:
+    def loss(self) -> dict[str, float]:
         return {"actor": self._loss_actor, "critic": self._loss_critic}
 
     @loss.setter
@@ -201,7 +200,6 @@ class DDPGAgent(AgentBase):
                 soft_update(self.target_critic, self.critic, self.tau)
 
     def compute_value_loss(self, states, actions, next_states, rewards, dones):
-
         Q_expected = self.critic(states, actions)
 
         with torch.no_grad():
@@ -254,7 +252,7 @@ class DDPGAgent(AgentBase):
 
         self.critic.requires_grad_ = True
 
-    def state_dict(self) -> Dict[str, dict]:
+    def state_dict(self) -> dict[str, dict]:
         """Describes agent's networks.
 
         Returns:
@@ -328,7 +326,7 @@ class DDPGAgent(AgentBase):
         agent_state = self.get_state()
         torch.save(agent_state, path)
 
-    def load_state(self, *, path: Optional[str] = None, agent_state: Optional[dict] = None):
+    def load_state(self, *, path: str | None = None, agent_state: dict | None = None):
         if path is None and agent_state:
             raise ValueError("Either `path` or `agent_state` must be provided to load agent's state.")
         if path is not None and agent_state is None:

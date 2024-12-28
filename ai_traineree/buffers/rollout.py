@@ -1,5 +1,5 @@
 from collections import defaultdict, deque
-from typing import Deque, Dict, Iterator, List, Optional
+from typing import Deque, Iterator
 
 from ai_traineree.buffers import ReferenceBuffer
 from ai_traineree.types.state import BufferState
@@ -8,7 +8,6 @@ from . import BufferBase, Experience
 
 
 class RolloutBuffer(BufferBase):
-
     type = "Rollout"
 
     def __init__(self, batch_size: int, buffer_size=int(1e6), **kwargs):
@@ -56,7 +55,7 @@ class RolloutBuffer(BufferBase):
                 self._states.remove(drop_exp.state_idx)
                 self._states.remove(drop_exp.next_state_idx)
 
-    def sample(self, batch_size: Optional[int] = None) -> Iterator[Dict[str, list]]:
+    def sample(self, batch_size: int | None = None) -> Iterator[dict[str, list]]:
         """
         Samples the whole buffer. Iterates all gathered data.
         Note that sampling doesn't clear the buffer.
@@ -94,11 +93,11 @@ class RolloutBuffer(BufferBase):
             buffer.load_buffer(state.data)
         return buffer
 
-    def dump_buffer(self, serialize: bool = False) -> Iterator[Dict[str, List]]:
+    def dump_buffer(self, serialize: bool = False) -> Iterator[dict[str, list]]:
         for data in self.data:
             yield data.get_dict(serialize=serialize)
 
-    def load_buffer(self, buffer: List[Experience]):
+    def load_buffer(self, buffer: list[Experience]):
         for experience in buffer:
             self.add(**experience.data)
 

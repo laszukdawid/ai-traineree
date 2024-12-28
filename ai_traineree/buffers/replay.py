@@ -1,5 +1,5 @@
 import random
-from typing import Dict, Iterator, List, Optional, Sequence
+from typing import Iterator, Sequence
 
 from ai_traineree.buffers import ReferenceBuffer
 from ai_traineree.types.state import BufferState
@@ -8,7 +8,6 @@ from . import BufferBase, Experience
 
 
 class ReplayBuffer(BufferBase):
-
     type = "Replay"
     keys = ["states", "actions", "rewards", "next_states", "dones"]
 
@@ -25,7 +24,7 @@ class ReplayBuffer(BufferBase):
         self.batch_size = batch_size
         self.buffer_size = buffer_size
         self.indices = range(batch_size)
-        self.data: List[Experience] = []
+        self.data: list[Experience] = []
 
         self._states_mng = kwargs.get("compress_state", False)
         self._states = ReferenceBuffer(buffer_size + 20)
@@ -57,7 +56,7 @@ class ReplayBuffer(BufferBase):
                 self._states.remove(drop_exp.state_idx)
                 self._states.remove(drop_exp.next_state_idx)
 
-    def sample(self, keys: Optional[Sequence[str]] = None) -> Dict[str, List]:
+    def sample(self, keys: Sequence[str] | None = None) -> dict[str, list]:
         """
         Parameters:
             keys: A list of keys which limit the return.
@@ -66,7 +65,7 @@ class ReplayBuffer(BufferBase):
         Returns:
             Returns all values for asked keys.
         """
-        sampled_exp: List[Experience] = self._rng.sample(self.data, self.batch_size)
+        sampled_exp: list[Experience] = self._rng.sample(self.data, self.batch_size)
         keys = keys if keys is not None else list(self.data[0].__dict__.keys())
         all_experiences = {k: [] for k in keys}
         for data in sampled_exp:
@@ -88,11 +87,11 @@ class ReplayBuffer(BufferBase):
             buffer.load_buffer(state.data)
         return buffer
 
-    def dump_buffer(self, serialize: bool = False) -> Iterator[Dict[str, List]]:
+    def dump_buffer(self, serialize: bool = False) -> Iterator[dict[str, list]]:
         for data in self.data:
             yield data.get_dict(serialize=serialize)
 
-    def load_buffer(self, buffer: List[Experience]):
+    def load_buffer(self, buffer: list[Experience]):
         for experience in buffer:
             # self.add(**experience)
             self.add(**experience.data)

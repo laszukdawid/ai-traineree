@@ -4,7 +4,6 @@ import os
 import sys
 from collections import deque
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 import numpy as np
 import torch.multiprocessing as mp
@@ -37,7 +36,7 @@ class MultiSyncEnvRunner:
 
     logger = logging.getLogger("MultiSyncEnvRunner")
 
-    def __init__(self, tasks: List[TaskType], agent: AgentBase, max_iterations: int = int(1e5), **kwargs):
+    def __init__(self, tasks: list[TaskType], agent: AgentBase, max_iterations: int = int(1e5), **kwargs):
         """
         Expects the environment to come as the TaskType and the agent as the AgentBase.
 
@@ -65,7 +64,7 @@ class MultiSyncEnvRunner:
         self.window_len = kwargs.get("window_len", 100)
         self.scores_window = deque(maxlen=self.window_len)
 
-        self.data_logger: Optional[DataLogger] = kwargs.get("data_logger")
+        self.data_logger: DataLogger | None = kwargs.get("data_logger")
         self.logger.info("DataLogger: %s", str(self.data_logger))
 
     def __str__(self) -> str:
@@ -139,7 +138,7 @@ class MultiSyncEnvRunner:
         eps_end: float = 0.01,
         eps_decay: float = 0.995,
         log_episode_freq: int = 1,
-        checkpoint_every: Optional[int] = 200,
+        checkpoint_every: int | None = 200,
         force_new=False,
     ):
         """
@@ -200,7 +199,7 @@ class MultiSyncEnvRunner:
         eps_end: float = 0.01,
         eps_decay: float = 0.995,
         log_episode_freq: int = 1,
-        checkpoint_every: Optional[int] = 200,
+        checkpoint_every: int | None = 200,
         force_new: bool = False,
     ):
         # Initiate variables
@@ -255,7 +254,6 @@ class MultiSyncEnvRunner:
 
             # Training part
             for idx in range(self.task_num):
-
                 # Update Episode number if any agent is DONE or enough ITERATIONS
                 if not (experience.done[idx] or _iterations[idx] >= max_iterations):
                     continue
@@ -304,7 +302,7 @@ class MultiSyncEnvRunner:
         for t_idx in range(self.task_num):
             self.parent_conns[t_idx].send((t_idx, obs[t_idx], actions[t_idx]))
 
-    def _collect_all_tasks(self) -> Tuple[Experience, np.ndarray]:
+    def _collect_all_tasks(self) -> tuple[Experience, np.ndarray]:
         obs = np.empty((len(self.tasks),) + self.tasks[0].obs_space.shape, dtype=np.float32)
         next_obs = obs.copy()
         actions = np.empty((len(self.tasks),) + self.tasks[0].action_space.shape, dtype=np.float32)
@@ -391,7 +389,7 @@ class MultiSyncEnvRunner:
 
     def log_episode_metrics(self, **kwargs):
         """Uses data_logger, e.g. Tensorboard, to store env metrics."""
-        episodes: List[int] = kwargs.get("episodes", [])
+        episodes: list[int] = kwargs.get("episodes", [])
         for episode, epsilon in zip(episodes, kwargs.get("epsilons", [])):
             self.data_logger.log_value("episode/epsilon", epsilon, episode)
 

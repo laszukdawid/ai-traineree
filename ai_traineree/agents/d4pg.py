@@ -5,7 +5,6 @@
 
 import itertools
 from functools import cached_property
-from typing import Dict
 
 import torch
 import torch.nn as nn
@@ -175,7 +174,7 @@ class D4PGAgent(AgentBase):
         self._loss_critic = float("nan")
 
     @property
-    def loss(self) -> Dict[str, float]:
+    def loss(self) -> dict[str, float]:
         return {"actor": self._loss_actor, "critic": self._loss_critic}
 
     @cached_property
@@ -337,7 +336,7 @@ class D4PGAgent(AgentBase):
         soft_update(self.target_actor, self.actor, self.tau)
         soft_update(self.target_critic, self.critic, self.tau)
 
-    def state_dict(self) -> Dict[str, dict]:
+    def state_dict(self) -> dict[str, dict]:
         """Describes agent's networks.
 
         Returns:

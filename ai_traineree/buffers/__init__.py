@@ -1,6 +1,6 @@
 import abc
 from collections import defaultdict
-from typing import Dict, List, Optional, Sequence, Union
+from typing import Sequence
 
 import numpy as np
 import torch
@@ -34,15 +34,15 @@ class BufferBase(abc.ABC):
         """Add samples to the buffer."""
         raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
 
-    def sample(self, *args, **kwargs) -> Optional[List[Experience]]:
+    def sample(self, *args, **kwargs) -> list[Experience | None]:
         """Sample buffer for a set of experience."""
         raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
 
-    def dump_buffer(self, serialize: bool = False) -> List[Dict]:
+    def dump_buffer(self, serialize: bool = False) -> list[dict]:
         """Return the whole buffer, e.g. for storing."""
         raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
 
-    def load_buffer(self, buffer: List[Experience]) -> None:
+    def load_buffer(self, buffer: list[Experience]) -> None:
         """Loads provided data into the buffer."""
         raise NotImplementedError("You shouldn't see this. Look away. Or fix it.")
 
@@ -67,7 +67,7 @@ class ReferenceBuffer(object):
         return len(self.buffer)
 
     @staticmethod
-    def _hash_element(el) -> Union[int, str]:
+    def _hash_element(el) -> int | str:
         if isinstance(el, np.ndarray):
             return hash(el.data.tobytes())
         elif isinstance(el, torch.Tensor):
@@ -75,14 +75,14 @@ class ReferenceBuffer(object):
         else:
             return str(el)
 
-    def add(self, el) -> Union[int, str]:
+    def add(self, el) -> int | str:
         idx = self._hash_element(el)
         self.counter[idx] += 1
         if self.counter[idx] < 2:
             self.buffer[idx] = el
         return idx
 
-    def get(self, idx: Union[int, str]):
+    def get(self, idx: int | str):
         return self.buffer[idx]
 
     def remove(self, idx: str):

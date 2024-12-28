@@ -1,6 +1,6 @@
 import random
 import string
-from typing import Any, Dict, List
+from typing import Any
 
 from ai_traineree.types.experience import Experience
 
@@ -9,7 +9,7 @@ def r_string(n: int) -> str:
     return "".join(random.choices(string.printable, k=n))
 
 
-def r_float(n: int) -> List[float]:
+def r_float(n: int) -> list[float]:
     return [random.random() for _ in range(n)]
 
 
@@ -111,7 +111,7 @@ def test_experience_get_dict():
     import torch
 
     # Assign
-    init_data: Dict[str, Any] = {k: r_float(5) for k in ["obs", "action", "reward", "done", "next_obs"]}
+    init_data: dict[str, Any] = {k: r_float(5) for k in ["obs", "action", "reward", "done", "next_obs"]}
     init_data["state"] = numpy.random.random(10)
     init_data["advantage"] = torch.rand(10)
     exp = Experience(**init_data)
@@ -128,7 +128,7 @@ def test_experience_get_dict_serialize():
     import torch
 
     # Assign
-    init_data: Dict[str, Any] = {k: r_float(5) for k in ["action", "reward", "done"]}
+    init_data: dict[str, Any] = {k: r_float(5) for k in ["action", "reward", "done"]}
     init_data["obs"] = numpy.random.random(5)
     init_data["next_obs"] = torch.rand(10)
     exp = Experience(**init_data)
