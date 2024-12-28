@@ -24,6 +24,11 @@ tasks:
     desc: "Lint the project"
     cmds:
       - uvx ruff@0.3.0 check
+
+  build:
+    desc: "Build the project"
+    cmds:
+      - uv build
   
   test:
     cmds:
