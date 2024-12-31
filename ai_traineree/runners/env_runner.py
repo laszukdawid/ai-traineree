@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import sys
-import time
 from collections import deque
 from pathlib import Path
 from typing import Any, Iterable
