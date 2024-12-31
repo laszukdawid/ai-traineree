@@ -11,6 +11,7 @@ from ai_traineree.types import ActionType, DataSpace, MultiAgentTaskType, StateT
 
 try:
     import gymnasium as gym
+    from gymnasium.wrappers import RecordVideo
 
     BaseEnv = gym.Env  # To satisfy parser on MultiAgentUnityTask import
 except ImportError:
@@ -47,6 +48,11 @@ class GymTask(TaskType):
         **kwargs,
     ):
         """
+        Wrapped Gymnasium environment to be used with the `EnvRunner`.
+        If unfamiliar with Gymnasium (successor to OpenAI's gym), then check https://gymnasium.farama.org/.
+
+        Most arguments for `gym.make` should be supported. If not, please raise an issue.
+
         Parameters:
             env (gym-like env instance or str):
                 Something one might get via `env = gym.make('CartPole-v0')` where `gym` is OpenAI gym compatible.
@@ -70,18 +76,23 @@ class GymTask(TaskType):
                 Often referred as "noop frames". Indicates how many initial frames to skip.
                 Every `reset()` will skip a random number of frames in range`[0, skip_start_frames]`.
 
+        Keyword Args:
+            render_mode: Default: 'rgb_array'.
+                Mode that the rendering should be done in. Currently only 'rgb_array' is supported.
+            video_episode_trigger: None | int: Default: None.
+                If set, it will record a video every `video_episode_trigger` episode.
+            video_folder: str: Default: 'videos'.
+                Directory where the videos should be saved.
+
         Example:
             >>> def reward_transform(*, reward, state, done):
             ...     return reward + 100*done - state[0]*0.1
             >>> task = GymTask(env='CartPole-v1', reward_transform=reward_transform)
 
         """
-        if isinstance(env, str):
-            self.name = env
-            self.env = gym.make(env)
-        else:
-            self.name = "custom"
-            self.env = env
+        self.name = "custom"
+        self.env = self.create_env(env, **kwargs)
+
         self.can_render = can_render
         self.is_discrete = "Discrete" in str(type(self.env.action_space))
 
@@ -95,6 +106,56 @@ class GymTask(TaskType):
         self.skip_start_frames = skip_start_frames
 
         self.seed(kwargs.get("seed"))
+
+    def create_env(self, env: str | gym.Env, **kwargs):
+        """Create a new environment with the same settings as the current one.
+
+        Here's the place where the video recording is set.
+
+        Parameters:
+            env (str | gym.Env): Environment to be created. If string is provided, it's expected to be a registered
+                environment with OpenAI gym.
+
+        Keyword Args:
+            render_mode: Default: 'rgb_array'.
+                Mode that the rendering should be done in. Currently only 'rgb_array' is supported.
+            video_episode_trigger: None | int: Default: None.
+                If set, it will record a video every `video_episode_trigger` episode.
+            video_folder: str: Default: 'videos'.
+                Directory where the videos should be saved.
+
+        Returns:
+            GymTask: New task with the provided environment.
+
+        """
+
+        # If `env` is well defined, return it
+        if not isinstance(env, str):
+            return env
+
+        self.name = env
+        render_mode = kwargs.get("render_mode", "rgb_array")
+        video_every_episodes = kwargs.get("video_episode_trigger", None)
+        video_folder = kwargs.get("video_folder", "videos")
+
+        try:
+            out_env = gym.make(env, render_mode=render_mode)
+        except Exception as e:
+            self.logger.warning(
+                "Couldn't create environment with `render_mode=%s`. Trying without. Error: %s", render_mode, e
+            )
+            out_env = gym.make(env)
+
+        # If video recording is requested, wrap the environment with video recording
+        if video_every_episodes is not None:
+            out_env = RecordVideo(
+                out_env,
+                video_folder=video_folder,
+                name_prefix=self.name,
+                episode_trigger=lambda x: x % video_every_episodes == 0,
+            )
+
+        return out_env
 
     @staticmethod
     def __determine_action_size(action_space):
@@ -132,10 +193,9 @@ class GymTask(TaskType):
 
         return state
 
-    def render(self, mode="rgb_array"):
+    def render(self):
         if self.can_render:
-            # In case of OpenAI, mode can be ['human', 'rgb_array']
-            return self.env.render(mode=mode)
+            return self.env.render()
         else:
             self.logger.warning("Asked for rendering but it's not available in this environment")
             return

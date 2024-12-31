@@ -32,7 +32,7 @@ dev-dependencies = [
 plot = ["matplotlib"]
 tensorboard = ["tensorboard"]
 neptune = ["neptune-client", "psutil"]
-gym = ["gymnasium[all]==1.0.0"]
+gymnasium = ["gymnasium[all]==1.0.0"]
 # mlagents = ["mlagents"]
 # pettingzoo = ["pettingzoo[other]==1.11.0"]
 examples = [

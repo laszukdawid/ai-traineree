@@ -7,7 +7,7 @@ from ai_traineree.tasks import GymTask
 from ai_traineree.types import TaskType
 
 env_name = "BipedalWalker-v3"
-task: TaskType = GymTask(env_name)
+task: TaskType = GymTask(env_name, video_episode_trigger=50)
 config = {
     "device": "cuda",
     "num_epochs": 1,
@@ -33,7 +33,6 @@ data_logger = FileLogger(f"{agent.model}_{env_name}")
 env_runner = EnvRunner(task, agent, max_iterations=2000, data_logger=data_logger)
 # env_runner.interact_episode(render=True)
 scores = env_runner.run(300, 2000, eps_end=0.001, eps_decay=0.9, log_episode_freq=10, force_new=True)
-env_runner.interact_episode(render=True)
 
 data_logger.close()
 

@@ -93,7 +93,6 @@ class EnvRunner:
         train: bool = False,
         eps: float = 0,
         max_iterations: int | None = None,
-        render: bool = False,
         render_gif: bool = False,
         log_interaction_freq: int | None = 10,
         full_log_interaction_freq: int | None = 1000,
@@ -113,9 +112,6 @@ class EnvRunner:
         while iterations < max_iterations and not done:
             iterations += 1
             self.iteration += 1
-            if render:
-                self.task.render("human")
-                time.sleep(1.0 / FRAMES_PER_SEC)
 
             experience = Experience(obs=obs)
             experience = self.agent.act(experience, eps)
@@ -135,10 +131,6 @@ class EnvRunner:
                     self._noises.append((self.iteration, noise))
 
             score += float(reward)
-            if render_gif:
-                # OpenAI gym still renders the image to the screen even though it shouldn't. Eh.
-                img = self.task.render(mode="rgb_array")
-                self.__images.append(img)
 
             experience.update(action=action, reward=reward, next_obs=next_obs, done=done)
             self.agent.step(experience)

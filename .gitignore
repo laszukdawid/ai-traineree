@@ -2,6 +2,8 @@ data/
 build/
 dist/
 ai_traineree.egg-info/
+
+videos/
 /gifs
 /run*
 /htmlcov
