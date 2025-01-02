@@ -1,5 +1,4 @@
 # ai-traineree
-[![Build Status](https://app.travis-ci.com/laszukdawid/ai-traineree.svg?branch=master)](https://app.travis-ci.com/laszukdawid/ai-traineree)
 [![DocStatus](https://readthedocs.org/projects/ai-traineree/badge/?version=latest)](https://ai-traineree.readthedocs.io/)
 [![codecov](https://codecov.io/gh/laszukdawid/ai-traineree/branch/master/graph/badge.svg?token=S62DK7HPYA)](https://codecov.io/gh/laszukdawid/ai-traineree)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/00563b8422454e10bb4ffab64068aa62)](https://www.codacy.com/gh/laszukdawid/ai-traineree/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=laszukdawid/ai-traineree&amp;utm_campaign=Badge_Grade)
