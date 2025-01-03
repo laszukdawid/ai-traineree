@@ -8,10 +8,10 @@ from pathlib import Path
 import numpy as np
 import torch.multiprocessing as mp
 
-from ai_traineree.agents import AgentBase
-from ai_traineree.loggers import DataLogger
-from ai_traineree.types import TaskType
-from ai_traineree.types.experience import Experience
+from aitraineree.agents import AgentBase
+from aitraineree.loggers import DataLogger
+from aitraineree.types import TaskType
+from aitraineree.types.experience import Experience
 
 logging.basicConfig(
     stream=sys.stdout,

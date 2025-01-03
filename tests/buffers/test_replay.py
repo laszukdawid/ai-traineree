@@ -2,14 +2,14 @@ import copy
 
 import pytest
 
-from ai_traineree.buffers.replay import ReplayBuffer
-from ai_traineree.types.experience import Experience
-from ai_traineree.types.state import BufferState
+from aitraineree.buffers.replay import ReplayBuffer
+from aitraineree.types.experience import Experience
+from aitraineree.types.state import BufferState
 from tests.utils import generate_sample_SARS
 
 
 def populate_buffer(buffer, num_samples):
-    for (state, action, reward, next_state, done) in generate_sample_SARS(num_samples):
+    for state, action, reward, next_state, done in generate_sample_SARS(num_samples):
         buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
     return buffer
 
@@ -20,7 +20,7 @@ def test_buffer_size():
     buffer = ReplayBuffer(batch_size=5, buffer_size=buffer_size)
 
     # Act
-    for (state, action, reward, next_state, done) in generate_sample_SARS(buffer_size + 1):
+    for state, action, reward, next_state, done in generate_sample_SARS(buffer_size + 1):
         buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
 
     # Assert
@@ -61,7 +61,7 @@ def test_replay_buffer_sample():
     buffer = ReplayBuffer(batch_size=batch_size, buffer_size=10)
 
     # Act
-    for (state, actions, reward, next_state, done) in generate_sample_SARS(20):
+    for state, actions, reward, next_state, done in generate_sample_SARS(20):
         buffer.add(state=state, action=actions, reward=reward, next_state=next_state, done=done)
 
     # Assert
@@ -187,7 +187,7 @@ def test_replay_buffer_get_state_with_data():
     buffer_size = 20
     buffer = ReplayBuffer(batch_size=batch_size, buffer_size=buffer_size)
 
-    for (state, action, reward, next_state, done) in generate_sample_SARS(buffer_size + 1):
+    for state, action, reward, next_state, done in generate_sample_SARS(buffer_size + 1):
         buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
 
     # Act
@@ -212,7 +212,7 @@ def test_replay_buffer_get_state_without_data():
     buffer_size = 20
     buffer = ReplayBuffer(batch_size=batch_size, buffer_size=buffer_size)
 
-    for (state, action, reward, next_state, done) in generate_sample_SARS(buffer_size + 1):
+    for state, action, reward, next_state, done in generate_sample_SARS(buffer_size + 1):
         buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
 
     # Act

@@ -5,10 +5,10 @@ import torch.nn as nn
 from torch.distributions import Beta, Dirichlet, MultivariateNormal, Normal
 from torch.distributions.distribution import Distribution
 
-from ai_traineree.networks import NetworkType
-from ai_traineree.networks.bodies import FcNet
-from ai_traineree.types import FeatureType
-from ai_traineree.types.dataspace import DataSpace
+from aitraineree.networks import NetworkType
+from aitraineree.networks.bodies import FcNet
+from aitraineree.types import FeatureType
+from aitraineree.types.dataspace import DataSpace
 
 
 class PolicyType(NetworkType):

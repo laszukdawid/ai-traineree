@@ -3,8 +3,8 @@ import copy
 import pytest
 import torch
 
-from ai_traineree.agents.ddpg import DDPGAgent
-from ai_traineree.types import AgentState, BufferState, DataSpace, NetworkState
+from aitraineree.agents.ddpg import DDPGAgent
+from aitraineree.types import AgentState, BufferState, DataSpace, NetworkState
 from conftest import deterministic_interactions, feed_agent
 
 float_space = DataSpace(dtype="float", shape=(5,), low=-2, high=2)

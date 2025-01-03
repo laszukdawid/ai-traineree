@@ -1,7 +1,7 @@
 from pettingzoo.classic import rps_v1
 
-from ai_traineree.agents.dqn import DQNAgent
-from ai_traineree.tasks import PettingZooTask
+from aitraineree.agents.dqn import DQNAgent
+from aitraineree.tasks import PettingZooTask
 
 env = rps_v1.env()
 task = PettingZooTask(env=env)

@@ -1,8 +1,8 @@
 import pylab as plt
 
-from ai_traineree.agents.dqn import DQNAgent
-from ai_traineree.runners.env_runner import EnvRunner
-from ai_traineree.tasks import GymTask
+from aitraineree.agents.dqn import DQNAgent
+from aitraineree.runners.env_runner import EnvRunner
+from aitraineree.tasks import GymTask
 
 env_name = "Breakout-ram-v0"
 config = {

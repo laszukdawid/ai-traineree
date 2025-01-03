@@ -2,7 +2,7 @@ import copy
 
 import pytest
 
-from ai_traineree.agents.d4pg import D4PGAgent
+from aitraineree.agents.d4pg import D4PGAgent
 from conftest import deterministic_interactions
 
 

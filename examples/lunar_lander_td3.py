@@ -3,11 +3,11 @@ from datetime import datetime
 import pylab as plt
 import torch
 
-from ai_traineree.agents.td3 import TD3Agent as Agent
-from ai_traineree.loggers.tensorboard_logger import TensorboardLogger
-from ai_traineree.runners.env_runner import EnvRunner
-from ai_traineree.tasks import GymTask
-from ai_traineree.types import TaskType
+from aitraineree.agents.td3 import TD3Agent as Agent
+from aitraineree.loggers.tensorboard_logger import TensorboardLogger
+from aitraineree.runners.env_runner import EnvRunner
+from aitraineree.tasks import GymTask
+from aitraineree.types import TaskType
 
 seed = 32167
 torch.manual_seed(seed)

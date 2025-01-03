@@ -6,7 +6,7 @@ from typing import Any, Iterator, Sequence
 
 import numpy
 
-from ai_traineree.types.state import BufferState
+from aitraineree.types.state import BufferState
 
 from . import BufferBase, Experience, ReferenceBuffer
 

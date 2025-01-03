@@ -1,7 +1,7 @@
 import torch
 
-import ai_traineree.networks.heads as head
-from ai_traineree.networks.bodies import FcNet
+import aitraineree.networks.heads as head
+from aitraineree.networks.bodies import FcNet
 
 
 def test_rainbownet_default():

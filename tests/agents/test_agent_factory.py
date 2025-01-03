@@ -1,12 +1,12 @@
 import pytest
 
-from ai_traineree.agents.agent_factory import AgentFactory
-from ai_traineree.agents.ddpg import DDPGAgent
-from ai_traineree.agents.dqn import DQNAgent
-from ai_traineree.agents.ppo import PPOAgent
-from ai_traineree.agents.sac import SACAgent
-from ai_traineree.types.dataspace import DataSpace
-from ai_traineree.types.state import AgentState
+from aitraineree.agents.agent_factory import AgentFactory
+from aitraineree.agents.ddpg import DDPGAgent
+from aitraineree.agents.dqn import DQNAgent
+from aitraineree.agents.ppo import PPOAgent
+from aitraineree.agents.sac import SACAgent
+from aitraineree.types.dataspace import DataSpace
+from aitraineree.types.state import AgentState
 
 
 def test_agent_factory_agent_from_state_wrong_state():

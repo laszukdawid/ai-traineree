@@ -1,16 +1,16 @@
 import pytest
 
-from ai_traineree.buffers.buffer_factory import BufferFactory
-from ai_traineree.buffers.nstep import NStepBuffer
-from ai_traineree.buffers.per import PERBuffer
-from ai_traineree.buffers.replay import ReplayBuffer
-from ai_traineree.buffers.rollout import RolloutBuffer
-from ai_traineree.types.experience import Experience
+from aitraineree.buffers.buffer_factory import BufferFactory
+from aitraineree.buffers.nstep import NStepBuffer
+from aitraineree.buffers.per import PERBuffer
+from aitraineree.buffers.replay import ReplayBuffer
+from aitraineree.buffers.rollout import RolloutBuffer
+from aitraineree.types.experience import Experience
 from tests.buffers.test_replay import generate_sample_SARS
 
 
 def populate_buffer(buffer, num_samples):
-    for (state, action, reward, next_state, done) in generate_sample_SARS(num_samples):
+    for state, action, reward, next_state, done in generate_sample_SARS(num_samples):
         buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
     return buffer
 

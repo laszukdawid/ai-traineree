@@ -22,10 +22,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ai_traineree.networks import NetworkType, NetworkTypeClass
-from ai_traineree.networks.bodies import FcNet, NoisyNet
-from ai_traineree.types import FeatureType
-from ai_traineree.utils import to_numbers_seq
+from aitraineree.networks import NetworkType, NetworkTypeClass
+from aitraineree.networks.bodies import FcNet, NoisyNet
+from aitraineree.types import FeatureType
+from aitraineree.utils import to_numbers_seq
 
 
 class NetChainer(NetworkType):

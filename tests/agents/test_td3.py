@@ -2,7 +2,7 @@ import copy
 
 import pytest
 
-from ai_traineree.agents.td3 import TD3Agent
+from aitraineree.agents.td3 import TD3Agent
 from conftest import deterministic_interactions
 
 

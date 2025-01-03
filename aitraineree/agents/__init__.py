@@ -2,7 +2,7 @@ import random
 
 import torch
 
-from ai_traineree.types import AgentType
+from aitraineree.types import AgentType
 
 
 class AgentBase(AgentType):

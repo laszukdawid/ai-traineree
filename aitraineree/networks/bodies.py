@@ -6,8 +6,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ai_traineree.networks import NetworkType
-from ai_traineree.types import FeatureType
+from aitraineree.networks import NetworkType
+from aitraineree.types import FeatureType
 
 
 def hidden_init(layer: nn.Module):

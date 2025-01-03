@@ -6,5 +6,5 @@ as an input but it also handles state transformation and reward shaping.
 A Task also aims to be compatible with OpenAI Gym's API. Some environments aren't compatible
 and so we need to make them.
 
-.. automodule:: ai_traineree.tasks
+.. automodule:: aitraineree.tasks
     :members:

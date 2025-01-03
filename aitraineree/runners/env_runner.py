@@ -6,11 +6,11 @@ from collections import deque
 from pathlib import Path
 from typing import Any, Iterable
 
-from ai_traineree.agents import AgentBase
-from ai_traineree.loggers import DataLogger
-from ai_traineree.types import RewardType, TaskType
-from ai_traineree.types.experience import Experience
-from ai_traineree.utils import save_gif
+from aitraineree.agents import AgentBase
+from aitraineree.loggers import DataLogger
+from aitraineree.types import RewardType, TaskType
+from aitraineree.types.experience import Experience
+from aitraineree.utils import save_gif
 
 FRAMES_PER_SEC = 45
 

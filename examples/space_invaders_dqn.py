@@ -5,12 +5,12 @@ import pylab as plt
 import torch
 import torch.nn as nn
 
-from ai_traineree.agents.dqn import DQNAgent
-from ai_traineree.loggers import TensorboardLogger
-from ai_traineree.networks.bodies import ConvNet, FcNet, ScaleNet
-from ai_traineree.networks.heads import NetChainer
-from ai_traineree.runners.env_runner import EnvRunner
-from ai_traineree.tasks import GymTask
+from aitraineree.agents.dqn import DQNAgent
+from aitraineree.loggers import TensorboardLogger
+from aitraineree.networks.bodies import ConvNet, FcNet, ScaleNet
+from aitraineree.networks.heads import NetChainer
+from aitraineree.runners.env_runner import EnvRunner
+from aitraineree.tasks import GymTask
 
 # TODO: This needs internal handling. It's a common way to handle pixels as input, i.e. stack frames.
 #       In the form right here this is a nasty and ugly hack.

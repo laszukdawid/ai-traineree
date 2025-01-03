@@ -1,8 +1,8 @@
 from collections import defaultdict, deque
 from typing import Deque, Iterator
 
-from ai_traineree.buffers import ReferenceBuffer
-from ai_traineree.types.state import BufferState
+from aitraineree.buffers import ReferenceBuffer
+from aitraineree.types.state import BufferState
 
 from . import BufferBase, Experience
 

@@ -1,13 +1,12 @@
 from collections import deque
 from typing import Deque, List
 
-from ai_traineree.types import BufferState
+from aitraineree.types import BufferState
 
 from . import BufferBase, Experience
 
 
 class NStepBuffer(BufferBase):
-
     type = "NStep"
     gamma: float
 
@@ -43,7 +42,7 @@ class NStepBuffer(BufferBase):
         # current_exp = self.data.pop(0)
         current_exp = self.data.popleft()
 
-        for (idx, exp) in enumerate(self.data):
+        for idx, exp in enumerate(self.data):
             if exp.done[0]:
                 break
             current_exp.reward[0] += self.n_gammas[idx] * exp.reward[0]

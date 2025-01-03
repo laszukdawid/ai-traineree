@@ -3,7 +3,7 @@ from typing import Any, Optional
 
 import torch
 
-from ai_traineree.types.dataspace import DataSpace
+from aitraineree.types.dataspace import DataSpace
 
 
 @dataclass

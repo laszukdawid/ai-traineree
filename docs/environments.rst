@@ -4,11 +4,11 @@ Environment Runners
 Single agent
 ------------
 
-.. autoclass:: ai_traineree.runners.env_runner.EnvRunner
+.. autoclass:: aitraineree.runners.env_runner.EnvRunner
     :members:
     :undoc-members:
 
-.. autoclass:: ai_traineree.runners.env_runner.MultiSyncEnvRunner
+.. autoclass:: aitraineree.runners.env_runner.MultiSyncEnvRunner
     :members:
     :undoc-members:
 
@@ -16,10 +16,10 @@ Single agent
 Multi agent
 -----------
 
-.. autoclass:: ai_traineree.runners.multiagent_env_runner.MultiAgentCycleEnvRunner
+.. autoclass:: aitraineree.runners.multiagent_env_runner.MultiAgentCycleEnvRunner
     :members:
     :undoc-members:
 
-.. autoclass:: ai_traineree.runners.multiagent_env_runner.MultiAgentEnvRunner
+.. autoclass:: aitraineree.runners.multiagent_env_runner.MultiAgentEnvRunner
     :members:
     :undoc-members:

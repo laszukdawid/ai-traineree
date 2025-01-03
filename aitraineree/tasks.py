@@ -7,7 +7,7 @@ from typing import Any, Callable, Sequence
 import numpy as np
 import torch
 
-from ai_traineree.types import ActionType, DataSpace, MultiAgentTaskType, StateType, TaskType
+from aitraineree.types import ActionType, DataSpace, MultiAgentTaskType, StateType, TaskType
 
 try:
     import gymnasium as gym

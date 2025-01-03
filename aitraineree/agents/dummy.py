@@ -1,8 +1,8 @@
 import numpy as np
 
-from ai_traineree.agents import AgentBase
-from ai_traineree.types import DataSpace
-from ai_traineree.types.experience import Experience
+from aitraineree.agents import AgentBase
+from aitraineree.types import DataSpace
+from aitraineree.types.experience import Experience
 
 
 class DummyAgent(AgentBase):

@@ -5,8 +5,8 @@ from dataclasses import dataclass
 import gymnasium as gym
 from torch import Tensor
 
-from ai_traineree.types.primitive import FeatureType, Numeric
-from ai_traineree.utils import condens_ndarray, to_numbers_seq
+from aitraineree.types.primitive import FeatureType, Numeric
+from aitraineree.utils import condens_ndarray, to_numbers_seq
 
 
 @dataclass

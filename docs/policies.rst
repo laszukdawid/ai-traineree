@@ -1,6 +1,6 @@
 Policies
 ========
 
-.. automodule:: ai_traineree.policies
+.. automodule:: aitraineree.policies
     :members:
     :undoc-members:

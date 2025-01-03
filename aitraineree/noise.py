@@ -2,8 +2,8 @@ import math
 
 import torch
 
-from ai_traineree import DEVICE
-from ai_traineree.types.primitive import FeatureType
+from aitraineree import DEVICE
+from aitraineree.types.primitive import FeatureType
 
 
 class GaussianNoise:

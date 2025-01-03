@@ -6,18 +6,18 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from ai_traineree import DEVICE
-from ai_traineree.agents import AgentBase
-from ai_traineree.agents.agent_utils import soft_update
-from ai_traineree.buffers.buffer_factory import BufferFactory
-from ai_traineree.buffers.nstep import NStepBuffer
-from ai_traineree.buffers.per import PERBuffer
-from ai_traineree.loggers import DataLogger
-from ai_traineree.networks import NetworkType, NetworkTypeClass
-from ai_traineree.networks.heads import DuelingNet
-from ai_traineree.types import AgentState, BufferState, DataSpace, NetworkState
-from ai_traineree.types.experience import Experience
-from ai_traineree.utils import to_numbers_seq, to_tensor
+from aitraineree import DEVICE
+from aitraineree.agents import AgentBase
+from aitraineree.agents.agent_utils import soft_update
+from aitraineree.buffers.buffer_factory import BufferFactory
+from aitraineree.buffers.nstep import NStepBuffer
+from aitraineree.buffers.per import PERBuffer
+from aitraineree.loggers import DataLogger
+from aitraineree.networks import NetworkType, NetworkTypeClass
+from aitraineree.networks.heads import DuelingNet
+from aitraineree.types import AgentState, BufferState, DataSpace, NetworkState
+from aitraineree.types.experience import Experience
+from aitraineree.utils import to_numbers_seq, to_tensor
 
 
 class DQNAgent(AgentBase):

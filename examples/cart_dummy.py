@@ -3,14 +3,15 @@ This example uses DummyAgent on CartPole gym environment.
 Since Dummy Agent only returns random values and never learns
 this example is purely for demonsitration purpose only.
 """
+
 import numpy as np
 import pylab as plt
 import torch
 
-from ai_traineree.agents.dummy import DummyAgent
-from ai_traineree.loggers.tensorboard_logger import TensorboardLogger
-from ai_traineree.runners.env_runner import EnvRunner
-from ai_traineree.tasks import GymTask
+from aitraineree.agents.dummy import DummyAgent
+from aitraineree.loggers.tensorboard_logger import TensorboardLogger
+from aitraineree.runners.env_runner import EnvRunner
+from aitraineree.tasks import GymTask
 
 seed = 32167
 # torch.set_deterministic(True)

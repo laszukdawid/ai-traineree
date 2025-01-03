@@ -1,11 +1,11 @@
 import pytest
 
-from ai_traineree.buffers import Experience, RolloutBuffer
+from aitraineree.buffers import Experience, RolloutBuffer
 from tests.utils import generate_sample_SARS
 
 
 def populate_buffer(buffer, num_samples):
-    for (state, action, reward, next_state, done) in generate_sample_SARS(num_samples):
+    for state, action, reward, next_state, done in generate_sample_SARS(num_samples):
         buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
     return buffer
 
@@ -16,7 +16,7 @@ def test_rollout_buffer_length():
     buffer = RolloutBuffer(batch_size=5, buffer_size=buffer_size)
 
     # Act
-    for (state, action, reward, next_state, done) in generate_sample_SARS(buffer_size + 1):
+    for state, action, reward, next_state, done in generate_sample_SARS(buffer_size + 1):
         buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
 
     # Assert
@@ -29,7 +29,7 @@ def test_rollout_buffer_sample_batch_equal_buffer():
     buffer = RolloutBuffer(batch_size=batch_size, buffer_size=buffer_size)
 
     # Act
-    for (state, action, reward, next_state, done) in generate_sample_SARS(buffer_size + 1):
+    for state, action, reward, next_state, done in generate_sample_SARS(buffer_size + 1):
         buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
 
     # Assert
@@ -48,7 +48,7 @@ def test_rollout_buffer_size_multiple_of_minibatch():
     buffer = RolloutBuffer(batch_size=batch_size, buffer_size=buffer_size)
 
     # Act
-    for (state, action, reward, next_state, done) in generate_sample_SARS(buffer_size + 1):
+    for state, action, reward, next_state, done in generate_sample_SARS(buffer_size + 1):
         buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
 
     # Assert
@@ -68,7 +68,7 @@ def test_rollout_buffer_size_not_multiple_of_minibatch():
 
     # Act
     reward = -1
-    for (state, action, _, next_state, done) in generate_sample_SARS(buffer_size):
+    for state, action, _, next_state, done in generate_sample_SARS(buffer_size):
         reward += 1
         buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
 
@@ -94,7 +94,7 @@ def test_rollout_buffer_travers_buffer_twice():
 
     # Act
     reward = -1
-    for (state, action, _, next_state, done) in generate_sample_SARS(buffer_size):
+    for state, action, _, next_state, done in generate_sample_SARS(buffer_size):
         reward += 1
         buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
 
@@ -124,7 +124,7 @@ def test_rollout_buffer_clear_buffer():
 
     # Act
     reward = -1
-    for (state, action, _, next_state, done) in generate_sample_SARS(buffer_size):
+    for state, action, _, next_state, done in generate_sample_SARS(buffer_size):
         reward += 1
         buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
 

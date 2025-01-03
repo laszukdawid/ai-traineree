@@ -2,10 +2,10 @@ import numpy as np
 import pylab as plt
 import torch
 
-from ai_traineree.agents.dqn import DQNAgent
-from ai_traineree.loggers.file_logger import FileLogger
-from ai_traineree.runners.env_runner import EnvRunner
-from ai_traineree.tasks import GymTask
+from aitraineree.agents.dqn import DQNAgent
+from aitraineree.loggers.file_logger import FileLogger
+from aitraineree.runners.env_runner import EnvRunner
+from aitraineree.tasks import GymTask
 
 seed = 32167
 # torch.set_deterministic(True)

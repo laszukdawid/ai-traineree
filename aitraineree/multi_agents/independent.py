@@ -1,8 +1,8 @@
 import torch
 
-from ai_traineree.loggers import DataLogger
-from ai_traineree.types.agent import AgentType, MultiAgentType
-from ai_traineree.types.experience import Experience
+from aitraineree.loggers import DataLogger
+from aitraineree.types.agent import AgentType, MultiAgentType
+from aitraineree.types.experience import Experience
 
 
 class IndependentAgents(MultiAgentType):

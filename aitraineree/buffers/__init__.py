@@ -5,8 +5,8 @@ from typing import Sequence
 import numpy as np
 import torch
 
-from ai_traineree.types import BufferState
-from ai_traineree.types.experience import Experience
+from aitraineree.types import BufferState
+from aitraineree.types.experience import Experience
 
 # *Note*: Below classes are additional imports to keep things backward compatible and easier to import.
 

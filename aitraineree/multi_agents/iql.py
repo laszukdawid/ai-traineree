@@ -1,11 +1,11 @@
 import torch
 
-from ai_traineree import DEVICE
-from ai_traineree.agents.dqn import DQNAgent
-from ai_traineree.loggers import DataLogger
-from ai_traineree.types import DataSpace, MultiAgentType
-from ai_traineree.types.experience import Experience
-from ai_traineree.utils import to_numbers_seq
+from aitraineree import DEVICE
+from aitraineree.agents.dqn import DQNAgent
+from aitraineree.loggers import DataLogger
+from aitraineree.types import DataSpace, MultiAgentType
+from aitraineree.types.experience import Experience
+from aitraineree.utils import to_numbers_seq
 
 
 class IQLAgents(MultiAgentType):

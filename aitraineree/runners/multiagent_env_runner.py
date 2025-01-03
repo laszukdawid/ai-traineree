@@ -7,11 +7,11 @@ from collections import defaultdict, deque
 from pathlib import Path
 from typing import Iterable
 
-from ai_traineree.loggers import DataLogger
-from ai_traineree.tasks import PettingZooTask
-from ai_traineree.types import ActionType, DoneType, MultiAgentTaskType, MultiAgentType, RewardType, StateType
-from ai_traineree.types.experience import Experience
-from ai_traineree.utils import save_gif
+from aitraineree.loggers import DataLogger
+from aitraineree.tasks import PettingZooTask
+from aitraineree.types import ActionType, DoneType, MultiAgentTaskType, MultiAgentType, RewardType, StateType
+from aitraineree.types.experience import Experience
+from aitraineree.utils import save_gif
 
 FRAMES_PER_SEC = 45
 

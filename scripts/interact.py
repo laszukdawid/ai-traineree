@@ -5,7 +5,7 @@ import time
 import gymnasium as gym
 from gym.utils.play import PlayPlot, play
 
-from ai_traineree.buffers.replay import ReplayBuffer
+from aitraineree.buffers.replay import ReplayBuffer
 
 
 def buffer_callback(buffer):

@@ -5,10 +5,10 @@ import mock
 import pytest
 import torch
 
-from ai_traineree.agents.rainbow import RainbowAgent
-from ai_traineree.networks.heads import RainbowNet
-from ai_traineree.types import AgentState, BufferState, DataSpace, NetworkState
-from ai_traineree.types.experience import Experience
+from aitraineree.agents.rainbow import RainbowAgent
+from aitraineree.networks.heads import RainbowNet
+from aitraineree.types import AgentState, BufferState, DataSpace, NetworkState
+from aitraineree.types.experience import Experience
 from conftest import deterministic_interactions, fake_step, feed_agent
 
 t_obs_space = DataSpace(dtype="float", shape=(10,), low=-1, high=1)
@@ -79,7 +79,7 @@ def test_rainbow_set_loss():
     assert agent.loss == {"loss": new_loss}
 
 
-@mock.patch("ai_traineree.agents.rainbow.soft_update")
+@mock.patch("aitraineree.agents.rainbow.soft_update")
 def test_rainbow_warm_up(mock_soft_update):
     """Until `warm_up` iterations passed there can't be any update."""
     # Assign
@@ -101,7 +101,7 @@ def test_rainbow_warm_up(mock_soft_update):
     assert mock_soft_update.called
 
 
-@mock.patch("ai_traineree.loggers.DataLogger")
+@mock.patch("aitraineree.loggers.DataLogger")
 def test_rainbow_log_metrics(mock_data_logger):
     # Assign
     agent = RainbowAgent(t_obs_space, t_action_space, device="cpu")
@@ -117,7 +117,7 @@ def test_rainbow_log_metrics(mock_data_logger):
     mock_data_logger.create_histogram.assert_not_called()
 
 
-@mock.patch("ai_traineree.loggers.DataLogger")
+@mock.patch("aitraineree.loggers.DataLogger")
 def test_rainbow_log_metrics_full_log(mock_data_logger):
     # Assign
     agent = RainbowAgent(
@@ -137,7 +137,7 @@ def test_rainbow_log_metrics_full_log(mock_data_logger):
     assert mock_data_logger.create_histogram.call_count == 4 * 2  # 4x per layer
 
 
-@mock.patch("ai_traineree.loggers.DataLogger")
+@mock.patch("aitraineree.loggers.DataLogger")
 def test_rainbow_log_metrics_full_log_dist_prob(mock_data_logger):
     """Acting on a state means that there's a prob dist created for each actions."""
     # Assign

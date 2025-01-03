@@ -5,8 +5,8 @@ import numpy as np
 import pytest
 import torch
 
-from ai_traineree.types.dataspace import DataSpace
-from ai_traineree.utils import (
+from aitraineree.types.dataspace import DataSpace
+from aitraineree.utils import (
     condens_ndarray,
     serialize,
     str_to_list,
@@ -156,7 +156,7 @@ def test_str_to_seq():
 
 
 def test_serialize_experience_individual():
-    from ai_traineree.types.experience import Experience
+    from aitraineree.types.experience import Experience
 
     for key in Experience.whitelist:
         value = generate_value()
@@ -169,7 +169,7 @@ def test_serialize_experience_individual():
 def test_serialize_experience_all_keys():
     import json
 
-    from ai_traineree.types.experience import Experience
+    from aitraineree.types.experience import Experience
 
     state = {key: generate_value() for key in Experience.whitelist}
     e = Experience(**state)
@@ -182,8 +182,8 @@ def test_serialize_experience_all_keys():
 
 
 def test_serialize_buffer_state_list():
-    from ai_traineree.buffers import BufferState
-    from ai_traineree.types.experience import Experience
+    from aitraineree.buffers import BufferState
+    from aitraineree.types.experience import Experience
 
     def generate_exp() -> Experience:
         return Experience(
@@ -211,8 +211,8 @@ def test_serialize_buffer_state_list():
 
 
 def test_serialize_buffer_state_numpy():
-    from ai_traineree.buffers import BufferState
-    from ai_traineree.types.experience import Experience
+    from aitraineree.buffers import BufferState
+    from aitraineree.types.experience import Experience
 
     def generate_exp() -> Experience:
         return Experience(
@@ -240,7 +240,7 @@ def test_serialize_buffer_state_numpy():
 
 
 def test_serialize_network_state_actual():
-    from ai_traineree.agents.dqn import DQNAgent
+    from aitraineree.agents.dqn import DQNAgent
 
     agent = DQNAgent(DataSpace(dtype="float", shape=(4,)), DataSpace("int", (1,), low=0, high=2))
     deterministic_interactions(agent, 30)
@@ -255,7 +255,7 @@ def test_serialize_network_state_actual():
 
 
 def test_serialize_agent_state_actual():
-    from ai_traineree.agents.dqn import DQNAgent
+    from aitraineree.agents.dqn import DQNAgent
 
     agent = DQNAgent(DataSpace(dtype="float", shape=(4,)), DataSpace("int", (1,), low=0, high=2))
     deterministic_interactions(agent, 30)

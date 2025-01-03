@@ -1,8 +1,8 @@
 import abc
 from typing import Any
 
-from ai_traineree.loggers import DataLogger
-from ai_traineree.types.experience import Experience
+from aitraineree.loggers import DataLogger
+from aitraineree.types.experience import Experience
 
 from .dataspace import DataSpace
 from .state import AgentState

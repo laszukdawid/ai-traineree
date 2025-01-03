@@ -3,13 +3,13 @@ import copy
 import numpy as np
 import pytest
 
-from ai_traineree.buffers.per import PERBuffer
-from ai_traineree.types.experience import Experience
+from aitraineree.buffers.per import PERBuffer
+from aitraineree.types.experience import Experience
 from tests.buffers.test_buffer_factory import generate_sample_SARS
 
 
 def populate_buffer(buffer, num_samples):
-    for (state, action, reward, next_state, done) in generate_sample_SARS(num_samples):
+    for state, action, reward, next_state, done in generate_sample_SARS(num_samples):
         buffer.add(state=state, action=action, reward=reward, next_state=next_state, done=done)
     return buffer
 
@@ -65,7 +65,7 @@ def test_per_buffer_add_two_sample_two_beta():
     # Assert
     experiences = per_buffer.sample(beta=0.6)
     assert experiences is not None
-    for (state, weight) in zip(experiences["state"], experiences["weight"]):
+    for state, weight in zip(experiences["state"], experiences["weight"]):
         if weight == 1:
             assert state == range(3, 8)
         else:

@@ -1,9 +1,9 @@
-from ai_traineree.buffers import BufferBase
-from ai_traineree.buffers.nstep import NStepBuffer
-from ai_traineree.buffers.per import PERBuffer
-from ai_traineree.buffers.replay import ReplayBuffer
-from ai_traineree.buffers.rollout import RolloutBuffer
-from ai_traineree.types import BufferState
+from aitraineree.buffers import BufferBase
+from aitraineree.buffers.nstep import NStepBuffer
+from aitraineree.buffers.per import PERBuffer
+from aitraineree.buffers.replay import ReplayBuffer
+from aitraineree.buffers.rollout import RolloutBuffer
+from aitraineree.types import BufferState
 
 
 class BufferFactory:
