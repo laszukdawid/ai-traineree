@@ -6,7 +6,7 @@ on:
       - $default-branch
   pull_request:
     paths:
-      - "ai_traineree/**.py"
+      - "aitraineree/**.py"
 
 jobs:
   build-n-test:

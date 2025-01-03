@@ -4,7 +4,7 @@ import pytest
 import torch
 import torch.nn as nn
 
-import ai_traineree.networks.bodies as bodies
+import aitraineree.networks.bodies as bodies
 
 
 def test_scalenet():

@@ -2,9 +2,9 @@ import copy
 
 import torch
 
-from ai_traineree.agents.dqn import DQNAgent
-from ai_traineree.types import AgentState, BufferState, NetworkState
-from ai_traineree.types.dataspace import DataSpace
+from aitraineree.agents.dqn import DQNAgent
+from aitraineree.types import AgentState, BufferState, NetworkState
+from aitraineree.types.dataspace import DataSpace
 from conftest import deterministic_interactions, feed_agent
 
 t_obs_space = DataSpace(dtype="float", shape=(4,), low=-2, high=2)

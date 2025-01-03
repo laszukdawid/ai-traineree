@@ -26,9 +26,9 @@ That, and using PyTorch instead of Tensorflow or JAX.
 
 To get started with training your RL agent you need three things: an agent, an environment and a runner. Let's say you want to train a DQN agent on OpenAI CartPole-v1:
 ```python
-from ai_traineree.agents.dqn import DQNAgent
-from ai_traineree.runners.env_runner import EnvRunner
-from ai_traineree.tasks import GymTask
+from aitraineree.agents.dqn import DQNAgent
+from aitraineree.runners.env_runner import EnvRunner
+from aitraineree.tasks import GymTask
 
 task = GymTask('CartPole-v1')
 agent = DQNAgent(task.obs_space, task.action_space)
@@ -76,14 +76,14 @@ This is just a beginning and there will be more work on these interactions.
 
 | Short   | Progress                                      | Link                                                                                                           | Full name                                                 | Doc                                                                      |
 | ------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------ |
-| DQN     | [Implemented](ai_traineree/agents/dqn.py)     | [DeepMind](https://deepmind.com/research/publications/human-level-control-through-deep-reinforcement-learning) | Deep Q-learning Network                                   | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#dqn)     |
-| DDPG    | [Implemented](ai_traineree/agents/ddpg.py)    | [arXiv](https://arxiv.org/abs/1509.02971)                                                                      | Deep Deterministic Policy Gradient                        | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#ddpg)    |
-| D4PG    | [Implemented](ai_traineree/agents/d4pg.py)    | [arXiv](https://arxiv.org/abs/1804.08617)                                                                      | Distributed Distributional Deterministic Policy Gradients | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#d4pg)    |
-| TD3     | [Implemented](ai_traineree/agents/td3.py)     | [arXiv](https://arxiv.org/abs/1802.09477)                                                                      | Twine Delayed Deep Deterministic policy gradient          | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#td3)     |
-| PPO     | [Implemented](ai_traineree/agents/ppo.py)     | [arXiv](https://arxiv.org/abs/1707.06347)                                                                      | Proximal Policy Optimization                              | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#ppo)     |
-| SAC     | [Implemented](ai_traineree/agents/sac.py)     | [arXiv](https://arxiv.org/abs/1801.01290)                                                                      | Soft Actor Critic                                         | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#sac)     |
+| DQN     | [Implemented](aitraineree/agents/dqn.py)     | [DeepMind](https://deepmind.com/research/publications/human-level-control-through-deep-reinforcement-learning) | Deep Q-learning Network                                   | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#dqn)     |
+| DDPG    | [Implemented](aitraineree/agents/ddpg.py)    | [arXiv](https://arxiv.org/abs/1509.02971)                                                                      | Deep Deterministic Policy Gradient                        | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#ddpg)    |
+| D4PG    | [Implemented](aitraineree/agents/d4pg.py)    | [arXiv](https://arxiv.org/abs/1804.08617)                                                                      | Distributed Distributional Deterministic Policy Gradients | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#d4pg)    |
+| TD3     | [Implemented](aitraineree/agents/td3.py)     | [arXiv](https://arxiv.org/abs/1802.09477)                                                                      | Twine Delayed Deep Deterministic policy gradient          | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#td3)     |
+| PPO     | [Implemented](aitraineree/agents/ppo.py)     | [arXiv](https://arxiv.org/abs/1707.06347)                                                                      | Proximal Policy Optimization                              | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#ppo)     |
+| SAC     | [Implemented](aitraineree/agents/sac.py)     | [arXiv](https://arxiv.org/abs/1801.01290)                                                                      | Soft Actor Critic                                         | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#sac)     |
 | TRPO    |                                               | [arXiv](https://arxiv.org/abs/1502.05477)                                                                      | Trust Region Policy Optimization                          |
-| RAINBOW | [Implemented](ai_traineree/agents/rainbow.py) | [arXiv](https://arxiv.org/abs/1710.02298)                                                                      | DQN with a few improvements                               | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#rainbow) |
+| RAINBOW | [Implemented](aitraineree/agents/rainbow.py) | [arXiv](https://arxiv.org/abs/1710.02298)                                                                      | DQN with a few improvements                               | [Doc](https://ai-traineree.readthedocs.io/en/latest/agents.html#rainbow) |
 
 ### Multi agents
 
@@ -92,8 +92,8 @@ However, that doesn't mean one can be used without the other.
 
 | Short  | Progress                                          | Link                                      | Full name              | Doc                                                                          |
 | ------ | ------------------------------------------------- | ----------------------------------------- | ---------------------- | ---------------------------------------------------------------------------- |
-| IQL    | [Implemented](ai_traineree/multi_agent/iql.py)    |                                           | Independent Q-Learners | [Doc](https://ai-traineree.readthedocs.io/en/latest/multi_agent.html#iql)    |
-| MADDPG | [Implemented](ai_traineree/multi_agent/maddpg.py) | [arXiv](https://arxiv.org/abs/1706.02275) | Multi agent DDPG       | [Doc](https://ai-traineree.readthedocs.io/en/latest/multi_agent.html#maddpg) |
+| IQL    | [Implemented](aitraineree/multi_agent/iql.py)    |                                           | Independent Q-Learners | [Doc](https://ai-traineree.readthedocs.io/en/latest/multi_agent.html#iql)    |
+| MADDPG | [Implemented](aitraineree/multi_agent/maddpg.py) | [arXiv](https://arxiv.org/abs/1706.02275) | Multi agent DDPG       | [Doc](https://ai-traineree.readthedocs.io/en/latest/multi_agent.html#maddpg) |
 
 ### Loggers
 

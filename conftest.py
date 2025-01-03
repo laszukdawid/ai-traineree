@@ -6,10 +6,10 @@ import mock
 import numpy as np
 import pytest
 
-from ai_traineree.agents import AgentBase
-from ai_traineree.types.agent import AgentType
-from ai_traineree.types.dataspace import DataSpace
-from ai_traineree.types.experience import Experience
+from aitraineree.agents import AgentBase
+from aitraineree.types.agent import AgentType
+from aitraineree.types.dataspace import DataSpace
+from aitraineree.types.experience import Experience
 
 
 class MockContinuousSpace:

@@ -4,14 +4,14 @@ Agents
 DQN
 ---
 
-.. autoclass:: ai_traineree.agents.dqn.DQNAgent
+.. autoclass:: aitraineree.agents.dqn.DQNAgent
     :members:
     :undoc-members:
 
 Rainbow
 -------
 
-.. autoclass:: ai_traineree.agents.rainbow.RainbowAgent
+.. autoclass:: aitraineree.agents.rainbow.RainbowAgent
     :members:
     :undoc-members:
 
@@ -19,7 +19,7 @@ Rainbow
 PPO
 ---
 
-.. autoclass:: ai_traineree.agents.ppo.PPOAgent
+.. autoclass:: aitraineree.agents.ppo.PPOAgent
     :members:
     :undoc-members:
 
@@ -27,28 +27,28 @@ PPO
 DDPG
 ----
 
-.. autoclass:: ai_traineree.agents.ddpg.DDPGAgent
+.. autoclass:: aitraineree.agents.ddpg.DDPGAgent
     :members:
     :undoc-members:
 
 D3PG
 ----
 
-.. autoclass:: ai_traineree.agents.d3pg.D3PGAgent
+.. autoclass:: aitraineree.agents.d3pg.D3PGAgent
     :members:
     :undoc-members:
 
 D4PG
 ----
 
-.. autoclass:: ai_traineree.agents.d4pg.D4PGAgent
+.. autoclass:: aitraineree.agents.d4pg.D4PGAgent
     :members:
     :undoc-members:
     
 SAC
 ---
 
-.. autoclass:: ai_traineree.agents.sac.SACAgent
+.. autoclass:: aitraineree.agents.sac.SACAgent
     :members:
     :undoc-members:
    

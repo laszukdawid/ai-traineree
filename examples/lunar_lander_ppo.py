@@ -1,10 +1,10 @@
 import pylab as plt
 
-from ai_traineree.agents.ppo import PPOAgent as Agent
-from ai_traineree.loggers.file_logger import FileLogger
-from ai_traineree.runners.env_runner import EnvRunner
-from ai_traineree.tasks import GymTask
-from ai_traineree.types import TaskType
+from aitraineree.agents.ppo import PPOAgent as Agent
+from aitraineree.loggers.file_logger import FileLogger
+from aitraineree.runners.env_runner import EnvRunner
+from aitraineree.tasks import GymTask
+from aitraineree.types import TaskType
 
 env_name = "LunarLanderContinuous-v2"
 task: TaskType = GymTask(env_name)

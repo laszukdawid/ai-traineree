@@ -2,7 +2,7 @@ import random
 import string
 from typing import Any
 
-from ai_traineree.types.experience import Experience
+from aitraineree.types.experience import Experience
 
 
 def r_string(n: int) -> str:

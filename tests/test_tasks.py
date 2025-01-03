@@ -2,7 +2,7 @@ import numbers
 
 import mock
 
-from ai_traineree.tasks import GymTask
+from aitraineree.tasks import GymTask
 
 
 def test_gym_task_actual_openai_discrete():
@@ -37,7 +37,7 @@ def test_gym_task_actual_openai_continious():
     assert task.action_size == 1
 
 
-@mock.patch("ai_traineree.tasks.gym")
+@mock.patch("aitraineree.tasks.gym")
 def test_gym_task_reset(mock_gym, fix_env):
     # Assign
     mock_gym.make.return_value = fix_env
@@ -54,7 +54,7 @@ def test_gym_task_reset(mock_gym, fix_env):
     # assert isinstance(info, dict)  # Update with gymnasium
 
 
-@mock.patch("ai_traineree.tasks.gym")
+@mock.patch("aitraineree.tasks.gym")
 def test_gym_task_step(mock_gym, fix_env):
     # Assign
     mock_gym.make.return_value = fix_env
@@ -73,7 +73,7 @@ def test_gym_task_step(mock_gym, fix_env):
     assert isinstance(out[3], str)
 
 
-@mock.patch("ai_traineree.tasks.gym")
+@mock.patch("aitraineree.tasks.gym")
 def test_gym_task_step_discrete(mock_gym, fix_env_discrete):
     # Assign
     mock_gym.make.return_value = fix_env_discrete
@@ -92,7 +92,7 @@ def test_gym_task_step_discrete(mock_gym, fix_env_discrete):
     assert isinstance(out[3], str)
 
 
-@mock.patch("ai_traineree.tasks.gym")
+@mock.patch("aitraineree.tasks.gym")
 def test_gym_task_render(mock_gym, fix_env):
     # Assign
     mock_gym.make.return_value = fix_env
@@ -105,20 +105,20 @@ def test_gym_task_render(mock_gym, fix_env):
     assert fix_env.render.called_once_with("rgb_array")
 
 
-@mock.patch("ai_traineree.tasks.gym")
+@mock.patch("aitraineree.tasks.gym")
 def test_gym_task_render_human(mock_gym, fix_env):
     # Assign
     mock_gym.make.return_value = fix_env
     task = GymTask("CanRender", can_render=True)
 
     # Act
-    task.render(mode="human")
+    task.render()
 
     # Assert
     assert fix_env.render.called_once_with("human")
 
 
-@mock.patch("ai_traineree.tasks.gym")
+@mock.patch("aitraineree.tasks.gym")
 def test_gym_task_render_cannot_render(mock_gym, fix_env):
     # Assign
     mock_gym.make.return_value = fix_env

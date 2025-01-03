@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from ai_traineree.agents.agent_utils import compute_gae, normalize, revert_norm_returns
+from aitraineree.agents.agent_utils import compute_gae, normalize, revert_norm_returns
 
 
 def test_normalize_1d():

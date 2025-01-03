@@ -3,12 +3,12 @@ import pylab as plt
 import sneks  # noqa
 import torch.nn as nn
 
-from ai_traineree.agents.dqn import DQNAgent
-from ai_traineree.loggers.tensorboard_logger import TensorboardLogger
-from ai_traineree.networks.bodies import ConvNet, FcNet
-from ai_traineree.networks.heads import NetChainer
-from ai_traineree.runners.env_runner import EnvRunner
-from ai_traineree.tasks import GymTask
+from aitraineree.agents.dqn import DQNAgent
+from aitraineree.loggers.tensorboard_logger import TensorboardLogger
+from aitraineree.networks.bodies import ConvNet, FcNet
+from aitraineree.networks.heads import NetChainer
+from aitraineree.runners.env_runner import EnvRunner
+from aitraineree.tasks import GymTask
 
 
 def running_mean(x, N):

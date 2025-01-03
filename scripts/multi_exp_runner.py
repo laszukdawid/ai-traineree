@@ -3,10 +3,10 @@ from typing import Any
 
 import torch
 
-from ai_traineree.agents.dqn import DQNAgent as Agent
-from ai_traineree.loggers.tensorboard_logger import TensorboardLogger
-from ai_traineree.runners.env_runner import EnvRunner
-from ai_traineree.tasks import GymTask
+from aitraineree.agents.dqn import DQNAgent as Agent
+from aitraineree.loggers.tensorboard_logger import TensorboardLogger
+from aitraineree.runners.env_runner import EnvRunner
+from aitraineree.tasks import GymTask
 
 config_default = {"hidden_layers": (50, 50)}
 config_updates = [{"n_steps": n} for n in range(1, 11)]

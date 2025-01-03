@@ -4,11 +4,11 @@ import datetime
 import pylab as plt
 import torch
 
-from ai_traineree.agents.sac import SACAgent
-from ai_traineree.loggers.tensorboard_logger import TensorboardLogger
-from ai_traineree.runners.env_runner import EnvRunner
-from ai_traineree.tasks import GymTask
-from ai_traineree.types import TaskType
+from aitraineree.agents.sac import SACAgent
+from aitraineree.loggers.tensorboard_logger import TensorboardLogger
+from aitraineree.runners.env_runner import EnvRunner
+from aitraineree.tasks import GymTask
+from aitraineree.types import TaskType
 
 seed = 321671
 torch.manual_seed(seed)

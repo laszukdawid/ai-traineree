@@ -1,8 +1,8 @@
 from pettingzoo.classic import connect_four_v3
 
-from ai_traineree.agents.dqn import DQNAgent
-from ai_traineree.runners.multiagent_env_runner import MultiAgentCycleEnvRunner
-from ai_traineree.tasks import PettingZooTask
+from aitraineree.agents.dqn import DQNAgent
+from aitraineree.runners.multiagent_env_runner import MultiAgentCycleEnvRunner
+from aitraineree.tasks import PettingZooTask
 
 env = connect_four_v3.env()
 task = PettingZooTask(env=env)

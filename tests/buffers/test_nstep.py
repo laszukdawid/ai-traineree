@@ -1,7 +1,7 @@
 import pytest
 
-from ai_traineree.buffers.nstep import NStepBuffer
-from ai_traineree.types.experience import Experience
+from aitraineree.buffers.nstep import NStepBuffer
+from aitraineree.types.experience import Experience
 from tests.buffers.test_buffer_factory import generate_sample_SARS
 
 

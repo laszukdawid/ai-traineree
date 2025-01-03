@@ -3,8 +3,8 @@ import copy
 import pytest
 import torch
 
-from ai_traineree.agents.sac import SACAgent
-from ai_traineree.types import DataSpace
+from aitraineree.agents.sac import SACAgent
+from aitraineree.types import DataSpace
 from conftest import deterministic_interactions, feed_agent
 
 float_space = DataSpace(dtype="float", shape=(5,), low=-2, high=2)

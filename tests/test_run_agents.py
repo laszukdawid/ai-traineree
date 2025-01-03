@@ -8,15 +8,15 @@ the code isn't broken.
 
 import pytest
 
-from ai_traineree.agents.d3pg import D3PGAgent
-from ai_traineree.agents.ddpg import DDPGAgent
-from ai_traineree.agents.dqn import DQNAgent
-from ai_traineree.agents.ppo import PPOAgent
-from ai_traineree.agents.rainbow import RainbowAgent
-from ai_traineree.agents.sac import SACAgent
-from ai_traineree.agents.td3 import TD3Agent
-from ai_traineree.runners.env_runner import EnvRunner
-from ai_traineree.tasks import GymTask
+from aitraineree.agents.d3pg import D3PGAgent
+from aitraineree.agents.ddpg import DDPGAgent
+from aitraineree.agents.dqn import DQNAgent
+from aitraineree.agents.ppo import PPOAgent
+from aitraineree.agents.rainbow import RainbowAgent
+from aitraineree.agents.sac import SACAgent
+from aitraineree.agents.td3 import TD3Agent
+from aitraineree.runners.env_runner import EnvRunner
+from aitraineree.tasks import GymTask
 
 DEVICE = "cpu"
 

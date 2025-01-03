@@ -3,9 +3,9 @@ import copy
 import pytest
 import torch
 
-from ai_traineree.agents.ppo import PPOAgent
-from ai_traineree.types.dataspace import DataSpace
-from ai_traineree.types.state import AgentState, BufferState, NetworkState
+from aitraineree.agents.ppo import PPOAgent
+from aitraineree.types.dataspace import DataSpace
+from aitraineree.types.state import AgentState, BufferState, NetworkState
 from conftest import deterministic_interactions
 
 t_obs_space = DataSpace(dtype="float", shape=(4,))

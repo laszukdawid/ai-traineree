@@ -4,10 +4,10 @@ from typing import List
 import mock
 import pytest
 
-from ai_traineree.agents.ppo import PPOAgent
-from ai_traineree.runners.multi_sync_env_runner import MultiSyncEnvRunner
-from ai_traineree.tasks import GymTask
-from ai_traineree.types import TaskType
+from aitraineree.agents.ppo import PPOAgent
+from aitraineree.runners.multi_sync_env_runner import MultiSyncEnvRunner
+from aitraineree.tasks import GymTask
+from aitraineree.types import TaskType
 
 # Disable the whole unit test
 # TODO: There is something wrong with processes; multi processes are not working with 3.12
@@ -22,8 +22,8 @@ test_task = GymTask("LunarLanderContinuous-v3")
 test_agent = PPOAgent(test_task.obs_space, test_task.action_space)
 
 
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.AgentBase")
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.TaskType")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.AgentBase")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.TaskType")
 def test_multi_sync_env_runner_init_str_check(mock_task, mock_agent):
     # Assign & Act
     mock_agent.model = "Agent"
@@ -34,8 +34,8 @@ def test_multi_sync_env_runner_init_str_check(mock_task, mock_agent):
     assert str(multi_sync_env_runner) == "MultiSyncEnvRunner<['Task'], Agent>"
 
 
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.AgentBase")
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.TaskType")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.AgentBase")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.TaskType")
 def test_multi_sync_env_runner_reset(mock_task, mock_agent):
     # Assign
     multi_sync_env_runner = MultiSyncEnvRunner([mock_task], mock_agent, window_len=10)
@@ -91,8 +91,8 @@ def test_multi_sync_env_runner_run_multiple_step_multiple_task():
     assert len(scores) in (3, 4)  # On rare occasions two tasks can complete twice at the same time.
 
 
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.AgentBase")
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.TaskType")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.AgentBase")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.TaskType")
 def test_multi_sync_env_runner_info_no_data_logger(mock_task, mock_agent):
     # Assign
     mock_tasks: List[TaskType] = [mock_task, mock_task]
@@ -107,8 +107,8 @@ def test_multi_sync_env_runner_info_no_data_logger(mock_task, mock_agent):
     env_runner.logger.info.assert_called_once()
 
 
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.AgentBase")
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.TaskType")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.AgentBase")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.TaskType")
 def test_multi_sync_env_runner_info_with_data_logger(mock_task, mock_agent):
     # Assign
     data_logger = mock.MagicMock()
@@ -125,9 +125,9 @@ def test_multi_sync_env_runner_info_with_data_logger(mock_task, mock_agent):
     mock_agent.log_metrics.assert_called_once_with(data_logger, mock.ANY, full_log=False)
 
 
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.AgentBase")
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.TaskType")
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.DataLogger")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.AgentBase")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.TaskType")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.DataLogger")
 def test_multi_sync_env_runner_log_episode_metrics(mock_data_logger, mock_task, mock_agent):
     # Assign
     episodes = [1, 2]
@@ -151,9 +151,9 @@ def test_multi_sync_env_runner_log_episode_metrics(mock_data_logger, mock_task, 
         mock_data_logger.log_value.assert_any_call("episode/iterations", iterations[idx], episode)
 
 
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.AgentBase")
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.TaskType")
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.DataLogger")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.AgentBase")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.TaskType")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.DataLogger")
 def test_multi_sync_env_runner_log_episode_metrics_values_missing(mock_data_logger, mock_task, mock_agent):
     # Assign
     episodes = [1, 2]
@@ -167,8 +167,8 @@ def test_multi_sync_env_runner_log_episode_metrics_values_missing(mock_data_logg
     mock_data_logger.log_value.assert_not_called()
 
 
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.AgentBase")
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.TaskType")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.AgentBase")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.TaskType")
 def test_multi_sync_env_runner_log_data_interaction_no_data_logger(mock_task, mock_agent):
     # Assign
     env_runner = MultiSyncEnvRunner(mock_task, mock_agent)
@@ -180,7 +180,7 @@ def test_multi_sync_env_runner_log_data_interaction_no_data_logger(mock_task, mo
     mock_agent.log_metrics.assert_not_called()
 
 
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.DataLogger")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.DataLogger")
 def test_multi_sync_env_runner_log_data_interaction_iterations(mock_data_logger):
     # Assign
     test_agent.log_metrics = mock.MagicMock()
@@ -196,7 +196,7 @@ def test_multi_sync_env_runner_log_data_interaction_iterations(mock_data_logger)
     assert mock_data_logger.log_value.call_count == 0
 
 
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.DataLogger")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.DataLogger")
 def test_multi_sync_env_runner_log_data_interaction_log_after_episode(mock_data_logger):
     # Assign
     test_agent.log_metrics = mock.MagicMock()
@@ -211,8 +211,8 @@ def test_multi_sync_env_runner_log_data_interaction_log_after_episode(mock_data_
     assert mock_data_logger.log_value.call_count == 4
 
 
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.Path")
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.json")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.Path")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.json")
 def test_multi_sync_env_runner_save_state(mock_json, mock_path):
     # Assign
     test_agent.save_state = mock.MagicMock()
@@ -230,8 +230,8 @@ def test_multi_sync_env_runner_save_state(mock_json, mock_path):
     assert state["tot_iterations"] == 10 * 10
 
 
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.AgentBase")
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.TaskType")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.AgentBase")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.TaskType")
 def test_multi_sync_env_runner_load_state_no_file(mock_task, mock_agent):
     # Assign
     env_runner = MultiSyncEnvRunner(mock_task, mock_agent, max_iterations=10)
@@ -245,9 +245,9 @@ def test_multi_sync_env_runner_load_state_no_file(mock_task, mock_agent):
     mock_agent.load_state.assert_not_called()
 
 
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.os")
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.AgentBase")
-@mock.patch("ai_traineree.runners.multi_sync_env_runner.TaskType")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.os")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.AgentBase")
+@mock.patch("aitraineree.runners.multi_sync_env_runner.TaskType")
 def test_multi_sync_env_runner_load_state(mock_task, mock_agent, mock_os):
     # Assign
     env_runner = MultiSyncEnvRunner(mock_task, mock_agent, max_iterations=10)

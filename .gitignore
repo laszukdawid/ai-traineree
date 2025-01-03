@@ -1,7 +1,7 @@
 data/
 build/
 dist/
-ai_traineree.egg-info/
+aitraineree.egg-info/
 
 videos/
 /gifs

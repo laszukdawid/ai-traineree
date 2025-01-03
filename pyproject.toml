@@ -1,6 +1,6 @@
 [project]
 name = "ai-traineree"
-version = "0.7.2"
+version = "0.8.0"
 description = "Yet another zoo of (Deep) Reinforcement Learning methods in Python using PyTorch"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -55,9 +55,12 @@ profile = "black"
 [tool.black]
 line-length = 120
 
+[tool.hatch.build.targets.wheel]
+packages = ["aitraineree"]
+
 [tool.pytest.ini_options]
-addopts = "--verbose --cov=ai_traineree --timeout=30"
-testpaths = ["ai_traineree", "tests"]
+addopts = "--verbose --cov=aitraineree --timeout=30"
+testpaths = ["aitraineree", "tests"]
 
 [tool.coverage.run]
 omit = ["*/test_*.py"]

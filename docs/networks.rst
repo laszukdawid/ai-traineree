@@ -14,13 +14,13 @@ but for some agents a single body part, e.g. Fully connected network, is good en
 Bodies
 ------
 
-.. automodule:: ai_traineree.networks.bodies
+.. automodule:: aitraineree.networks.bodies
     :members:
     :undoc-members:
 
 Heads
 -----
 
-.. automodule:: ai_traineree.networks.heads
+.. automodule:: aitraineree.networks.heads
     :members:
     :undoc-members:

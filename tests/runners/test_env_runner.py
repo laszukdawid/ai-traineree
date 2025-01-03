@@ -1,9 +1,9 @@
 import mock
 
-from ai_traineree.agents.ppo import PPOAgent
-from ai_traineree.runners.env_runner import EnvRunner
-from ai_traineree.tasks import GymTask
-from ai_traineree.types.experience import Experience
+from aitraineree.agents.ppo import PPOAgent
+from aitraineree.runners.env_runner import EnvRunner
+from aitraineree.tasks import GymTask
+from aitraineree.types.experience import Experience
 
 # NOTE: Some of these tests use `test_task` and `test_agent` which are real instances.
 #       This is partially to make sure that the tricky part is covered, and not hid
@@ -14,8 +14,8 @@ test_task = GymTask("LunarLanderContinuous-v3")
 test_agent = PPOAgent(test_task.obs_space, test_task.action_space)
 
 
-@mock.patch("ai_traineree.runners.env_runner.AgentBase")
-@mock.patch("ai_traineree.runners.env_runner.TaskType")
+@mock.patch("aitraineree.runners.env_runner.AgentBase")
+@mock.patch("aitraineree.runners.env_runner.TaskType")
 def test_env_runner_info_no_data_logger(mock_task, mock_agent):
     # Assign
     env_runner = EnvRunner(mock_task, mock_agent)
@@ -29,8 +29,8 @@ def test_env_runner_info_no_data_logger(mock_task, mock_agent):
     env_runner.logger.info.assert_called_once()
 
 
-@mock.patch("ai_traineree.runners.env_runner.AgentBase")
-@mock.patch("ai_traineree.runners.env_runner.TaskType")
+@mock.patch("aitraineree.runners.env_runner.AgentBase")
+@mock.patch("aitraineree.runners.env_runner.TaskType")
 def test_env_runner_info_with_data_logger(mock_task, mock_agent):
     # Assign
     data_logger = mock.MagicMock()
@@ -47,9 +47,9 @@ def test_env_runner_info_with_data_logger(mock_task, mock_agent):
     mock_agent.log_metrics.assert_called_once_with(data_logger, mock.ANY, full_log=False)
 
 
-@mock.patch("ai_traineree.runners.env_runner.AgentBase")
-@mock.patch("ai_traineree.runners.env_runner.TaskType")
-@mock.patch("ai_traineree.runners.env_runner.DataLogger")
+@mock.patch("aitraineree.runners.env_runner.AgentBase")
+@mock.patch("aitraineree.runners.env_runner.TaskType")
+@mock.patch("aitraineree.runners.env_runner.DataLogger")
 def test_env_runner_log_episode_metrics(mock_data_logger, mock_task, mock_agent):
     # Assign
     episodes = [1, 2]
@@ -73,9 +73,9 @@ def test_env_runner_log_episode_metrics(mock_data_logger, mock_task, mock_agent)
         mock_data_logger.log_value.assert_any_call("episode/iterations", iterations[idx], episode)
 
 
-@mock.patch("ai_traineree.runners.env_runner.AgentBase")
-@mock.patch("ai_traineree.runners.env_runner.TaskType")
-@mock.patch("ai_traineree.runners.env_runner.DataLogger")
+@mock.patch("aitraineree.runners.env_runner.AgentBase")
+@mock.patch("aitraineree.runners.env_runner.TaskType")
+@mock.patch("aitraineree.runners.env_runner.DataLogger")
 def test_env_runner_log_episode_metrics_values_missing(mock_data_logger, mock_task, mock_agent):
     # Assign
     episodes = [1, 2]
@@ -89,9 +89,9 @@ def test_env_runner_log_episode_metrics_values_missing(mock_data_logger, mock_ta
     mock_data_logger.log_value.assert_not_called()
 
 
-@mock.patch("ai_traineree.runners.env_runner.AgentBase")
-@mock.patch("ai_traineree.runners.env_runner.TaskType")
-@mock.patch("ai_traineree.runners.env_runner.DataLogger")
+@mock.patch("aitraineree.runners.env_runner.AgentBase")
+@mock.patch("aitraineree.runners.env_runner.TaskType")
+@mock.patch("aitraineree.runners.env_runner.DataLogger")
 def test_env_runner_log_data_interaction(mock_data_logger, mock_task, mock_agent):
     # Assign
     env_runner = EnvRunner(mock_task, mock_agent, data_logger=mock_data_logger)
@@ -103,8 +103,8 @@ def test_env_runner_log_data_interaction(mock_data_logger, mock_task, mock_agent
     mock_agent.log_metrics.assert_called_once_with(mock_data_logger, 0, full_log=False)
 
 
-@mock.patch("ai_traineree.runners.env_runner.AgentBase")
-@mock.patch("ai_traineree.runners.env_runner.TaskType")
+@mock.patch("aitraineree.runners.env_runner.AgentBase")
+@mock.patch("aitraineree.runners.env_runner.TaskType")
 def test_env_runner_log_data_interaction_no_data_logger(mock_task, mock_agent):
     # Assign
     env_runner = EnvRunner(mock_task, mock_agent)
@@ -116,9 +116,9 @@ def test_env_runner_log_data_interaction_no_data_logger(mock_task, mock_agent):
     mock_agent.log_metrics.assert_not_called()
 
 
-@mock.patch("ai_traineree.runners.env_runner.AgentBase")
-@mock.patch("ai_traineree.runners.env_runner.TaskType")
-@mock.patch("ai_traineree.runners.env_runner.DataLogger")
+@mock.patch("aitraineree.runners.env_runner.AgentBase")
+@mock.patch("aitraineree.runners.env_runner.TaskType")
+@mock.patch("aitraineree.runners.env_runner.DataLogger")
 def test_env_runner_log_data_interaction_debug_log(mock_data_logger, mock_task, mock_agent):
     # Assign
     mock_task.step.return_value = ([1, 0.1], -1, False, {})
@@ -135,10 +135,10 @@ def test_env_runner_log_data_interaction_debug_log(mock_data_logger, mock_task, 
     assert mock_data_logger.log_value.call_count == 20  # 10x iter per rewards and dones
 
 
-@mock.patch("ai_traineree.runners.env_runner.Path")
-@mock.patch("ai_traineree.runners.env_runner.json")
-@mock.patch("ai_traineree.runners.env_runner.AgentBase")
-@mock.patch("ai_traineree.runners.env_runner.TaskType")
+@mock.patch("aitraineree.runners.env_runner.Path")
+@mock.patch("aitraineree.runners.env_runner.json")
+@mock.patch("aitraineree.runners.env_runner.AgentBase")
+@mock.patch("aitraineree.runners.env_runner.TaskType")
 def test_env_runner_save_state(mock_task, mock_agent, mock_json, mock_path):
     # Assign
     mock_task.step.return_value = ([1, 0.1], -1, False, {})
@@ -157,8 +157,8 @@ def test_env_runner_save_state(mock_task, mock_agent, mock_json, mock_path):
     assert state["tot_iterations"] == 10 * 10
 
 
-@mock.patch("ai_traineree.runners.env_runner.AgentBase")
-@mock.patch("ai_traineree.runners.env_runner.TaskType")
+@mock.patch("aitraineree.runners.env_runner.AgentBase")
+@mock.patch("aitraineree.runners.env_runner.TaskType")
 def test_env_runner_load_state_no_file(mock_task, mock_agent):
     # Assign
     env_runner = EnvRunner(mock_task, mock_agent, max_iterations=10)
@@ -172,9 +172,9 @@ def test_env_runner_load_state_no_file(mock_task, mock_agent):
     mock_agent.load_state.assert_not_called()
 
 
-@mock.patch("ai_traineree.runners.env_runner.os")
-@mock.patch("ai_traineree.runners.env_runner.AgentBase")
-@mock.patch("ai_traineree.runners.env_runner.TaskType")
+@mock.patch("aitraineree.runners.env_runner.os")
+@mock.patch("aitraineree.runners.env_runner.AgentBase")
+@mock.patch("aitraineree.runners.env_runner.TaskType")
 def test_env_runner_load_state(mock_task, mock_agent, mock_os):
     # Assign
     env_runner = EnvRunner(mock_task, mock_agent, max_iterations=10)
