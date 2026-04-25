@@ -344,7 +344,7 @@ class MultiSyncEnvRunner:
         Writes out current state into provided loggers.
         Writting to stdout is done through Python's logger, whereas all metrics
         are supposed to be handled via DataLogger. Currently supported are Tensorboard
-        and Neptune (neptune.ai). To use one of these `data_logger` is expected.
+        currently supported.
         """
         if self.data_logger is not None:
             self.log_episode_metrics(**kwargs)
