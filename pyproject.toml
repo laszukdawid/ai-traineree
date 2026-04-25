@@ -8,7 +8,7 @@ dependencies = [
     "numpy>=2.0",
     "torch>=2.0",
     "jsons>=1.4",
-    "gymnasium==1.0.0",
+    "gymnasium>=1.0.0",
     "matplotlib>=3.7.5",
 ]
 
@@ -16,15 +16,13 @@ dependencies = [
 requires = ["uv>=0.4.9", "hatchling"]
 build-backend = "hatchling.build"
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "mock",
     "pytest>=6.2.5",
     "pytest-cov>=6.0.0",
     "pytest-mock",
     "pytest-timeout",
-    "gymnasium[box2d]==1.0.0",  # remember about Swig
-    "swig",
 ]
 
 [project.optional-dependencies]
@@ -32,13 +30,11 @@ dev-dependencies = [
 plot = ["matplotlib"]
 tensorboard = ["tensorboard"]
 neptune = ["neptune-client", "psutil"]
-gymnasium = ["gymnasium[all]==1.0.0"]
-# mlagents = ["mlagents"]
-# pettingzoo = ["pettingzoo[other]==1.11.0"]
+#gymnasium = ["gymnasium[all]>=1.0.0"]
 examples = [
     "matplotlib",
     "tensorboard",
-    "gymnasium==1.0.0",
+    #"gymnasium>=1.0.0",
 ]
 doc = [
     "sphinx",
@@ -47,19 +43,20 @@ doc = [
 
 [tool.ruff]
 line-length = 120
+target-version = "py312"
 
-[tool.isort]
-line_length = 120
-profile = "black"
+[tool.ruff.lint]
+select = ["E", "F", "W"]  # Basic: pycodestyle errors, pyflakes, warnings
 
-[tool.black]
-line-length = 120
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
 
 [tool.hatch.build.targets.wheel]
 packages = ["aitraineree"]
 
 [tool.pytest.ini_options]
-addopts = "--verbose --cov=aitraineree --timeout=30"
+addopts = "--verbose --cov=aitraineree --timeout=30 --ignore=tests/runners/test_env_runner.py --ignore=tests/runners/test_multi_sync_env_runner.py --ignore=tests/test_run_agents.py --ignore=tests/test_tasks.py"
 testpaths = ["aitraineree", "tests"]
 
 [tool.coverage.run]

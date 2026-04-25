@@ -1,8 +1,9 @@
 import logging
 from collections import deque
+from collections.abc import Callable, Sequence
 from functools import cached_property, reduce
 from operator import mul
-from typing import Any, Callable, Sequence
+from typing import Any
 
 import numpy as np
 import torch
@@ -135,7 +136,7 @@ class GymTask(TaskType):
 
         self.name = env
         render_mode = kwargs.get("render_mode", "rgb_array")
-        video_every_episodes = kwargs.get("video_episode_trigger", None)
+        video_every_episodes = kwargs.get("video_episode_trigger")
         video_folder = kwargs.get("video_folder", "videos")
 
         try:
@@ -161,8 +162,7 @@ class GymTask(TaskType):
     def __determine_action_size(action_space):
         if "Discrete" in str(type(action_space)):
             return action_space.n
-        else:
-            return sum(action_space.shape)
+        return sum(action_space.shape)
 
     @property
     def obs_space(self) -> DataSpace:
@@ -196,9 +196,8 @@ class GymTask(TaskType):
     def render(self):
         if self.can_render:
             return self.env.render()
-        else:
-            self.logger.warning("Asked for rendering but it's not available in this environment")
-            return
+        self.logger.warning("Asked for rendering but it's not available in this environment")
+        return None
 
     def step(self, action: ActionType) -> tuple:
         """Each action results in a new state, reward, done flag, and info about env.
@@ -332,7 +331,7 @@ class MultiAgentUnityTask(MultiAgentTaskType):
 
     .. _permalink: https://github.com/Unity-Technologies/ml-agents/blob/3e48be4e1304d8cbbb43d8ffc335f8037cfe6f1d/gym-unity/gym_unity/envs/__init__.py#L27
 
-    """  # noqa
+    """
 
     logger = logging.getLogger(__name__)
 
@@ -411,16 +410,15 @@ class MultiAgentUnityTask(MultiAgentTaskType):
             branches = self.group_spec.discrete_action_branches
             if self.group_spec.action_size == 1:
                 self._action_space = spaces.Discrete(branches[0])
+            elif flatten_branched:
+                self._flattener = ActionFlattener(branches)
+                self._action_space = self._flattener.action_space
             else:
-                if flatten_branched:
-                    self._flattener = ActionFlattener(branches)
-                    self._action_space = self._flattener.action_space
-                else:
-                    self._action_space = spaces.MultiDiscrete(branches)
+                self._action_space = spaces.MultiDiscrete(branches)
 
         else:
             if flatten_branched:
-                self.logger.warning("The environment has a non-discrete action space. It will " "not be flattened.")
+                self.logger.warning("The environment has a non-discrete action space. It will not be flattened.")
             high = np.ones(self.group_spec.action_shape)
             self._action_space = spaces.Box(-high, high, dtype=np.float32)
 
@@ -486,8 +484,7 @@ class MultiAgentUnityTask(MultiAgentTaskType):
             out = self._single_step(terminal_step)
             self.reset()  # TODO: This is a hack to allow remaining agents to "do something". Remove!
             return out
-        else:
-            return self._single_step(decision_step)
+        return self._single_step(decision_step)
 
     # def detect_game_over(self, termianl_steps: List[TerminalSteps]) -> bool:
     def detect_game_over(self, termianl_steps: list) -> bool:
@@ -497,14 +494,13 @@ class MultiAgentUnityTask(MultiAgentTaskType):
         are possible in the same iteration.
         This is to keep consistent with Unity's framework but likely will go through refactoring.
         """
-        if self.termination_mode == TerminationMode.ANY and len(termianl_steps) > 0:
+        if (self.termination_mode == TerminationMode.ANY and len(termianl_steps) > 0) or (
+            self.termination_mode == TerminationMode.MAJORITY and len(termianl_steps) > 0.5 * self.num_agents
+        ):
             return True
-        elif self.termination_mode == TerminationMode.MAJORITY and len(termianl_steps) > 0.5 * self.num_agents:
+        if self.termination_mode == TerminationMode.ALL and len(termianl_steps) == self.num_agents:
             return True
-        elif self.termination_mode == TerminationMode.ALL and len(termianl_steps) == self.num_agents:
-            return True
-        else:
-            return False
+        return False
 
     # def _single_step(self, info: Union[DecisionSteps, TerminalSteps]) -> GymStepResult:
     def _single_step(self, info) -> GymStepResult:
@@ -516,12 +512,11 @@ class MultiAgentUnityTask(MultiAgentTaskType):
             default_observation = visual_obs_list
             if self._get_vec_obs_size() >= 1:
                 default_observation.append(self._get_vector_obs(info)[0, :])
+        elif self._get_n_vis_obs() >= 1:
+            visual_obs = self._get_vis_obs_list(info)
+            default_observation = self._preprocess_single(visual_obs[0][0])
         else:
-            if self._get_n_vis_obs() >= 1:
-                visual_obs = self._get_vis_obs_list(info)
-                default_observation = self._preprocess_single(visual_obs[0][0])
-            else:
-                default_observation = self._get_vector_obs(info)[0, :]
+            default_observation = self._get_vector_obs(info)[0, :]
 
         if self._get_n_vis_obs() >= 1:
             visual_obs = self._get_vis_obs_list(info)
@@ -534,8 +529,7 @@ class MultiAgentUnityTask(MultiAgentTaskType):
     def _preprocess_single(self, single_visual_obs: np.ndarray) -> np.ndarray:
         if self.uint8_visual:
             return (255.0 * single_visual_obs).astype(np.uint8)
-        else:
-            return single_visual_obs
+        return single_visual_obs
 
     def _get_n_vis_obs(self) -> int:
         result = 0
@@ -588,7 +582,7 @@ class MultiAgentUnityTask(MultiAgentTaskType):
         """
         if mode != "rgb_array":
             self.logger.warning("Mode provide is '%s' but only `rgb_array` mode is supported.", mode)
-            return
+            return None
         return self.visual_obs
 
     def close(self) -> None:
@@ -603,7 +597,6 @@ class MultiAgentUnityTask(MultiAgentTaskType):
         Currently not implemented.
         """
         self.logger.warning("Could not seed environment %s", self.name)
-        return
 
     @property
     def metadata(self):
