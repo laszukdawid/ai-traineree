@@ -24,11 +24,7 @@ jobs:
           # Latest on 2024-12-24
           version: "0.5.11"
       - name: "Set up Python"
-        uses: actions/setup-python@v5
-        with:
-          # Using pinned version
-          # TODO: Do matrix for supported versions
-          python-version-file: ".python-version"
+        uses: actions/setup-python@v6
       - name: Install dependencies
         run: uv sync --dev
       - name: Run tests
