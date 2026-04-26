@@ -2,8 +2,7 @@
 [![DocStatus](https://readthedocs.org/projects/ai-traineree/badge/?version=latest)](https://ai-traineree.readthedocs.io/)
 [![codecov](https://codecov.io/gh/laszukdawid/ai-traineree/branch/master/graph/badge.svg?token=S62DK7HPYA)](https://codecov.io/gh/laszukdawid/ai-traineree)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/00563b8422454e10bb4ffab64068aa62)](https://www.codacy.com/gh/laszukdawid/ai-traineree/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=laszukdawid/ai-traineree&amp;utm_campaign=Badge_Grade)
-[![Discord chat](https://img.shields.io/discord/909530201837432873?logo=discord)](https://discord.gg/n4bN7ZHn)
-[![DOI](https://zenodo.org/badge/267484000.svg)](https://zenodo.org/badge/latestdoi/267484000)
+[![Conda](https://anaconda.org/conda-forge/ai-traineree/badges/version.svg)](https://anaconda.org/conda-forge/ai-traineree/badges/version.svg)
 
 The intention is to have a zoo of Deep Reinforcment Learning methods and showcasing their application on some environments.
 
@@ -12,7 +11,7 @@ Read more in the doc: [ReadTheDocs AI-Traineree](https://ai-traineree.readthedoc
 ![CartPole-v1](./static/CartPole-v1.gif)
 ![Snek](./static/hungrysnek.gif)
 
-## Why another?
+## Why another Deep Reinforcement Learning framework?
 
 The main reason is the implemention philosophy.
 We strongly believe that agents should be emerged in the environment and not the other way round.
@@ -24,7 +23,8 @@ That, and using PyTorch instead of Tensorflow or JAX.
 
 ## Quick start
 
-To get started with training your RL agent you need three things: an agent, an environment and a runner. Let's say you want to train a DQN agent on OpenAI CartPole-v1:
+To get started with training your RL agent you need three things: an agent, an environment and a runner. Let's say you want to train a DQN agent on Gymnasium CartPole-v1:
+
 ```python
 from aitraineree.agents.dqn import DQNAgent
 from aitraineree.runners.env_runner import EnvRunner
@@ -38,7 +38,10 @@ scores = env_runner.run()
 ```
 
 or execute one of provided examples
-> \$ python -m examples.cart_dqn
+
+```sh
+python -m examples.cart_dqn
+```
 
 That's it.
 
@@ -48,24 +51,49 @@ That's it.
 
 The quickest way to install package is through `pip`.
 
-> \$ pip install ai-traineree
+```sh
+pip install ai-traineree
+```
+
+In case you're using [uv](https://docs.astral.sh/uv/) which is recommended as it makes building environments much faster, use
+
+```sh
+uv add ai-traineree
+# or
+# uv pip install ai-traineree
+```
+
+### Conda
+
+AI Traineree is also available in Conda via conda-forge channel
+
+```sh
+conda install -c conda-forge ai-traineree
+```
+
+Source: https://anaconda.org/conda-forge/ai-traineree
 
 ### Git repository clone
 
-As usual with Python, the expectation is to have own virtual environment and then pip install requirements. For example,
+As usual with Python, the expectation is to have own virtual environment and then install project dependencies. For example,
+
 ```bash
-> python -m venv .venv
-> git clone git@github.com:laszukdawid/ai-traineree.git
-> source .venv/bin/activate
-> python setup.py install
+git clone git@github.com:laszukdawid/ai-traineree.git
+cd ai-traineree
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
+# or, with uv
+# uv sync
 ```
 
 ## Current state
 
 ### Playing gym
+
 One way to improve learning speed is to simply show them how to play or, more researchy/creepy, provide a proper seed.
 This isn't a general rule, since some algorithms train better without any human interaction, but since you're on GitHub... that's unlikely your case.
-Currently there's a script [`interact.py`](scripts/interact.py) which uses OpenAI Gym's play API to record moves and AI Traineree to store them
+Currently there's a script [`interact.py`](scripts/interact.py) which uses Gymnasium's play API to record moves and AI Traineree to store them
 in a buffer. Such buffers can be loaded by agents on initiation.
 
 This is just a beginning and there will be more work on these interactions.
@@ -92,25 +120,23 @@ However, that doesn't mean one can be used without the other.
 
 | Short  | Progress                                          | Link                                      | Full name              | Doc                                                                          |
 | ------ | ------------------------------------------------- | ----------------------------------------- | ---------------------- | ---------------------------------------------------------------------------- |
-| IQL    | [Implemented](aitraineree/multi_agent/iql.py)    |                                           | Independent Q-Learners | [Doc](https://ai-traineree.readthedocs.io/en/latest/multi_agent.html#iql)    |
-| MADDPG | [Implemented](aitraineree/multi_agent/maddpg.py) | [arXiv](https://arxiv.org/abs/1706.02275) | Multi agent DDPG       | [Doc](https://ai-traineree.readthedocs.io/en/latest/multi_agent.html#maddpg) |
+| IQL    | [Implemented](aitraineree/multi_agents/iql.py)    |                                           | Independent Q-Learners | [Doc](https://ai-traineree.readthedocs.io/en/latest/multi_agent.html#iql)    |
+| MADDPG | [Implemented](aitraineree/multi_agents/maddpg.py) | [arXiv](https://arxiv.org/abs/1706.02275) | Multi agent DDPG       | [Doc](https://ai-traineree.readthedocs.io/en/latest/multi_agent.html#maddpg) |
 
 ### Loggers
 
-Supports using Tensorboard (via PyTorch's [SummaryWriter](https://pytorch.org/docs/stable/tensorboard.html)) and [Neptune](https://neptune.ai) to display metrics. Wrappers are provided as `TensorboardLogger` and `NeptuneLogger`.
-
-*Note*: In order to use Neptune one needs to install [neptune-client](https://pypi.org/project/neptune-client/) (`pip install neptune-client`).
+Supports using Tensorboard (via PyTorch's [SummaryWriter](https://pytorch.org/docs/stable/tensorboard.html)) to display metrics. A lightweight `FileLogger` is also available for local experiment data.
 
 ### Environments
 
-| Name                 | Progress           | Link                                                                                         |
-| -------------------- | ------------------ | -------------------------------------------------------------------------------------------- |
-| OpenAI Gym - Classic | Done               |
-| OpenAI Gym - Atari   | Done               |
-| OpenAI Gym - MuJoCo  | Not interested.    |
-| PettingZoo           | Initial support    | [Page](https://www.pettingzoo.ml/) / [GitHub](https://github.com/PettingZoo-Team/PettingZoo) |
-| Unity ML             | Somehow supported. | [Page](https://unity3d.com/machine-learning)                                                 |
-| MAME Linux emulator  | Interested.        | [Official page](https://www.mamedev.org/)                                                    |
+| Name                    | Progress           | Link                                                                                         |
+| ----------------------- | ------------------ | -------------------------------------------------------------------------------------------- |
+| Gymnasium - Classic     | Done               |
+| Gymnasium - Atari       | Done               |
+| Gymnasium - MuJoCo      | Not interested.    |
+| PettingZoo              | Initial support    | [Page](https://www.pettingzoo.ml/) / [GitHub](https://github.com/PettingZoo-Team/PettingZoo) |
+| Unity ML                | Somehow supported. | [Page](https://unity3d.com/machine-learning)                                                 |
+| MAME Linux emulator     | Interested.        | [Official page](https://www.mamedev.org/)                                                    |
 
 ### Development
 
@@ -118,16 +144,18 @@ We are open to any contributions. If you want to contribute but don't know what 
 The best way to start is through updating documentation and adding tutorials.
 In addition there are many other things that we know of which need improvement but also plenty that we don't know of.
 
-Setting up development environment requires installing `dev` and `test` extra packages.
-The `dev` extras are for mainly for linting and formatting, and the `test` is for running tests.
-We recommend using `pip` so to install everything requires for development run
+Setting up development environment is easiest with [uv](https://docs.astral.sh/uv/), using the `dev` dependency group:
 
 ```bash
-$ pip install -e .[dev,test]
+uv sync --dev
 ```
 
-Once installed, please configure your IDE to use `black` as formatter, `pycodestyle` as linter,
-and `isort` for sorting imports. All these are included in the `dev` extra packages.
+Typical development commands:
+
+```bash
+uvx ruff@0.3.0 check
+uv run pytest
+```
 
 ### Contact
 
