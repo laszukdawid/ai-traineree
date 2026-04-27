@@ -6,7 +6,7 @@ import torch
 from aitraineree.agents.ppo import PPOAgent
 from aitraineree.types.dataspace import DataSpace
 from aitraineree.types.state import AgentState, BufferState, NetworkState
-from conftest import deterministic_interactions
+from tests.utils import deterministic_interactions
 
 t_obs_space = DataSpace(dtype="float", shape=(4,))
 t_action_space = DataSpace(dtype="int", shape=(2,))
@@ -84,6 +84,7 @@ def test_ppo_get_state_compare_different_agents():
     assert state_1.model == state_2.model
 
 
+@pytest.mark.requires_cuda
 def test_ppo_from_state():
     # Assign
     agent = PPOAgent(t_obs_space, t_action_space)
@@ -103,6 +104,7 @@ def test_ppo_from_state():
     assert new_agent.buffer == agent.buffer
 
 
+@pytest.mark.requires_cuda
 def test_ppo_from_state_network_state_none():
     # Assign
     agent = PPOAgent(t_obs_space, t_action_space)
@@ -120,6 +122,7 @@ def test_ppo_from_state_network_state_none():
     assert new_agent.buffer == agent.buffer
 
 
+@pytest.mark.requires_cuda
 def test_ppo_from_state_buffer_state_none():
     # Assign
     agent = PPOAgent(t_obs_space, t_action_space)
@@ -139,6 +142,7 @@ def test_ppo_from_state_buffer_state_none():
     assert all([torch.all(x == y) for (x, y) in zip(agent.critic.parameters(), new_agent.critic.parameters())])
 
 
+@pytest.mark.requires_cuda
 def test_ppo_from_state_one_updated():
     # Assign
     agent = PPOAgent(t_obs_space, t_action_space)

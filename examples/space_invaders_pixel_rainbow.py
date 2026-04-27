@@ -56,7 +56,7 @@ data_logger = TensorboardLogger(f'runs/{env_name}_{agent.model}_{datetime.dateti
 env_runner = EnvRunner(task, agent, max_iterations=10000, data_logger=data_logger)
 
 scores = env_runner.run(reward_goal=1000, max_episodes=1000, eps_start=0.99, gif_every_episodes=100, force_new=True)
-env_runner.interact_episode(render=True)
+env_runner.interact_episode(render_gif=True)
 
 # plot the scores
 fig = plt.figure()

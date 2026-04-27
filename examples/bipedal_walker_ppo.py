@@ -31,7 +31,7 @@ config = {
 agent = Agent(task.obs_space, task.action_space, **config)
 data_logger = FileLogger(f"{agent.model}_{env_name}")
 env_runner = EnvRunner(task, agent, max_iterations=2000, data_logger=data_logger)
-# env_runner.interact_episode(render=True)
+# env_runner.interact_episode(render_gif=True)
 scores = env_runner.run(300, 2000, eps_end=0.001, eps_decay=0.9, log_episode_freq=10, force_new=True)
 
 data_logger.close()

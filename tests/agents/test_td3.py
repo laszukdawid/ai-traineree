@@ -3,7 +3,7 @@ import copy
 import pytest
 
 from aitraineree.agents.td3 import TD3Agent
-from conftest import deterministic_interactions
+from tests.utils import deterministic_interactions
 
 
 def test_td3_seed(float_1d_space):

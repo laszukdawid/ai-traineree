@@ -30,7 +30,7 @@ env_runner = EnvRunner(task, agent, data_logger=data_logger)
 scores = env_runner.run(
     reward_goal=100, max_episodes=2000, eps_decay=0.9, eps_end=0.001, force_new=True, log_episode_freq=10
 )
-env_runner.interact_episode(eps=0, render=True)
+env_runner.interact_episode(eps=0, render_gif=True)
 
 data_logger.close()
 

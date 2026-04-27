@@ -3,7 +3,7 @@ import copy
 import pytest
 
 from aitraineree.agents.d4pg import D4PGAgent
-from conftest import deterministic_interactions
+from tests.utils import deterministic_interactions
 
 
 def test_d4pg_seed(float_1d_space):

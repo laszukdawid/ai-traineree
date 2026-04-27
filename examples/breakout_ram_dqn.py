@@ -16,7 +16,7 @@ env_runner = EnvRunner(task, agent)
 
 # env_runner.interact_episode(eps=0, render=True)
 scores = env_runner.run(reward_goal=5, max_episodes=5000)
-env_runner.interact_episode(eps=0, render=True)
+env_runner.interact_episode(eps=0, render_gif=True)
 
 # plot the scores
 fig = plt.figure()

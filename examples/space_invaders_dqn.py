@@ -57,7 +57,7 @@ for _ in range(prev_states):
 agent = DQNAgent(task.obs_space, task.action_space, **config)
 env_runner = EnvRunner(task, agent, data_logger=data_logger)
 
-# env_runner.interact_episode(eps=0, render=True)
+# env_runner.interact_episode(eps=0, render_gif=True)
 scores = env_runner.run(
     reward_goal=1000,
     max_episodes=20000,
@@ -65,7 +65,7 @@ scores = env_runner.run(
     gif_every_episodes=200,
     force_new=True,
 )
-# env_runner.interact_episode(render=True)
+# env_runner.interact_episode(render_gif=True)
 data_logger.close()
 
 # plot scores

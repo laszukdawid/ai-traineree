@@ -32,9 +32,9 @@ log_dir = f"runs/{env_name}_{agent.model}-{datetime.now().isoformat()[:-7]}"
 data_logger = TensorboardLogger(log_dir=log_dir)
 env_runner = EnvRunner(task, agent, data_logger=data_logger, window_len=30, debug_log=True)
 
-# interact_episode(task, agent, 0, render=True)
+# interact_episode(task, agent, 0, render_gif=True)
 scores = env_runner.run(reward_goal=80, max_episodes=2000, eps_end=0.2, eps_decay=0.99, force_new=True)
-# env_runner.interact_episode(eps=0, render=True)
+# env_runner.interact_episode(eps=0, render_gif=True)
 
 data_logger.close()
 

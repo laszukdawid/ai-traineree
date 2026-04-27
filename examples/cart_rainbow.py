@@ -20,7 +20,7 @@ agent = Agent(task.obs_space, task.action_space, device="cpu")
 env_runner = EnvRunner(task, agent, data_logger=data_logger)
 
 scores = env_runner.run(reward_goal=100, max_episodes=500, eps_decay=0.98, force_new=True)
-env_runner.interact_episode(render=True)
+env_runner.interact_episode(render_gif=True)
 data_logger.close()
 
 

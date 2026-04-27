@@ -16,7 +16,7 @@ from aitraineree.utils import (
     to_numbers_seq,
     to_tensor,
 )
-from conftest import deterministic_interactions
+from tests.utils import deterministic_interactions
 
 
 def generate_value():
@@ -239,6 +239,7 @@ def test_serialize_buffer_state_numpy():
     assert des["extra"] is None
 
 
+@pytest.mark.requires_cuda
 def test_serialize_network_state_actual():
     from aitraineree.agents.dqn import DQNAgent
 
@@ -254,6 +255,7 @@ def test_serialize_network_state_actual():
     assert set(des["net"].keys()) == set(("target_net", "net"))
 
 
+@pytest.mark.requires_cuda
 def test_serialize_agent_state_actual():
     from aitraineree.agents.dqn import DQNAgent
 
