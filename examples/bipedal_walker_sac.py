@@ -31,7 +31,7 @@ data_logger = FileLogger(f"{agent.model}_{env_name}")
 
 env_runner = EnvRunner(task, agent, max_iterations=10000, data_logger=data_logger)
 scores = env_runner.run(reward_goal=100, max_episodes=3000, eps_decay=0.99, log_episode_freq=1, force_new=True)
-env_runner.interact_episode(render=True)
+env_runner.interact_episode(render_gif=True)
 
 # plot the scores
 fig = plt.figure()

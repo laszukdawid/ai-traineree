@@ -44,7 +44,7 @@ env_runner = EnvRunner(task, agent, data_logger=data_logger, seed=seed, debug_lo
 scores = env_runner.run(
     reward_goal=30, max_episodes=2000, eps_end=0.01, eps_decay=0.95, force_new=True, checkpoint_every=None
 )
-env_runner.interact_episode(eps=0, render=True)
+env_runner.interact_episode(eps=0, render_gif=True)
 data_logger.close()
 
 # plot the scores

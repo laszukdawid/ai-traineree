@@ -56,7 +56,7 @@ agent = DQNAgent(task.obs_space, task.action_space, **config)
 env_runner = EnvRunner(task, agent, max_iterations=2000, data_logger=data_logger)
 
 scores = env_runner.run(reward_goal=2, max_episodes=50000, gif_every_episodes=1000, force_new=True)
-env_runner.interact_episode(render=True)
+env_runner.interact_episode(render_gif=True)
 data_logger.close()
 
 

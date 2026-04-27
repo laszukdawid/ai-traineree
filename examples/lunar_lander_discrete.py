@@ -12,9 +12,9 @@ config = {"batch_size": 64}
 agent = DQNAgent(task.obs_space, task.action_space, config=config)
 env_runner = EnvRunner(task, agent)
 
-env_runner.interact_episode(eps=0, render=True)
+env_runner.interact_episode(eps=0, render_gif=True)
 scores = env_runner.run(50, 800, eps_start=1.0, eps_end=0.05, eps_decay=0.995)
-env_runner.interact_episode(eps=0, render=True)
+env_runner.interact_episode(eps=0, render_gif=True)
 
 # plot the scores
 fig = plt.figure()
