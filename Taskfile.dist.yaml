@@ -15,7 +15,7 @@ tasks:
       - chmod +x .venv/lib/python3.12/site-packages/swig/data/bin/swig
   
   install:swig:
-    desc: Installing swig on Ubuntu
+    desc: "Installing swig on Ubuntu"
     status:
       - swig -version
     cmd: sudo apt install swig
@@ -31,8 +31,10 @@ tasks:
       - uv build
   
   test:
+    desc: "Run all tests"
     cmds:
-      - uv run python -m pytest
+      - uv run pytest
       
   run:example:
+    desc: "Cart DQN example"
     cmd: uv run examples/cart_dqn.py

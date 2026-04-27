@@ -1,11 +1,12 @@
 import copy
 
+import pytest
 import torch
 
 from aitraineree.agents.dqn import DQNAgent
 from aitraineree.types import AgentState, BufferState, NetworkState
 from aitraineree.types.dataspace import DataSpace
-from conftest import deterministic_interactions, feed_agent
+from tests.utils import deterministic_interactions, feed_agent
 
 t_obs_space = DataSpace(dtype="float", shape=(4,), low=-2, high=2)
 t_action_space = DataSpace(dtype="int", shape=(4,), low=0, high=4)
@@ -80,6 +81,7 @@ def test_dqn_get_state_compare_different_agents():
     assert state_1.model == state_2.model
 
 
+@pytest.mark.requires_cuda
 def test_dqn_from_state():
     # Assign
     agent = DQNAgent(t_obs_space, t_action_space)
@@ -98,6 +100,7 @@ def test_dqn_from_state():
     assert new_agent.buffer == agent.buffer
 
 
+@pytest.mark.requires_cuda
 def test_dqn_from_state_network_state_none():
     # Assign
     agent = DQNAgent(t_obs_space, t_action_space)
@@ -115,6 +118,7 @@ def test_dqn_from_state_network_state_none():
     assert new_agent.buffer == agent.buffer
 
 
+@pytest.mark.requires_cuda
 def test_dqn_from_state_buffer_state_none():
     # Assign
     agent = DQNAgent(t_obs_space, t_action_space)
@@ -133,6 +137,7 @@ def test_dqn_from_state_buffer_state_none():
     assert all([torch.all(x == y) for (x, y) in zip(agent.target_net.parameters(), new_agent.target_net.parameters())])
 
 
+@pytest.mark.requires_cuda
 def test_dqn_from_state_one_updated():
     # Assign
     agent = DQNAgent(t_obs_space, t_action_space)

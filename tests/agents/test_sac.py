@@ -5,7 +5,7 @@ import torch
 
 from aitraineree.agents.sac import SACAgent
 from aitraineree.types import DataSpace
-from conftest import deterministic_interactions, feed_agent
+from tests.utils import deterministic_interactions, feed_agent
 
 float_space = DataSpace(dtype="float", shape=(5,), low=-2, high=2)
 action_space = DataSpace(dtype="float", shape=(4,), low=-1, high=2)
@@ -42,6 +42,7 @@ def test_sac_seed(float_1d_space):
         assert a1 == pytest.approx(a2, 1e-4), f"Action mismatch on position {idx}: {a1} != {a2}"
 
 
+@pytest.mark.requires_cuda
 def test_sac_from_state():
     # Assign
     agent = SACAgent(float_space, action_space)
@@ -69,6 +70,7 @@ def test_sac_from_state():
     assert new_agent.buffer == agent.buffer
 
 
+@pytest.mark.requires_cuda
 def test_sac_from_state_network_state_none():
     # Assign
     agent = SACAgent(float_space, action_space)
@@ -86,6 +88,7 @@ def test_sac_from_state_network_state_none():
     assert new_agent.buffer == agent.buffer
 
 
+@pytest.mark.requires_cuda
 def test_sac_from_state_buffer_state_none():
     # Assign
     agent = SACAgent(float_space, float_space)
@@ -113,6 +116,7 @@ def test_sac_from_state_buffer_state_none():
     )
 
 
+@pytest.mark.requires_cuda
 def test_sac_from_state_one_updated():
     # Assign
     agent = SACAgent(float_space, float_space)

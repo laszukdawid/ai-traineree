@@ -9,7 +9,7 @@ from aitraineree.agents.rainbow import RainbowAgent
 from aitraineree.networks.heads import RainbowNet
 from aitraineree.types import AgentState, BufferState, DataSpace, NetworkState
 from aitraineree.types.experience import Experience
-from conftest import deterministic_interactions, fake_step, feed_agent
+from tests.utils import deterministic_interactions, fake_step, feed_agent
 
 t_obs_space = DataSpace(dtype="float", shape=(10,), low=-1, high=1)
 t_action_space = DataSpace(dtype="int", shape=(4,), low=0, high=4)
@@ -25,6 +25,7 @@ def test_rainbow_init_fail_without_state_action_dim():
         RainbowAgent(3)
 
 
+@pytest.mark.requires_cuda
 def test_rainbow_init_default():
     # Assign
     agent = RainbowAgent(t_obs_space, t_action_space)

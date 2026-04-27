@@ -5,7 +5,7 @@ import torch
 
 from aitraineree.agents.ddpg import DDPGAgent
 from aitraineree.types import AgentState, BufferState, DataSpace, NetworkState
-from conftest import deterministic_interactions, feed_agent
+from tests.utils import deterministic_interactions, feed_agent
 
 float_space = DataSpace(dtype="float", shape=(5,), low=-2, high=2)
 action_space = DataSpace(dtype="float", shape=(4,), low=-1, high=2)
@@ -83,6 +83,7 @@ def test_ddpg_get_state_compare_different_agents():
     assert state_1.model == state_2.model
 
 
+@pytest.mark.requires_cuda
 def test_ddpg_from_state():
     # Assign
     agent = DDPGAgent(float_space, action_space)
@@ -107,6 +108,7 @@ def test_ddpg_from_state():
     assert new_agent.buffer == agent.buffer
 
 
+@pytest.mark.requires_cuda
 def test_ddpg_from_state_network_state_none():
     # Assign
     agent = DDPGAgent(float_space, action_space)
@@ -124,6 +126,7 @@ def test_ddpg_from_state_network_state_none():
     assert new_agent.buffer == agent.buffer
 
 
+@pytest.mark.requires_cuda
 def test_ddpg_from_state_buffer_state_none():
     # Assign
     agent = DDPGAgent(float_space, float_space)
@@ -148,6 +151,7 @@ def test_ddpg_from_state_buffer_state_none():
     )
 
 
+@pytest.mark.requires_cuda
 def test_ddpg_from_state_one_updated():
     # Assign
     agent = DDPGAgent(float_space, float_space)
