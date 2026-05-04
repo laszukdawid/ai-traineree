@@ -15,7 +15,8 @@ class QuietHandler(http.server.SimpleHTTPRequestHandler):
 
 @contextlib.contextmanager
 def static_server(root: Path, port: int):
-    handler = lambda *args, **kwargs: QuietHandler(*args, directory=str(root), **kwargs)
+    def handler(*args, **kwargs):
+        return QuietHandler(*args, directory=str(root), **kwargs)
     socketserver.TCPServer.allow_reuse_address = True
     try:
         server = socketserver.TCPServer(("127.0.0.1", port), handler)

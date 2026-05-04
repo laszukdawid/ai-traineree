@@ -45,7 +45,7 @@ def main():
         print(f"Current commit: {sha}")
         print("Next steps:")
         print(f"  1. Inspect the env at {target}")
-        print(f"  2. If it is a browser game, serve it locally and add an adapter/smoke test")
+        print("  2. If it is a browser game, serve it locally and add an adapter/smoke test")
         return
 
     run_git(["clone", url, str(target)])
