@@ -135,6 +135,10 @@ class PERBuffer(BufferBase):
     def priority_update(self, indices: Sequence[int], priorities: list) -> None:
         """Updates prioprities for elements on provided indices."""
         for i, p in zip(indices, priorities):
+            if hasattr(p, "detach"):
+                p = p.detach()
+            if hasattr(p, "item"):
+                p = p.item()
             self.tree.weight_update(i, math.pow(p, self.alpha))
 
     def reset_alpha(self, alpha: float):
