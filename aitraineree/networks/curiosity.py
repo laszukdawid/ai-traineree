@@ -7,7 +7,9 @@ from aitraineree.networks.bodies import FcNet
 
 
 class IntrinsicCuriosityModule(NetworkType):
-    """Intrinsic Curiosity Module (ICM) from Pathak et al. (2017).
+
+    """
+    Intrinsic Curiosity Module (ICM) from Pathak et al. (2017).
 
     Consists of three components:
     - Feature encoder: maps observations to a learned feature space
@@ -32,6 +34,8 @@ class IntrinsicCuriosityModule(NetworkType):
         device=None,
     ):
         """
+        Initialise the ICM.
+
         Parameters:
             obs_shape: Shape of the observation space.
             action_size: Dimension of the action space.
