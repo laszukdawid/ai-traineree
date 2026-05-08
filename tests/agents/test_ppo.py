@@ -8,8 +8,6 @@ from aitraineree.types.dataspace import DataSpace
 from aitraineree.types.state import AgentState, BufferState, NetworkState
 from tests.utils import deterministic_interactions
 
-from tests.utils import feed_agent
-
 t_obs_space = DataSpace(dtype="float", shape=(4,))
 t_action_space = DataSpace(dtype="int", shape=(2,))
 

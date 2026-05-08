@@ -90,7 +90,8 @@ class IntrinsicCuriosityModule(NetworkType):
             phi_next = self.feature_encoder(next_obs)
             phi = self.feature_encoder(obs)
             predicted_phi_next = self.forward_model(torch.cat([phi, actions], dim=-1))
-            reward = self.eta * 0.5 * F.mse_loss(predicted_phi_next, phi_next, reduction="none").sum(dim=-1, keepdim=True)
+            forward_err = F.mse_loss(predicted_phi_next, phi_next, reduction="none")
+            reward = self.eta * 0.5 * forward_err.sum(dim=-1, keepdim=True)
         return reward
 
     def compute_loss(self, obs, next_obs, actions):
