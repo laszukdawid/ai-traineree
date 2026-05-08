@@ -7,20 +7,21 @@ from aitraineree.networks.bodies import FcNet
 
 
 class IntrinsicCuriosityModule(NetworkType):
-
-    """
-    Intrinsic Curiosity Module (ICM) from Pathak et al. (2017).
+    """Intrinsic Curiosity Module (ICM) from Pathak et al. (2017).
 
     Consists of three components:
-    - Feature encoder: maps observations to a learned feature space
-    - Forward model: predicts next-state features given (features, action)
-    - Inverse model: predicts action given (features, next_features)
+
+    - Feature encoder: maps observations to a learned feature space.
+    - Forward model: predicts next-state features given (features, action).
+    - Inverse model: predicts action given (features, next_features).
 
     The intrinsic reward is the L2 prediction error of the forward model.
 
-    Reference:
-        "Curiosity-driven Exploration by Self-supervised Prediction"
-        Pathak et al. (ICML 2017), https://arxiv.org/abs/1705.05363
+    References
+    ----------
+    Pathak et al. "Curiosity-driven Exploration by Self-supervised Prediction"
+    (ICML 2017), https://arxiv.org/abs/1705.05363
+
     """
 
     def __init__(
@@ -33,17 +34,25 @@ class IntrinsicCuriosityModule(NetworkType):
         eta: float = 0.01,
         device=None,
     ):
-        """
-        Initialise the ICM.
+        """Initialise the ICM.
 
-        Parameters:
-            obs_shape: Shape of the observation space.
-            action_size: Dimension of the action space.
-            feature_dim: Dimension of the learned feature embedding.
-            hidden_layers: Hidden layer sizes for sub-networks.
-            beta: Weight for forward vs inverse loss (forward_loss * beta + inverse_loss * (1-beta)).
-            eta: Scaling factor for intrinsic reward.
-            device: Device for tensors.
+        Parameters
+        ----------
+        obs_shape : tuple of int
+            Shape of the observation space.
+        action_size : int
+            Dimension of the action space.
+        feature_dim : int
+            Dimension of the learned feature embedding.
+        hidden_layers : tuple of int
+            Hidden layer sizes for sub-networks.
+        beta : float
+            Weight for forward vs inverse loss.
+        eta : float
+            Scaling factor for intrinsic reward.
+        device : optional
+            Device for tensors.
+
         """
         super().__init__()
 
@@ -81,6 +90,7 @@ class IntrinsicCuriosityModule(NetworkType):
         )
 
     def forward(self, obs, next_obs, actions):
+        """Run the full ICM forward pass."""
         phi = self.feature_encoder(obs)
         phi_next = self.feature_encoder(next_obs)
 
@@ -90,6 +100,7 @@ class IntrinsicCuriosityModule(NetworkType):
         return phi_next, predicted_phi_next, predicted_actions
 
     def intrinsic_reward(self, obs, next_obs, actions):
+        """Compute intrinsic reward as the forward-model prediction error."""
         with torch.no_grad():
             phi_next = self.feature_encoder(next_obs)
             phi = self.feature_encoder(obs)
@@ -99,6 +110,7 @@ class IntrinsicCuriosityModule(NetworkType):
         return reward
 
     def compute_loss(self, obs, next_obs, actions):
+        """Compute the combined forward and inverse model loss."""
         phi_next, predicted_phi_next, predicted_actions = self.forward(obs, next_obs, actions)
 
         forward_loss = 0.5 * F.mse_loss(predicted_phi_next, phi_next.detach())
