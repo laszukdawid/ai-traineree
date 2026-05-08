@@ -14,6 +14,7 @@ from aitraineree.buffers.buffer_factory import BufferFactory
 from aitraineree.buffers.rollout import RolloutBuffer
 from aitraineree.loggers import DataLogger
 from aitraineree.networks.bodies import ActorBody
+from aitraineree.networks.curiosity import IntrinsicCuriosityModule
 from aitraineree.policies import MultivariateGaussianPolicy, MultivariateGaussianPolicySimple
 from aitraineree.types import ActionType, AgentState, BufferState, NetworkState
 from aitraineree.types.dataspace import DataSpace
@@ -59,6 +60,12 @@ class PPOAgent(AgentBase):
             entropy_weight (float): Weight of the entropy term in the loss. Default: 0.005.
             max_grad_norm_actor (float) Maximum norm value for actor gradient. Default: 100.
             max_grad_norm_critic (float): Maximum norm value for critic gradient. Default: 100.
+            using_curiosity (bool): Whether to use Intrinsic Curiosity Module. Default: False.
+            curiosity_feature_dim (int): Feature embedding dimension for ICM. Default: 64.
+            curiosity_hidden_layers (tuple of ints): Hidden layers for ICM sub-networks. Default: (128,).
+            curiosity_beta (float): Weight for forward vs inverse loss in ICM. Default: 0.2.
+            curiosity_eta (float): Scaling factor for intrinsic reward. Default: 0.01.
+            curiosity_lr (float): Learning rate for the ICM. Default: 0.001.
 
         """
         super().__init__(**kwargs)
@@ -125,15 +132,41 @@ class PPOAgent(AgentBase):
         self._loss_critic = float("nan")
         self._metrics: dict[str, float] = {}
 
+        self.using_curiosity = bool(self._register_param(kwargs, "using_curiosity", False))
+        if self.using_curiosity:
+            curiosity_feature_dim = int(self._register_param(kwargs, "curiosity_feature_dim", 64))
+            curiosity_hidden_layers = tuple(
+                self._register_param(kwargs, "curiosity_hidden_layers", (128,))
+            )
+            curiosity_beta = float(self._register_param(kwargs, "curiosity_beta", 0.2))
+            curiosity_eta = float(self._register_param(kwargs, "curiosity_eta", 0.01))
+            curiosity_lr = float(self._register_param(kwargs, "curiosity_lr", 1e-3))
+            self.icm = IntrinsicCuriosityModule(
+                obs_shape=self.obs_space.shape,
+                action_size=self.action_size,
+                feature_dim=curiosity_feature_dim,
+                hidden_layers=curiosity_hidden_layers,
+                beta=curiosity_beta,
+                eta=curiosity_eta,
+                device=self.device,
+            )
+            self.icm_opt = optim.Adam(self.icm.parameters(), lr=curiosity_lr)
+            self._loss_icm = float("nan")
+
     @property
     def loss(self) -> dict[str, float]:
-        return {"actor": self._loss_actor, "critic": self._loss_critic}
+        losses = {"actor": self._loss_actor, "critic": self._loss_critic}
+        if self.using_curiosity:
+            losses["icm"] = self._loss_icm
+        return losses
 
     @loss.setter
     def loss(self, value):
         if isinstance(value, dict):
             self._loss_actor = value["actor"]
             self._loss_critic = value["critic"]
+            if "icm" in value:
+                self._loss_icm = value["icm"]
         else:
             self._loss_actor = value
             self._loss_critic = value
@@ -202,7 +235,7 @@ class PPOAgent(AgentBase):
 
         self.iteration += 1
 
-        self.buffer.add(
+        buffer_kwargs = dict(
             obs=torch.tensor(experience.obs).reshape((self.num_workers,) + self.obs_space.shape).float(),
             action=torch.tensor(experience.action).reshape((self.num_workers,) + self.action_space.shape).float(),
             reward=torch.tensor(experience.reward).reshape(self.num_workers, 1),
@@ -210,6 +243,11 @@ class PPOAgent(AgentBase):
             logprob=experience.get("logprob").reshape(self.num_workers, 1),
             value=experience.get("value").reshape(self.num_workers, 1),
         )
+        if self.using_curiosity and experience.next_obs is not None:
+            buffer_kwargs["next_obs"] = (
+                torch.tensor(experience.next_obs).reshape((self.num_workers,) + self.obs_space.shape).float()
+            )
+        self.buffer.add(**buffer_kwargs)
 
         if self.iteration % self.rollout_length == 0:
             self.train_agent()
@@ -226,6 +264,25 @@ class PPOAgent(AgentBase):
         actions = to_tensor(experiences["action"]).to(self.device)
         values = to_tensor(experiences["value"]).to(self.device)
         logprobs = to_tensor(experiences["logprob"]).to(self.device)
+
+        if self.using_curiosity and "next_obs" in experiences:
+            next_obss = to_tensor(experiences["next_obs"]).to(self.device)
+            flat_obs = obss.view(-1, *self.obs_space.shape)
+            flat_next_obs = next_obss.view(-1, *self.obs_space.shape)
+            flat_actions = actions.view(-1, self.action_size)
+            intrinsic_rewards = self.icm.intrinsic_reward(flat_obs, flat_next_obs, flat_actions)
+            intrinsic_rewards = intrinsic_rewards.view(rewards.shape)
+            rewards = rewards + intrinsic_rewards
+            self._metrics["curiosity/intrinsic_reward_mean"] = float(intrinsic_rewards.mean())
+
+            self.icm_opt.zero_grad()
+            icm_loss, forward_loss, inverse_loss = self.icm.compute_loss(flat_obs, flat_next_obs, flat_actions)
+            icm_loss.backward()
+            self.icm_opt.step()
+            self._loss_icm = float(icm_loss.item())
+            self._metrics["curiosity/forward_loss"] = forward_loss
+            self._metrics["curiosity/inverse_loss"] = inverse_loss
+
         assert rewards.shape == dones.shape == values.shape == logprobs.shape
         assert (
             obss.shape == (self.rollout_length, self.num_workers) + self.obs_space.shape
@@ -343,6 +400,8 @@ class PPOAgent(AgentBase):
     def log_metrics(self, data_logger: DataLogger, step: int, full_log: bool = False):
         data_logger.log_value("loss/actor", self._loss_actor, step)
         data_logger.log_value("loss/critic", self._loss_critic, step)
+        if self.using_curiosity:
+            data_logger.log_value("loss/icm", self._loss_icm, step)
         for metric_name, metric_value in self._metrics.items():
             data_logger.log_value(metric_name, metric_value, step)
 
@@ -373,13 +432,14 @@ class PPOAgent(AgentBase):
         )
 
     def get_network_state(self) -> NetworkState:
-        return NetworkState(
-            net=dict(
-                policy=self.policy.state_dict(),
-                actor=self.actor.state_dict(),
-                critic=self.critic.state_dict(),
-            )
+        net = dict(
+            policy=self.policy.state_dict(),
+            actor=self.actor.state_dict(),
+            critic=self.critic.state_dict(),
         )
+        if self.using_curiosity:
+            net["icm"] = self.icm.state_dict()
+        return NetworkState(net=net)
 
     def set_buffer(self, buffer_state: BufferState) -> None:
         self.buffer = BufferFactory.from_state(buffer_state)
@@ -388,6 +448,8 @@ class PPOAgent(AgentBase):
         self.policy.load_state_dict(network_state.net["policy"])
         self.actor.load_state_dict(network_state.net["actor"])
         self.critic.load_state_dict(network_state.net["critic"])
+        if self.using_curiosity and "icm" in network_state.net:
+            self.icm.load_state_dict(network_state.net["icm"])
 
     @staticmethod
     def from_state(state: AgentState) -> AgentBase:
