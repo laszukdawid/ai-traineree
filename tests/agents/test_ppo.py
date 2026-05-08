@@ -161,3 +161,53 @@ def test_ppo_from_state_one_updated():
     assert any([torch.any(x != y) for (x, y) in zip(agent.actor.parameters(), new_agent.actor.parameters())])
     assert any([torch.any(x != y) for (x, y) in zip(agent.critic.parameters(), new_agent.critic.parameters())])
     assert new_agent.buffer != agent.buffer
+
+
+def test_ppo_curiosity_init():
+    agent = PPOAgent(t_obs_space, t_action_space, device="cpu", using_curiosity=True)
+    assert agent.using_curiosity
+    assert hasattr(agent, "icm")
+    assert hasattr(agent, "icm_opt")
+
+
+def test_ppo_curiosity_loss_property():
+    agent = PPOAgent(t_obs_space, t_action_space, device="cpu", using_curiosity=True)
+    loss = agent.loss
+    assert "actor" in loss
+    assert "critic" in loss
+    assert "icm" in loss
+
+
+def test_ppo_curiosity_training():
+    agent = PPOAgent(
+        t_obs_space,
+        t_action_space,
+        device="cpu",
+        using_curiosity=True,
+        rollout_length=10,
+        batch_size=10,
+    )
+    deterministic_interactions(agent, num_iters=10)
+    assert not (agent._loss_actor != agent._loss_actor)  # not NaN
+    assert not (agent._loss_critic != agent._loss_critic)
+
+
+def test_ppo_curiosity_network_state():
+    agent = PPOAgent(t_obs_space, t_action_space, device="cpu", using_curiosity=True)
+    state = agent.get_network_state()
+    assert "icm" in state.net
+
+
+def test_ppo_curiosity_get_state():
+    agent = PPOAgent(t_obs_space, t_action_space, device="cpu", using_curiosity=True)
+    agent_state = agent.get_state()
+    assert isinstance(agent_state, AgentState)
+    assert "icm" in agent_state.network.net
+
+
+def test_ppo_no_curiosity_by_default():
+    agent = PPOAgent(t_obs_space, t_action_space, device="cpu")
+    assert not agent.using_curiosity
+    assert not hasattr(agent, "icm")
+    state = agent.get_network_state()
+    assert "icm" not in state.net
