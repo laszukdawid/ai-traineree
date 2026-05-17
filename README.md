@@ -47,20 +47,68 @@ That's it.
 
 ## Installation
 
-### PyPi (recommended)
+### uv (recommended)
 
-The quickest way to install package is through `pip`.
-
-```sh
-pip install ai-traineree
-```
-
-In case you're using [uv](https://docs.astral.sh/uv/) which is recommended as it makes building environments much faster, use
+If you're using [uv](https://docs.astral.sh/uv/), use:
 
 ```sh
 uv add ai-traineree
 # or
 # uv pip install ai-traineree
+```
+
+### AMD / ROCm PyTorch with uv
+
+AI Traineree depends on `torch`, but AMD GPU support requires a ROCm wheel from PyTorch's ROCm index.
+The default `uv add`, `uv sync`, or PyPI install may resolve a non-ROCm build.
+
+For ROCm, create the environment with `uv`, install ROCm PyTorch first, then install this project:
+
+```sh
+uv venv
+source .venv/bin/activate
+uv pip install --index-url https://download.pytorch.org/whl/rocm6.3 torch torchvision torchaudio
+uv pip install -e .
+```
+
+If you are installing from PyPI instead of a checkout:
+
+```sh
+uv venv
+source .venv/bin/activate
+uv pip install --index-url https://download.pytorch.org/whl/rocm6.3 torch torchvision torchaudio
+uv pip install ai-traineree
+```
+
+Note: for ROCm, prefer `uv pip install ...` over `uv sync` unless you also configure `uv` package sources for `torch`/`torchvision`/`torchaudio`.
+
+### pip
+
+The quickest non-`uv` install is:
+
+```sh
+pip install ai-traineree
+```
+
+For AMD / ROCm with plain `pip`:
+
+```sh
+python -m venv .venv
+source .venv/bin/activate
+pip install --index-url https://download.pytorch.org/whl/rocm6.3 torch torchvision torchaudio
+pip install -e .
+```
+
+Quick verification:
+
+```sh
+python - <<'PY'
+import torch
+print(torch.__version__)
+print('ROCm:', getattr(torch.version, 'hip', None))
+print('CUDA API available:', torch.cuda.is_available())
+print('Device:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'cpu')
+PY
 ```
 
 ### Conda
@@ -80,11 +128,25 @@ As usual with Python, the expectation is to have own virtual environment and the
 ```bash
 git clone git@github.com:laszukdawid/ai-traineree.git
 cd ai-traineree
-python -m venv .venv
+
+# recommended
+uv venv
 source .venv/bin/activate
-pip install -e .
-# or, with uv
-# uv sync
+uv pip install -e .
+
+# or, without uv
+# python -m venv .venv
+# source .venv/bin/activate
+# pip install -e .
+```
+
+AMD/ROCm with `uv`:
+
+```bash
+uv venv
+source .venv/bin/activate
+uv pip install --index-url https://download.pytorch.org/whl/rocm6.3 torch torchvision torchaudio
+uv pip install -e .
 ```
 
 ## Current state

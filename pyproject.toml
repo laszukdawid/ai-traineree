@@ -40,6 +40,9 @@ doc = [
     "sphinx",
     "sphinx-rtd-theme",
 ]
+browser = [
+    "playwright>=1.54.0",
+]
 
 [tool.ruff]
 line-length = 120
